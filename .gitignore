@@ -1,0 +1,18 @@
+# Backup files
+*.bak
+*.bak.*
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories
+.vscode/
+.idea/
+
+# Node
+node_modules/
+
+# Stray database files at wrong level
+*.db
