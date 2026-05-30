@@ -220,11 +220,30 @@
 
       <div class="mi-skills-columns">
 
-        {{! ── COL 1: All Standard Skills ─────────────────────────────── }}
+        {{! ── COL 1: Standard Skills (first half) ────────────────────── }}
         <div class="mi-skills-col">
           <div class="mi-section-label">Standard Skills</div>
           <ul class="mi-skill-list">
-            {{#each standardSkills as |skill|}}
+            {{#each standardSkillsCol1 as |skill|}}
+            <li class="mi-skill-row" data-item-id="{{skill.id}}">
+              <span class="mi-skill-name mi-item-open" data-item-id="{{skill.id}}">{{skill.name}}</span>
+              {{#if skill.system.baseFormula}}
+              <span class="mi-skill-base mi-muted">{{skill.system.baseFormula}}</span>
+              {{/if}}
+              <span class="mi-skill-total rollable" data-item-id="{{skill.id}}">{{skill.system.total}}%</span>
+              <input type="checkbox" class="mi-fumble-cb mi-item-field" title="Fumbled this session"
+                     data-item-id="{{skill.id}}" data-field="system.fumbledLastSession"
+                     {{#if skill.system.fumbledLastSession}}checked{{/if}}/>
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+
+        {{! ── COL 2: Standard Skills (second half) ───────────────────── }}
+        <div class="mi-skills-col">
+          <div class="mi-section-label">&nbsp;</div>
+          <ul class="mi-skill-list">
+            {{#each standardSkillsCol2 as |skill|}}
             <li class="mi-skill-row" data-item-id="{{skill.id}}">
               <span class="mi-skill-name mi-item-open" data-item-id="{{skill.id}}">{{skill.name}}</span>
               {{#if skill.system.baseFormula}}

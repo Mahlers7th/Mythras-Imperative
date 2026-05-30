@@ -150,11 +150,18 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const encPercent = encMax > 0 ? Math.min(100, Math.round((currentEnc / encMax) * 100)) : 0;
     const encOver    = currentEnc > encMax;
 
+    // Split standard skills evenly across two columns
+    const _enrichedStandard = standardSkills.map(_enrichSkill);
+    const _stdMid            = Math.ceil(_enrichedStandard.length / 2);
+    const standardSkillsCol1 = _enrichedStandard.slice(0, _stdMid);
+    const standardSkillsCol2 = _enrichedStandard.slice(_stdMid);
+
     return {
       actor,
       system,
       activeTab: this._activeTab,
-      standardSkills:     standardSkills.map(_enrichSkill),
+      standardSkillsCol1,
+      standardSkillsCol2,
       professionalSkills: professionalSkills.map(_enrichSkill),
       combatStyles:       combatStyles.map(_enrichSkill),
       passions:           passions.map(_enrichSkill),
