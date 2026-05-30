@@ -1,0 +1,55 @@
+{{! systems/mythras-imperative/templates/items/currency-sheet.hbs }}
+<div class="mi-item-sheet-body">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-item-header">
+    <img class="mi-item-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <div class="mi-item-title-block">
+      <input class="mi-item-name" type="text" name="name" value="{{item.name}}"
+             placeholder="Denomination name (e.g. Gold Piece)"/>
+      <div class="mi-item-subtitle">
+        <span class="mi-item-type-pill">Currency</span>
+      </div>
+    </div>
+  </header>
+
+  {{! ── STATS ROW ───────────────────────────────────────────────────────── }}
+  <div class="mi-item-stats">
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Abbreviation</div>
+      <input class="mi-stat-input" type="text" name="system.abbreviation"
+             value="{{system.abbreviation}}" placeholder="GP"
+             title="Short symbol used in price displays (e.g. GP, SP, Cr)"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Base Value</div>
+      <input class="mi-stat-input" type="number" name="system.baseValue"
+             value="{{system.baseValue}}" min="1" step="1"
+             title="Value in base units. Set by the currency macro — edit only if you know what you're doing."/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Quantity</div>
+      <input class="mi-stat-input" type="number" name="system.quantity"
+             value="{{system.quantity}}" min="0" step="1"/>
+    </div>
+
+  </div>
+
+  {{! ── BASE VALUE NOTE ─────────────────────────────────────────────────── }}
+  <div class="mi-currency-note mi-muted">
+    <i class="fas fa-info-circle"></i>
+    Base value is set by the currency macro from relative rates.
+    1 unit of this denomination = {{system.baseValue}} base unit{{#unless (eq system.baseValue 1)}}s{{/unless}}.
+  </div>
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">Notes</div>
+    <textarea name="system.description" class="mi-item-desc"
+              placeholder="Setting notes — e.g. 'Standard Imperial coin, stamped with the Emperor\'s face.'">{{system.description}}</textarea>
+  </div>
+
+</div>

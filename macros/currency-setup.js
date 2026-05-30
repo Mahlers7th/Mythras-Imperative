@@ -1,0 +1,350 @@
+/**
+ * mythras-imperative/macros/currency-setup.js
+ *
+ * GM macro — define the campaign's currency denominations.
+ *
+ * HOW IT WORKS
+ * ------------
+ * The GM enters a chain of denominations from lowest to highest value,
+ * with each tier's rate expressed relative to the one below it.
+ *
+ * Example — classic fantasy (CP / SP / GP):
+ *   Copper Piece  | CP | base
+ *   Silver Piece  | SP | 1 SP = 10 CP
+ *   Gold Piece    | GP | 1 GP = 10 SP
+ *
+ * The macro resolves absolute baseValues bottom-up:
+ *   CP = 1, SP = 10, GP = 100
+ *
+ * It then creates (or updates) one world-level Item per denomination.
+ * These world items are the reference the merchant Buy dialog uses when
+ * resolving denomination abbreviations — they do NOT represent any
+ * actor's holdings.  Actor holdings live on currency items embedded in
+ * the actor's item collection.
+ *
+ * RUNNING THE MACRO
+ * -----------------
+ * Paste this file into a Foundry macro (type: script) and execute it.
+ * Re-running updates existing world currency items in place — it will
+ * not create duplicates.
+ *
+ * PRESET CHAINS
+ * -------------
+ * Three presets are bundled. The GM can also enter a custom chain.
+ */
+
+// ---------------------------------------------------------------------------
+// Preset chains
+// Each entry: { name, abbreviation, rate }
+// rate = how many of the previous denomination this one is worth.
+// The first (lowest) denomination always has rate = 1 (it IS the base unit).
+// ---------------------------------------------------------------------------
+
+const PRESETS = {
+  'Classic Fantasy (CP / SP / GP)': [
+    { name: 'Copper Piece',  abbreviation: 'CP', rate: 1  },
+    { name: 'Silver Piece',  abbreviation: 'SP', rate: 10 },
+    { name: 'Gold Piece',    abbreviation: 'GP', rate: 10 }
+  ],
+  'Classic Fantasy Extended (CP / SP / EP / GP / PP)': [
+    { name: 'Copper Piece',   abbreviation: 'CP', rate: 1  },
+    { name: 'Silver Piece',   abbreviation: 'SP', rate: 10 },
+    { name: 'Electrum Piece', abbreviation: 'EP', rate: 5  },
+    { name: 'Gold Piece',     abbreviation: 'GP', rate: 2  },
+    { name: 'Platinum Piece', abbreviation: 'PP', rate: 10 }
+  ],
+  'Modern / Sci-Fi (Cr / KCr / MCr)': [
+    { name: 'Credit',       abbreviation: 'Cr',  rate: 1    },
+    { name: 'Kilocredit',   abbreviation: 'KCr', rate: 1000 },
+    { name: 'Megacredit',   abbreviation: 'MCr', rate: 1000 }
+  ]
+};
+
+// ---------------------------------------------------------------------------
+// Resolve absolute baseValues from a chain of relative rates
+// ---------------------------------------------------------------------------
+
+function resolveBaseValues(chain) {
+  let cumulative = 1;
+  return chain.map((entry, i) => {
+    if (i > 0) cumulative *= entry.rate;
+    return { ...entry, baseValue: cumulative };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Build the summary table shown in the confirmation step
+// ---------------------------------------------------------------------------
+
+function buildSummaryTable(resolved) {
+  const rows = resolved.map(d =>
+    `<tr>
+      <td>${d.name}</td>
+      <td style="text-align:center"><strong>${d.abbreviation}</strong></td>
+      <td style="text-align:right">${d.baseValue}</td>
+    </tr>`
+  ).join('');
+  return `
+    <table style="width:100%;border-collapse:collapse;margin-top:8px">
+      <thead>
+        <tr style="border-bottom:1px solid var(--color-border-light,#ccc)">
+          <th style="text-align:left">Name</th>
+          <th style="text-align:center">Abbr</th>
+          <th style="text-align:right">Base&nbsp;Value</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="hint" style="margin-top:6px">
+      This will create or update world items for each denomination.
+      Existing actor holdings are not affected.
+    </p>`;
+}
+
+// ---------------------------------------------------------------------------
+// Create or update world currency items
+// ---------------------------------------------------------------------------
+
+async function applyDenominations(resolved) {
+  const existing = Array.from(game.items).filter(i => i.type === 'currency');
+
+  const created = [];
+  const updated = [];
+
+  for (const d of resolved) {
+    // Match by abbreviation (case-insensitive)
+    const match = existing.find(
+      i => (i.system.abbreviation ?? '').toUpperCase() === d.abbreviation.toUpperCase()
+    );
+
+    if (match) {
+      await match.update({
+        name:                  d.name,
+        'system.abbreviation': d.abbreviation,
+        'system.baseValue':    d.baseValue
+      });
+      updated.push(d.abbreviation);
+    } else {
+      await Item.create({
+        name: d.name,
+        type: 'currency',
+        system: {
+          abbreviation: d.abbreviation,
+          baseValue:    d.baseValue,
+          quantity:     0,
+          description:  ''
+        }
+      });
+      created.push(d.abbreviation);
+    }
+  }
+
+  const parts = [];
+  if (created.length) parts.push(`Created: ${created.join(', ')}`);
+  if (updated.length) parts.push(`Updated: ${updated.join(', ')}`);
+  ui.notifications.info(`Currency setup complete. ${parts.join(' | ')}`);
+}
+
+// ---------------------------------------------------------------------------
+// Step 2 — confirm and apply
+// ---------------------------------------------------------------------------
+
+function showConfirmDialog(resolved) {
+  new Dialog({
+    title: 'Currency Setup — Confirm',
+    content: `
+      <div class="mi-roll-dialog">
+        <p>The following denominations will be created or updated as world items:</p>
+        ${buildSummaryTable(resolved)}
+      </div>`,
+    buttons: {
+      apply: {
+        icon:  '<i class="fas fa-check"></i>',
+        label: 'Apply',
+        callback: () => applyDenominations(resolved)
+      },
+      back: {
+        icon:  '<i class="fas fa-arrow-left"></i>',
+        label: 'Back',
+        callback: () => showSetupDialog()
+      }
+    },
+    default: 'apply',
+    classes: ['dialog', 'mi-dialog']
+  }).render(true);
+}
+
+// ---------------------------------------------------------------------------
+// Step 1 — preset picker or custom entry
+// ---------------------------------------------------------------------------
+
+function buildCustomRows(chain) {
+  return chain.map((d, i) => `
+    <tr data-index="${i}">
+      <td><input class="mi-cur-name" type="text" value="${d.name}"
+           placeholder="e.g. Gold Piece" style="width:100%"/></td>
+      <td><input class="mi-cur-abbr" type="text" value="${d.abbreviation}"
+           placeholder="GP" maxlength="6"
+           style="width:60px;text-align:center"/></td>
+      <td style="text-align:center">
+        ${i === 0
+          ? '<span class="mi-muted" style="font-size:0.85em">base</span>'
+          : `<input class="mi-cur-rate" type="number" value="${d.rate}"
+               min="1" step="1" style="width:64px;text-align:right"
+               title="How many of the tier below equals 1 of this denomination"/>`
+        }
+      </td>
+      <td style="text-align:center">
+        ${i > 0
+          ? `<a class="mi-cur-remove" data-index="${i}"
+               title="Remove row" style="color:var(--color-text-dark-secondary)">
+               <i class="fas fa-times"></i></a>`
+          : ''
+        }
+      </td>
+    </tr>`).join('');
+}
+
+function readCustomChain(html) {
+  const rows = html.querySelectorAll('tr[data-index]');
+  const chain = [];
+  for (const row of rows) {
+    const name  = row.querySelector('.mi-cur-name')?.value.trim()  ?? '';
+    const abbr  = row.querySelector('.mi-cur-abbr')?.value.trim()  ?? '';
+    const rateEl = row.querySelector('.mi-cur-rate');
+    const rate  = rateEl ? (parseInt(rateEl.value, 10) || 1) : 1;
+    if (!name || !abbr) continue;
+    chain.push({ name, abbreviation: abbr.toUpperCase(), rate });
+  }
+  return chain;
+}
+
+function showSetupDialog(initialChain) {
+  // Default to Classic Fantasy preset if nothing passed in
+  const chain = initialChain ?? PRESETS['Classic Fantasy (CP / SP / GP)'];
+
+  const presetOptions = Object.keys(PRESETS).map(k =>
+    `<option value="${k}">${k}</option>`
+  ).join('');
+
+  const content = `
+    <div class="mi-roll-dialog">
+      <div class="mi-form-row" style="margin-bottom:10px">
+        <label style="flex:0 0 auto;margin-right:8px">Preset</label>
+        <select id="mi-cur-preset" style="flex:1">
+          <option value="">— Custom —</option>
+          ${presetOptions}
+        </select>
+        <button type="button" id="mi-cur-load-preset"
+                style="margin-left:6px;padding:2px 8px">Load</button>
+      </div>
+
+      <table id="mi-cur-table" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border-light,#ccc)">
+            <th style="text-align:left">Name</th>
+            <th style="text-align:center">Abbr</th>
+            <th style="text-align:right">Rate&nbsp;<span class="mi-muted" style="font-size:0.8em">(× tier below)</span></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="mi-cur-rows">
+          ${buildCustomRows(chain)}
+        </tbody>
+      </table>
+
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button type="button" id="mi-cur-add-row" style="flex:1">
+          <i class="fas fa-plus"></i> Add Denomination
+        </button>
+      </div>
+      <p class="hint" style="margin-top:6px">
+        Denominations are listed lowest to highest value.
+        The top row is the base unit (value = 1).
+        Each subsequent row's Rate is how many of the tier below it equals one of this tier.
+      </p>
+    </div>`;
+
+  const dlg = new Dialog({
+    title: 'Currency Setup',
+    content,
+    buttons: {
+      next: {
+        icon:  '<i class="fas fa-arrow-right"></i>',
+        label: 'Review & Apply',
+        callback: html => {
+          const chain = readCustomChain(html[0] ?? html);
+          if (chain.length === 0) {
+            ui.notifications.warn('Enter at least one denomination.');
+            return false;
+          }
+          const abbrs = chain.map(d => d.abbreviation);
+          if (new Set(abbrs).size !== abbrs.length) {
+            ui.notifications.warn('Abbreviations must be unique.');
+            return false;
+          }
+          showConfirmDialog(resolveBaseValues(chain));
+        }
+      },
+      cancel: { label: 'Cancel' }
+    },
+    default: 'next',
+    classes: ['dialog', 'mi-dialog'],
+    render: html => {
+      const root = html[0] ?? html;
+
+      // Load preset button
+      root.querySelector('#mi-cur-load-preset')?.addEventListener('click', () => {
+        const key = root.querySelector('#mi-cur-preset')?.value;
+        if (!key || !PRESETS[key]) return;
+        root.querySelector('#mi-cur-rows').innerHTML =
+          buildCustomRows(PRESETS[key]);
+        wireRemoveButtons(root);
+      });
+
+      // Add denomination row
+      root.querySelector('#mi-cur-add-row')?.addEventListener('click', () => {
+        const tbody   = root.querySelector('#mi-cur-rows');
+        const current = readCustomChain(root);
+        const newChain = [
+          ...current,
+          { name: '', abbreviation: '', rate: 10 }
+        ];
+        tbody.innerHTML = buildCustomRows(newChain);
+        wireRemoveButtons(root);
+        // Focus the new name field
+        const rows = tbody.querySelectorAll('tr[data-index]');
+        rows[rows.length - 1]?.querySelector('.mi-cur-name')?.focus();
+      });
+
+      wireRemoveButtons(root);
+    }
+  });
+
+  dlg.render(true);
+}
+
+function wireRemoveButtons(root) {
+  root.querySelectorAll('.mi-cur-remove').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const idx     = parseInt(btn.dataset.index, 10);
+      const current = readCustomChain(root);
+      // Never remove the base row (index 0 in the current chain, but
+      // the button doesn't render on row 0 anyway)
+      const updated = current.filter((_, i) => i !== idx);
+      if (updated.length === 0) return;
+      root.querySelector('#mi-cur-rows').innerHTML = buildCustomRows(updated);
+      wireRemoveButtons(root);
+    })
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
+if (!game.user.isGM) {
+  ui.notifications.warn('The currency setup macro is GM-only.');
+} else {
+  showSetupDialog();
+}

@@ -1,0 +1,24 @@
+<div class="mi-se-roll-dialog">
+  <div class="mi-se-roll-header">
+    <span class="mi-se-roll-title">Blind Opponent</span>
+    <span class="mi-se-roll-subtitle">{{attackerName}} → {{defenderName}}</span>
+  </div>
+  <div class="mi-se-roll-body">
+    <div class="mi-se-roll-row">
+      <span class="mi-se-roll-label">Parry roll (opposing target)</span>
+      <span class="mi-se-roll-val">{{attackRoll}}</span>
+    </div>
+    <div class="mi-se-roll-row mi-se-roll-row--resist">
+      <span class="mi-se-roll-label">{{defenderName}} — {{defenderSkill}}{{{condNote}}}</span>
+      <span class="mi-se-roll-val">{{defenderTotal}}%</span>
+    </div>
+    <p class="mi-se-roll-note">Roll {{defenderSkill}} to resist. Failure: Hard or Formidable difficulty for 1d3 Turns.</p>
+    <div class="mi-se-roll-row" style="margin-top:4px;">
+      <span class="mi-se-roll-label">Blinding grade (GM)</span>
+      <select id="mi-blind-grade" style="padding:2px 4px; border:1px solid var(--mi-rule); border-radius:var(--mi-radius); background:var(--mi-paper-2); font-size:11px;">
+        <option value="hard">Hard (×0.667)</option>
+        <option value="formidable">Formidable (×0.5)</option>
+      </select>
+    </div>
+  </div>
+</div>

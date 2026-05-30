@@ -1,0 +1,42 @@
+{
+  "Actor": {
+    "types": [
+      "character",
+      "npc",
+      "creature",
+      "merchant",
+      "vehicle"
+    ],
+    "templates": {},
+    "character": {},
+    "npc": {},
+    "creature": {},
+    "merchant": {},
+    "vehicle": {}
+  },
+  "Item": {
+    "types": [
+      "skill",
+      "weapon",
+      "armour",
+      "gear",
+      "combat-style",
+      "passion",
+      "ability",
+      "hit-location",
+      "trait",
+      "currency"
+    ],
+    "templates": {},
+    "skill": {},
+    "weapon": {},
+    "armour": {},
+    "gear": {},
+    "combat-style": {},
+    "passion": {},
+    "ability": {},
+    "hit-location": {},
+    "trait": {},
+    "currency": {}
+  }
+}

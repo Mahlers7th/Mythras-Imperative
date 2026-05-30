@@ -1,0 +1,632 @@
+{{! mythras-imperative/templates/actors/character-sheet.hbs }}
+<div class="mythras-sheet character-sheet">
+
+  {{! ── LEFT SPINE ──────────────────────────────────────────────────────── }}
+  <nav class="mi-tabs-spine">
+    <div class="mi-spine-brand">MI</div>
+    <a class="mi-tab-btn {{#if (eq activeTab 'character')}}active{{/if}}" data-tab="character" title="Character">
+      <i class="fas fa-user"></i><span>Character</span>
+    </a>
+    <a class="mi-tab-btn {{#if (eq activeTab 'combat')}}active{{/if}}" data-tab="combat" title="Combat">
+      <i class="fas fa-khanda"></i><span>Combat</span>
+    </a>
+    <a class="mi-tab-btn {{#if (eq activeTab 'abilities')}}active{{/if}}" data-tab="abilities" title="Abilities">
+      <i class="fas fa-hat-wizard"></i><span>Abilities</span>
+    </a>
+    <a class="mi-tab-btn {{#if (eq activeTab 'gear')}}active{{/if}}" data-tab="gear" title="Gear">
+      <i class="fas fa-sack"></i><span>Gear</span>
+    </a>
+    <a class="mi-tab-btn {{#if (eq activeTab 'background')}}active{{/if}}" data-tab="background" title="Background">
+      <i class="fas fa-scroll"></i><span>Background</span>
+    </a>
+  </nav>
+
+  {{! ── MAIN ────────────────────────────────────────────────────────────── }}
+  <div class="mi-sheet-main">
+
+    {{! ── HEADER ──────────────────────────────────────────────────────────}}
+    <header class="mi-sheet-header">
+      <div class="mi-header-portrait">
+        <img class="mi-portrait" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+      </div>
+      <div class="mi-header-identity">
+        <input class="mi-charname" type="text" name="name" value="{{actor.name}}" placeholder="Character Name"/>
+        <div class="mi-identity-row">
+          {{#if (eq actor.type "character")}}
+          <label>Hero Level</label>
+          <select name="system.heroLevel" class="mi-hero-level-select">
+            {{#select system.heroLevel}}
+              <option value="normal">Normal</option>
+              <option value="pulp">Pulp Hero</option>
+              <option value="paragon">Paragon</option>
+            {{/select}}
+          </select>
+          {{#unless (eq system.heroLevel "normal")}}
+          <a class="mi-hero-repick-btn mi-faint" title="Change advantages"><i class="fas fa-sliders-h"></i></a>
+          {{/unless}}
+          <label>Culture</label>
+          <select name="system.identity.culture">
+            {{#select system.identity.culture}}
+              <option value="barbarian">Barbarian</option>
+              <option value="civilised">Civilised</option>
+              <option value="nomadic">Nomadic</option>
+              <option value="primitive">Primitive</option>
+            {{/select}}
+          </select>
+          <label>Career</label>
+          <input type="text" name="system.identity.career" value="{{system.identity.career}}" placeholder="Career"/>
+          <label>Age</label>
+          <input type="number" name="system.identity.age" value="{{system.identity.age}}" class="mi-age-input"/>
+          {{/if}}
+        </div>
+      </div>
+    </header>
+
+    {{! ── Hero Level banner — shown when not Normal (characters only) ──────}}
+    {{#if (eq actor.type "character")}}
+    {{#unless (eq system.heroLevel "normal")}}
+    <div class="mi-hero-banner mi-hero-banner--{{system.heroLevel}}">
+      <span class="mi-hero-banner-title">
+        <i class="fas fa-star"></i>
+        {{#if (eq system.heroLevel "pulp")}}Pulp Hero{{/if}}
+        {{#if (eq system.heroLevel "paragon")}}Paragon{{/if}}
+      </span>
+      {{#if system.heroAdvantages.length}}
+      <span class="mi-hero-banner-advantages">
+        {{#each system.heroAdvantages as |adv|}}
+        <span class="mi-hero-adv-tag">{{heroAdvantageLabel adv}}</span>
+        {{/each}}
+      </span>
+      {{/if}}
+    </div>
+    {{/unless}}
+    {{/if}}
+
+    {{! ── ALWAYS-VISIBLE: CHARACTERISTICS + ATTRIBUTES ───────────────────}}
+    <div class="mi-persistent-block">
+      <div class="mi-section-label">Characteristics</div>
+      <div class="mi-chars-grid">
+        {{#each system.characteristics as |char key|}}
+        <div class="mi-char-cell">
+          <div class="mi-char-abbr">{{uppercase key}}</div>
+          <input class="mi-char-val" type="number" name="system.characteristics.{{key}}.value"
+                 value="{{char.value}}" min="0"/>
+        </div>
+        {{/each}}
+      </div>
+
+      <div class="mi-section-label">Attributes</div>
+      <div class="mi-attrs-grid">
+        <div class="mi-attr-cell mi-attr-cell--interactive">
+          <div class="mi-attr-label">Action Pts</div>
+          <div class="mi-ap-track">
+            <div class="mi-ap-btn-stack">
+              <a class="mi-ap-btn" data-action="ap-inc" title="Recover action point"><i class="fas fa-plus"></i></a>
+              <a class="mi-ap-btn" data-action="ap-dec" title="Spend action point"><i class="fas fa-minus"></i></a>
+            </div>
+            <span class="mi-ap-val">{{system.attributes.actionPoints.value}}</span>
+            <span class="mi-ap-sep">/</span>
+            <span class="mi-ap-max">{{system.attributes.actionPoints.max}}</span>
+            {{#if isGM}}
+            <div class="mi-ap-btn-stack mi-ap-max-btns">
+              <a class="mi-ap-max-btn" data-action="ap-max-inc" title="Increase max AP"><i class="fas fa-plus"></i></a>
+              <a class="mi-ap-max-btn" data-action="ap-max-dec" title="Decrease max AP"><i class="fas fa-minus"></i></a>
+            </div>
+            {{/if}}
+          </div>
+          {{#if system.attributes.actionPoints.bonus}}
+          <div class="mi-ap-bonus-badge" title="Bonus AP from abilities">+{{system.attributes.actionPoints.bonus}}</div>
+          {{/if}}
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--interactive">
+          <div class="mi-attr-label">Dmg Mod</div>
+          <div class="mi-dm-track">
+            <a class="mi-dm-btn" data-action="dm-dec" title="Step DM down"><i class="fas fa-minus"></i></a>
+            <span class="mi-dm-val">{{system.attributes.damageModifier}}</span>
+            <a class="mi-dm-btn" data-action="dm-inc" title="Step DM up"><i class="fas fa-plus"></i></a>
+          </div>
+          {{#if system.attributes.dmOffset}}
+          <div class="mi-dm-offset-badge">{{#if (gt system.attributes.dmOffset 0)}}+{{/if}}{{system.attributes.dmOffset}}</div>
+          {{/if}}
+        </div>
+        {{#if (eq actor.type "character")}}
+        <div class="mi-attr-cell">
+          <div class="mi-attr-label">Exp Mod</div>
+          <div class="mi-attr-val">{{#if (gt system.attributes.experienceModifier 0)}}+{{/if}}{{system.attributes.experienceModifier}}</div>
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--interactive">
+          <div class="mi-attr-label">Exp Rolls</div>
+          <div class="mi-exp-track">
+            <a class="mi-exp-btn" data-action="exp-dec" title="Spend experience roll"><i class="fas fa-minus"></i></a>
+            <span class="mi-exp-val">{{system.attributes.experienceRolls}}</span>
+            <a class="mi-exp-btn" data-action="exp-inc" title="Award experience roll"><i class="fas fa-plus"></i></a>
+          </div>
+        </div>
+        {{/if}}
+        <div class="mi-attr-cell">
+          <div class="mi-attr-label">Healing</div>
+          <div class="mi-attr-val">{{system.attributes.healingRate}}</div>
+        </div>
+        <div class="mi-attr-cell">
+          <div class="mi-attr-label">Initiative</div>
+          <div class="mi-attr-val">+{{system.attributes.initiativeBonus}}</div>
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--movement">
+          <div class="mi-attr-label">Movement</div>
+          {{#if (eq actor.type "character")}}
+          <div class="mi-move-track">
+            <span class="mi-move-val" title="Walk">{{system.attributes.walk}}m</span>
+            <span class="mi-move-sep">/</span>
+            <span class="mi-move-val" title="Run">{{system.attributes.run}}m</span>
+            <span class="mi-move-sep">/</span>
+            <span class="mi-move-val" title="Sprint">{{system.attributes.sprint}}m</span>
+          </div>
+          {{else}}
+          <div class="mi-move-track">
+            <input type="text" name="system.attributes.movementRate"
+                   value="{{system.attributes.movementRate}}"
+                   style="width:100%;text-align:center"
+                   placeholder="e.g. 6 or 15ft, 50ft fly"/>
+          </div>
+          {{/if}}
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--interactive">
+          <div class="mi-attr-label">Luck Pts</div>
+          <div class="mi-luck-pips">
+            {{#times system.attributes.luckPoints.max}}
+              <div class="mi-luck-pip {{#if (lt @index ../system.attributes.luckPoints.value)}}filled{{/if}}"
+                   data-index="{{@index}}"></div>
+            {{/times}}
+          </div>
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--interactive">
+          <div class="mi-attr-label">Magic Pts</div>
+          <div class="mi-mp-track">
+            <input type="number" name="system.attributes.magicPoints.value"
+                   value="{{system.attributes.magicPoints.value}}" min="0"
+                   max="{{system.attributes.magicPoints.max}}"/>
+            <span class="mi-mp-sep">/</span>
+            <span class="mi-mp-max">{{system.attributes.magicPoints.max}}</span>
+          </div>
+        </div>
+        <div class="mi-attr-cell mi-attr-cell--interactive mi-attr-cell--fatigue">
+          <div class="mi-attr-label">Fatigue</div>
+          <select name="system.fatigue" class="mi-fatigue-select {{system.fatigue}}">
+            {{#select system.fatigue}}
+              <option value="fresh">Fresh</option>
+              <option value="winded">Winded</option>
+              <option value="tired">Tired</option>
+              <option value="wearied">Wearied</option>
+              <option value="exhausted">Exhausted</option>
+              <option value="debilitated">Debilitated</option>
+              <option value="incapacitated">Incapacitated</option>
+              <option value="semiconscious">Semi-Conscious</option>
+              <option value="comatose">Comatose</option>
+              <option value="dead">Dead</option>
+            {{/select}}
+          </select>
+        </div>
+      </div>
+      <div class="mi-persistent-divider"></div>
+    </div>
+
+    {{! ── TAB BODY (scrolls) ───────────────────────────────────────────── }}
+    <div class="mi-tab-body">
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: CHARACTER
+    ══════════════════════════════════════════════════════════════════ }}
+    <section class="mi-tab-panel {{#if (eq activeTab 'character')}}active{{/if}}" data-tab="character">
+
+      <div class="mi-skills-columns">
+
+        {{! ── COL 1: All Standard Skills ─────────────────────────────── }}
+        <div class="mi-skills-col">
+          <div class="mi-section-label">Standard Skills</div>
+          <ul class="mi-skill-list">
+            {{#each standardSkills as |skill|}}
+            <li class="mi-skill-row" data-item-id="{{skill.id}}">
+              <span class="mi-skill-name mi-item-open" data-item-id="{{skill.id}}">{{skill.name}}</span>
+              {{#if skill.system.baseFormula}}
+              <span class="mi-skill-base mi-muted">{{skill.system.baseFormula}}</span>
+              {{/if}}
+              <span class="mi-skill-total rollable" data-item-id="{{skill.id}}">{{skill.system.total}}%</span>
+              <input type="checkbox" class="mi-fumble-cb mi-item-field" title="Fumbled this session"
+                     data-item-id="{{skill.id}}" data-field="system.fumbledLastSession"
+                     {{#if skill.system.fumbledLastSession}}checked{{/if}}/>
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+
+        {{! ── COL 3: Professional Skills, Combat Styles, Passions ────── }}
+        <div class="mi-skills-col">
+          <div class="mi-section-label mi-section-with-add">
+            <span>Professional Skills</span>
+            <a class="mi-add-btn" data-type="skill" data-category="professional" title="Add professional skill">
+              <i class="fas fa-plus"></i>
+            </a>
+          </div>
+          <ul class="mi-skill-list">
+            {{#each professionalSkills as |skill|}}
+            <li class="mi-skill-row" data-item-id="{{skill.id}}">
+              <span class="mi-skill-name mi-item-open" data-item-id="{{skill.id}}">{{skill.name}}</span>
+              {{#if skill.system.baseFormula}}
+              <span class="mi-skill-base mi-muted">{{skill.system.baseFormula}}</span>
+              {{/if}}
+              <span class="mi-skill-total rollable" data-item-id="{{skill.id}}">{{skill.system.total}}%</span>
+              <input type="checkbox" class="mi-fumble-cb mi-item-field" title="Fumbled this session"
+                     data-item-id="{{skill.id}}" data-field="system.fumbledLastSession"
+                     {{#if skill.system.fumbledLastSession}}checked{{/if}}/>
+              <a class="mi-item-delete" data-item-id="{{skill.id}}"><i class="fas fa-times"></i></a>
+            </li>
+            {{/each}}
+          </ul>
+
+          <div class="mi-section-label mi-section-with-add">
+            <span>Combat Styles</span>
+            <a class="mi-add-btn" data-type="combat-style" title="Add combat style"><i class="fas fa-plus"></i></a>
+          </div>
+          <ul class="mi-skill-list mi-cs-list">
+            {{#each combatStyles as |cs|}}
+            <li class="mi-skill-row mi-cs-row" data-item-id="{{cs.id}}">
+              <div class="mi-cs-row-main">
+                <span class="mi-skill-name mi-item-open" data-item-id="{{cs.id}}">{{cs.name}}</span>
+                <span class="mi-skill-total rollable" data-item-id="{{cs.id}}">{{cs.system.total}}%</span>
+                <a class="mi-item-delete" data-item-id="{{cs.id}}"><i class="fas fa-times"></i></a>
+              </div>
+              {{#if cs.activeTraits}}
+              <div class="mi-cs-pills-row">
+                {{#each cs.activeTraits as |tr|}}
+                <span class="mi-cs-inline-trait {{#if tr.engineEffect}}engine{{/if}}" title="{{tr.label}}">
+                  {{#if tr.engineEffect}}<i class="fas fa-cog"></i>{{/if}}{{tr.label}}
+                </span>
+                {{/each}}
+              </div>
+              {{/if}}
+            </li>
+            {{/each}}
+          </ul>
+
+          <div class="mi-section-label mi-section-with-add">
+            <span>Passions</span>
+            <a class="mi-add-btn" data-type="passion" title="Add passion"><i class="fas fa-plus"></i></a>
+          </div>
+          <ul class="mi-skill-list">
+            {{#each passions as |passion|}}
+            <li class="mi-skill-row" data-item-id="{{passion.id}}">
+              <span class="mi-skill-name mi-item-open" data-item-id="{{passion.id}}">
+                {{passion.name}}
+              </span>
+              <span class="mi-skill-base mi-muted">{{passion.system.baseFormula}}</span>
+              <span class="mi-skill-total rollable" data-item-id="{{passion.id}}">{{passion.system.total}}%</span>
+              <a class="mi-item-delete" data-item-id="{{passion.id}}"><i class="fas fa-times"></i></a>
+            </li>
+            {{/each}}
+          </ul>
+        </div>
+
+      </div>{{! end mi-skills-columns }}
+
+    </section>
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: COMBAT
+    ══════════════════════════════════════════════════════════════════ }}
+    <section class="mi-tab-panel {{#if (eq activeTab 'combat')}}active{{/if}}" data-tab="combat">
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Hit Locations</span>
+        <div class="mi-loc-header-btns">
+          <a class="mi-heal-all-btn" title="Restore all HP and clear all wounds"><i class="fas fa-heartbeat"></i> Heal All</a>
+          <a class="mi-add-btn" data-type="hit-location" title="Add hit location"><i class="fas fa-plus"></i></a>
+        </div>
+      </div>
+      <div class="mi-locations-grid" id="mi-locations-grid">
+        <div class="mi-loc-header-row">
+          <div class="mi-loc-header"></div>
+          <div class="mi-loc-header">Location</div>
+          <div class="mi-loc-header">Roll</div>
+          <div class="mi-loc-header">AP</div>
+          <div class="mi-loc-header">HP</div>
+          <div class="mi-loc-header">Wound</div>
+          <div class="mi-loc-header" title="Ward Location — passive blocking">Ward</div>
+          <div class="mi-loc-header"></div>
+        </div>
+
+        {{#each hitLocations as |loc|}}
+        <div class="mi-loc-row-contents" data-item-id="{{loc.itemId}}" data-sort="{{loc.sort}}">
+          <div class="mi-loc-handle" title="Drag to reorder"><i class="fas fa-grip-vertical"></i></div>
+          <div class="mi-loc-name-cell {{loc.woundClass}}">
+            <input type="text" class="mi-loc-name-input mi-loc-item-field" value="{{loc.label}}"
+                   data-item-id="{{loc.itemId}}" data-field="system.label" data-name-field="true"/>
+          </div>
+          <div class="mi-loc-roll mi-muted">{{loc.range}}</div>
+          <div class="mi-loc-ap">
+            <input type="number" class="mi-loc-input mi-loc-item-field" value="{{loc.ap}}"
+                   data-item-id="{{loc.itemId}}" data-field="system.ap" min="0"/>
+          </div>
+          <div class="mi-loc-hp">
+            <input type="number" class="mi-loc-input {{loc.woundClass}} mi-loc-item-field" value="{{loc.current}}"
+                   data-item-id="{{loc.itemId}}" data-field="system.current"/>
+            <span class="mi-loc-maxhp">/{{loc.hp}}</span>
+          </div>
+          <div class="mi-loc-wound">
+            <select class="mi-loc-wound-select {{loc.woundClass}} mi-loc-item-field"
+                    data-item-id="{{loc.itemId}}" data-field="system.wound">
+              {{#select loc.wound}}
+                <option value="none">—</option>
+                <option value="minor">Minor</option>
+                <option value="serious">Serious</option>
+                <option value="major">Major</option>
+              {{/select}}
+            </select>
+          </div>
+          <div class="mi-loc-ward">
+            <input type="checkbox" class="mi-ward-checkbox" data-loc-id="{{loc.locKey}}"
+                   {{#if loc.warded}}checked{{/if}} title="Ward this location"/>
+            <select class="mi-ward-weapon {{#unless loc.warded}}mi-ward-weapon-hidden{{/unless}}" data-loc-id="{{loc.locKey}}">
+              <option value="">— weapon —</option>
+              {{#each ../wardWeapons as |wp|}}
+              <option value="{{wp.id}}" {{#if (eq wp.id ../loc.wardWeaponId)}}selected{{/if}}>{{wp.name}}</option>
+              {{/each}}
+            </select>
+          </div>
+          <div class="mi-loc-ctrl">
+            <a class="mi-item-delete" data-item-id="{{loc.itemId}}" title="Delete location"><i class="fas fa-times"></i></a>
+          </div>
+        </div>
+        {{/each}}
+      </div>
+
+      {{! ── RESISTANCE SKILLS ───────────────────────────────────────────── }}
+      <div class="mi-section-label">Resistance Skills</div>
+      <div class="mi-resistance-grid">
+        {{#each resistanceSkills as |rs|}}
+        <div class="mi-resistance-cell rollable-resistance" data-skill="{{rs.label}}">
+          <div class="mi-resistance-label">{{rs.label}}</div>
+          <div class="mi-resistance-value">{{rs.total}}</div>
+        </div>
+        {{/each}}
+      </div>
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Melee Weapons</span>
+        <a class="mi-add-btn" data-type="weapon" data-category="melee" title="Add melee weapon"><i class="fas fa-plus"></i></a>
+      </div>
+      <div class="mi-weapons-table">
+        <div class="mi-weapon-header"></div>
+        <div class="mi-weapon-header">Name</div>
+        <div class="mi-weapon-header">Damage</div>
+        <div class="mi-weapon-header">Size</div>
+        <div class="mi-weapon-header">AP/HP</div>
+        <div class="mi-weapon-header">ENC</div>
+        <div class="mi-weapon-header">Traits</div>
+        <div class="mi-weapon-header"></div>
+        {{#each meleeWeapons as |weapon|}}
+        <div class="mi-weapon-row-drag" draggable="true" data-item-id="{{weapon.id}}" data-drag="weapon" style="display:contents">
+        <div class="mi-weapon-attack" data-item-id="{{weapon.id}}" title="Attack with {{weapon.name}}">
+          <i class="fas fa-khanda"></i>
+        </div>
+        <div class="mi-weapon-name mi-item-open" data-item-id="{{weapon.id}}">{{weapon.name}}</div>
+        <div class="mi-weapon-damage rollable-damage" data-item-id="{{weapon.id}}" title="Roll damage">{{weapon.system.damage}}</div>
+        <div class="mi-weapon-size">{{weapon.system.size}}</div>
+        <div class="mi-weapon-aphp">{{weapon.system.ap}}/{{weapon.system.currentHP}}</div>
+        <div class="mi-weapon-enc mi-muted">{{weapon.system.enc}}</div>
+        <div class="mi-weapon-traits-cell">
+          {{#each weapon.system.traits as |trait|}}
+          <span class="mi-weapon-trait-pill">{{trait}}</span>
+          {{/each}}
+        </div>
+        <div class="mi-weapon-ctrl">
+          <a class="mi-item-edit" data-item-id="{{weapon.id}}"><i class="fas fa-edit"></i></a>
+          <a class="mi-item-delete mi-faint" data-item-id="{{weapon.id}}"><i class="fas fa-times"></i></a>
+        </div>
+        </div>{{! end mi-weapon-row-drag }}
+        {{/each}}
+      </div>
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Ranged Weapons</span>
+        <a class="mi-add-btn" data-type="weapon" data-category="ranged" title="Add ranged weapon"><i class="fas fa-plus"></i></a>
+      </div>
+      <div class="mi-weapons-table mi-weapons-ranged">
+        <div class="mi-weapon-header">Name</div>
+        <div class="mi-weapon-header">Damage</div>
+        <div class="mi-weapon-header">Close</div>
+        <div class="mi-weapon-header">Effective</div>
+        <div class="mi-weapon-header">Long</div>
+        <div class="mi-weapon-header">Reload</div>
+        <div class="mi-weapon-header">AP/HP</div>
+        <div class="mi-weapon-header">ENC</div>
+        <div class="mi-weapon-header">Ammo</div>
+        <div class="mi-weapon-header">Traits</div>
+        <div class="mi-weapon-header"></div>
+        {{#each rangedWeapons as |weapon|}}
+        <div class="mi-weapon-row-drag" draggable="true" data-item-id="{{weapon.id}}" data-drag="weapon" style="display:contents">
+        <div class="mi-weapon-name mi-item-open" data-item-id="{{weapon.id}}">{{weapon.name}}</div>
+        <div class="mi-weapon-damage rollable-damage" data-item-id="{{weapon.id}}" title="Roll damage">{{weapon.system.damage}}</div>
+        <div class="mi-weapon-size mi-muted">{{weapon.system.rangeClose}}m</div>
+        <div class="mi-weapon-size">{{weapon.system.rangeEffective}}m</div>
+        <div class="mi-weapon-size mi-muted">{{weapon.system.rangeLong}}m</div>
+        <div class="mi-weapon-size mi-muted">{{#if weapon.system.load}}{{weapon.system.load}}T{{else}}—{{/if}}</div>
+        <div class="mi-weapon-aphp">{{weapon.system.ap}}/{{weapon.system.currentHP}}</div>
+        <div class="mi-weapon-enc mi-muted">{{weapon.system.enc}}</div>
+        <div class="mi-weapon-ammo">
+          {{#if weapon.isJammed}}
+            <a class="mi-clear-jam-btn" data-item-id="{{weapon.id}}" title="Weapon jammed — click to field-strip (costs 1 AP in combat)"><i class="fas fa-exclamation-triangle"></i> JAM <i class="fas fa-wrench"></i></a>
+          {{else if weapon.isReloading}}
+            <span class="mi-ammo-reloading" title="Reloading…">↺ {{weapon.reloadTurnsRemaining}}T</span>
+          {{else}}
+            {{#if weapon.ammoTracked}}
+            <span class="{{#if weapon.outOfAmmo}}mi-ammo-empty{{/if}}">{{weapon.system.ammo}}/{{weapon.system.ammoMax}}</span>
+            {{/if}}
+            <a class="mi-reload-btn" data-item-id="{{weapon.id}}" title="Reload ({{#if weapon.system.load}}{{weapon.system.load}}T{{else}}instant{{/if}})"><i class="fas fa-redo"></i></a>
+          {{/if}}
+        </div>
+        <div class="mi-weapon-traits-cell">
+          {{#each weapon.system.traits as |trait|}}
+          <span class="mi-weapon-trait-pill">{{trait}}</span>
+          {{/each}}
+        </div>
+        <div class="mi-weapon-ctrl">
+          <a class="mi-item-edit" data-item-id="{{weapon.id}}"><i class="fas fa-edit"></i></a>
+          <a class="mi-item-delete mi-faint" data-item-id="{{weapon.id}}"><i class="fas fa-times"></i></a>
+        </div>
+        </div>{{! end mi-weapon-row-drag }}
+        {{/each}}
+      </div>
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Armour</span>
+        <a class="mi-add-btn" data-type="armour" title="Add armour"><i class="fas fa-plus"></i></a>
+      </div>
+      <div class="mi-armour-table">
+        <div class="mi-armour-header">Name</div>
+        <div class="mi-armour-header">AP</div>
+        <div class="mi-armour-header">Locations</div>
+        <div class="mi-armour-header">Init −</div>
+        <div class="mi-armour-header">ENC</div>
+        <div class="mi-armour-header"></div>
+        {{#each armour as |piece|}}
+        <div class="mi-armour-name mi-item-open" data-item-id="{{piece.id}}">{{piece.name}}</div>
+        <div class="mi-armour-ap">{{piece.system.ap}}</div>
+        <div class="mi-armour-locs mi-muted">{{piece.locationString}}</div>
+        <div class="mi-armour-init">{{piece.system.initiativePenalty}}</div>
+        <div class="mi-armour-enc mi-muted">{{piece.system.enc}}</div>
+        <div class="mi-armour-ctrl">
+          <a class="mi-item-edit" data-item-id="{{piece.id}}"><i class="fas fa-edit"></i></a>
+          <a class="mi-item-delete mi-faint" data-item-id="{{piece.id}}"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+      </div>
+
+    </section>
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: GEAR
+    ══════════════════════════════════════════════════════════════════ }}
+    <section class="mi-tab-panel {{#if (eq activeTab 'gear')}}active{{/if}}" data-tab="gear">
+
+      <div class="mi-enc-row">
+        <span class="mi-enc-label">Encumbrance</span>
+        <div class="mi-enc-bar-wrap">
+          <div class="mi-enc-bar-fill {{#if encOver}}over-enc{{/if}}" style="width: {{encPercent}}%"></div>
+        </div>
+        <span class="mi-enc-value {{#if encOver}}mi-enc-over{{/if}}">
+          {{system.encumbrance.current}} / {{system.encumbrance.max}}
+          {{#if encOver}}<i class="fas fa-exclamation-triangle"></i>{{/if}}
+        </span>
+      </div>
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Equipment</span>
+        <a class="mi-add-btn" data-type="gear" title="Add gear"><i class="fas fa-plus"></i></a>
+      </div>
+      <div class="mi-gear-table">
+        <div class="mi-gear-header">Name</div>
+        <div class="mi-gear-header">Qty</div>
+        <div class="mi-gear-header">ENC</div>
+        <div class="mi-gear-header">Total</div>
+        <div class="mi-gear-header"></div>
+        {{#each gear as |item|}}
+        <div class="mi-gear-name"><a class="mi-item-edit" data-item-id="{{item.id}}">{{item.name}}</a></div>
+        <div class="mi-gear-qty">
+          <input type="number" class="mi-qty-input mi-item-field" value="{{item.system.quantity}}" min="0"
+                 data-item-id="{{item.id}}" data-field="system.quantity"/>
+        </div>
+        <div class="mi-gear-enc mi-muted">{{item.system.enc}}</div>
+        <div class="mi-gear-total">{{item.totalEnc}}</div>
+        <div class="mi-gear-ctrl">
+          <a class="mi-item-delete mi-faint" data-item-id="{{item.id}}"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+      </div>
+
+      <div class="mi-section-label">Wealth &amp; Currency</div>
+      {{#if currencyItems}}
+      <div class="mi-char-currency-table">
+        {{#each currencyItems as |c|}}
+        <div class="mi-merchant-currency-row">
+          <span class="mi-currency-name">{{c.name}}</span>
+          <span class="mi-currency-abbr mi-muted">{{c.system.abbreviation}}</span>
+          <input class="mi-currency-qty mi-item-field" type="number"
+                 data-item-id="{{c.id}}"
+                 data-field="system.quantity"
+                 value="{{c.system.quantity}}" min="0" step="1"/>
+          <a class="mi-item-delete mi-faint" data-item-id="{{c.id}}"
+             title="Remove"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+        {{#if totalWealth}}
+        <div class="mi-char-currency-total mi-muted">
+          Total: {{totalWealth}} base units
+        </div>
+        {{/if}}
+      </div>
+      {{else}}
+      <div class="mi-char-currency-empty mi-muted">
+        <i class="fas fa-arrow-down"></i> Drag currency items here from the merchant or item directory
+      </div>
+      {{/if}}
+
+    </section>
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: ABILITIES
+    ══════════════════════════════════════════════════════════════════ }}
+    <section class="mi-tab-panel {{#if (eq activeTab 'abilities')}}active{{/if}}" data-tab="abilities">
+
+      <div class="mi-section-label mi-section-with-add">
+        <span>Abilities</span>
+        <a class="mi-add-btn" data-type="ability" title="Add ability"><i class="fas fa-plus"></i></a>
+      </div>
+
+      {{#if abilities.length}}
+      <ul class="mi-ability-list">
+        {{#each abilities as |ability|}}
+        <li class="mi-ability-row" data-item-id="{{ability.id}}">
+          <div class="mi-ability-main">
+            <span class="mi-ability-name mi-item-open" data-item-id="{{ability.id}}">{{ability.name}}</span>
+            {{#if ability.system.rank}}
+            <span class="mi-ability-rank mi-muted">{{ability.system.rank}}</span>
+            {{/if}}
+            {{#if ability.system.type}}
+            <span class="mi-ability-type-pill">{{ability.system.type}}</span>
+            {{/if}}
+          </div>
+          {{#if ability.system.description}}
+          <div class="mi-ability-desc mi-muted">{{ability.system.description}}</div>
+          {{/if}}
+          <a class="mi-item-delete mi-faint" data-item-id="{{ability.id}}"><i class="fas fa-times"></i></a>
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <div class="mi-empty-state">No abilities yet. Add spells, powers, or special abilities above.</div>
+      {{/if}}
+
+    </section>
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: BACKGROUND
+    ══════════════════════════════════════════════════════════════════ }}
+    <section class="mi-tab-panel {{#if (eq activeTab 'background')}}active{{/if}}" data-tab="background">
+
+      <div class="mi-section-label">Species</div>
+      <input type="text" name="system.identity.species" value="{{system.identity.species}}"
+             class="mi-text-input" placeholder="Human"/>
+
+      <div class="mi-section-label">Character Background</div>
+      <textarea name="system.identity.background" class="mi-bio-area"
+                placeholder="History, appearance, personality...">{{system.identity.background}}</textarea>
+
+      <div class="mi-section-label">GM Notes</div>
+      <textarea name="system.notes" class="mi-notes-area"
+                placeholder="Session notes, reminders...">{{system.notes}}</textarea>
+
+    </section>
+
+    </div>{{! end mi-tab-body }}
+  </div>
+</div>

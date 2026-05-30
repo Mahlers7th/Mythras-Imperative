@@ -1,0 +1,17 @@
+2026/05/29-18:58:05.470 447c Recovering log #147
+2026/05/29-18:58:05.474 447c Delete type=0 #147
+2026/05/29-18:58:05.474 447c Delete type=3 #7
+2026/05/29-18:58:05.474 447c Delete type=3 #133
+2026/05/29-18:59:39.773 3588 Level-0 table #153: started
+2026/05/29-18:59:39.777 3588 Level-0 table #153: 6019 bytes OK
+2026/05/29-18:59:39.778 3588 Delete type=0 #151
+2026/05/29-18:59:39.779 3588 Manual compaction at level-0 from '!macros!MIMacroCurrency01' @ 72057594037927935 : 1 .. '!macros!null' @ 0 : 0; will stop at (end)
+2026/05/29-18:59:39.779 3588 Manual compaction at level-1 from '!macros!MIMacroCurrency01' @ 72057594037927935 : 1 .. '!macros!null' @ 0 : 0; will stop at '!macros!null' @ 3 : 1
+2026/05/29-18:59:39.779 3588 Compacting 2@1 + 1@2 files
+2026/05/29-18:59:39.783 3588 Generated table #154@1: 2 keys, 11818 bytes
+2026/05/29-18:59:39.783 3588 Compacted 2@1 + 1@2 files => 11818 bytes
+2026/05/29-18:59:39.784 3588 compacted to: files[ 0 0 1 0 0 0 0 ]
+2026/05/29-18:59:39.784 3588 Delete type=2 #148
+2026/05/29-18:59:39.785 3588 Delete type=2 #149
+2026/05/29-18:59:39.785 3588 Delete type=2 #153
+2026/05/29-18:59:39.790 3588 Manual compaction at level-1 from '!macros!null' @ 3 : 1 .. '!macros!null' @ 0 : 0; will stop at (end)

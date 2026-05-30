@@ -1,0 +1,66 @@
+{{! systems/mythras-imperative/templates/items/trait-sheet.hbs }}
+<div class="mi-item-sheet-body">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-item-header">
+    <img class="mi-item-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <div class="mi-item-title-block">
+      <input class="mi-item-name" type="text" name="name" value="{{item.name}}"
+             placeholder="Trait name"/>
+      <div class="mi-item-subtitle">
+        <span class="mi-item-type-pill">{{categoryLabel}}</span>
+        {{#if system.engineEffect}}
+          <span class="mi-item-type-pill mi-pill--engine">
+            <i class="fas fa-cog"></i> Engine Effect
+          </span>
+        {{/if}}
+      </div>
+    </div>
+  </header>
+
+  {{! ── STATS ROW ───────────────────────────────────────────────────────── }}
+  <div class="mi-item-stats">
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Category</div>
+      <select name="system.category" class="mi-stat-select">
+        {{#select system.category}}
+          <option value="weapon">Weapon</option>
+          <option value="combatStyle">Combat Style</option>
+          <option value="creature">Creature</option>
+          <option value="vehicle">Vehicle</option>
+        {{/select}}
+      </select>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Key</div>
+      <div class="mi-stat-value mi-muted mi-trait-key">{{system.key}}</div>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Engine Effect</div>
+      <input type="checkbox" name="system.engineEffect"
+             {{#if system.engineEffect}}checked{{/if}}
+             class="mi-stat-checkbox"
+             title="Checked = combat engine reads this trait mechanically"/>
+    </div>
+
+  </div>
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">Rules Text</div>
+    <textarea name="system.description" class="mi-item-desc mi-trait-desc"
+              placeholder="Rules text from Mythras Imperative…">{{system.description}}</textarea>
+  </div>
+
+  {{! ── NODE EDITOR PLACEHOLDER ─────────────────────────────────────────── }}
+  <div class="mi-trait-graph-row">
+    <button class="mi-btn mi-btn--disabled" disabled
+            title="Node editor available in Phase 11">
+      <i class="fas fa-project-diagram"></i> Graph Editor — Phase 11
+    </button>
+  </div>
+
+</div>

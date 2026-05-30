@@ -1,0 +1,72 @@
+MYTHRAS IMPERATIVE FOR FOUNDRY VTT
+Source-Available Licence
+
+Copyright (c) 2026 Chris (the Author)
+
+---
+
+PERMISSIONS
+
+You are permitted to:
+
+  1. View and read this source code for personal study and learning.
+
+  2. Install and use this Foundry VTT system for personal, non-commercial
+     tabletop gaming.
+
+  3. Report bugs and submit pull requests. Note that the Author retains all
+     rights to the codebase and is under no obligation to accept any
+     contribution. By submitting a pull request you agree that any accepted
+     contribution becomes part of this project under these same licence terms,
+     with copyright remaining with the Author.
+
+---
+
+RESTRICTIONS
+
+You are NOT permitted to:
+
+  1. Redistribute this software or any modified version of it, in whole or in
+     part, in any form (including as part of another Foundry system, module,
+     or package) without explicit written permission from the Author.
+
+  2. Fork this repository for the purpose of creating and distributing a
+     competing or derivative Foundry system without explicit written permission
+     from the Author.
+
+  3. Use this code, in whole or in part, in any commercial product or service.
+
+  4. Remove or alter this licence notice from any copy of the software.
+
+  5. Represent this software as your own work.
+
+---
+
+NO WARRANTY
+
+This software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose, and non-infringement. In no event shall the
+Author be liable for any claim, damages, or other liability arising from the
+use of this software.
+
+---
+
+GAME RULES CONTENT
+
+This software implements the Mythras Imperative rules. The rules text, game
+mechanics, setting content, and all related intellectual property belong to
+The Design Mechanism and are used under the ORC Licence. See LEGAL.md for
+full acknowledgement.
+
+The code in this repository (JavaScript, CSS, Handlebars templates, and JSON
+data structures) is the original work of the Author, created with AI
+assistance (see README.md). It is distinct from the rules content it
+implements.
+
+---
+
+CONTACT
+
+For licensing enquiries, collaboration proposals, or permission requests,
+open an issue on the GitHub repository.

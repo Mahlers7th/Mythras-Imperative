@@ -1,0 +1,86 @@
+{{! systems/mythras-imperative/templates/items/armour-sheet.hbs }}
+<div class="mi-item-sheet-body">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-item-header">
+    <img class="mi-item-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <div class="mi-item-title-block">
+      <input class="mi-item-name" type="text" name="name" value="{{item.name}}"
+             placeholder="Armour name"/>
+      <div class="mi-item-subtitle">
+        <span class="mi-item-type-pill">Armour</span>
+        <span class="mi-item-formula mi-muted">{{coverageSummary}}</span>
+      </div>
+    </div>
+    {{! AP badge }}
+    <div class="mi-item-total-block">
+      <div class="mi-item-total-num">{{system.ap}}</div>
+      <div class="mi-item-total-label">AP</div>
+    </div>
+  </header>
+
+  {{! ── STATS ROW — AP, ENC, Initiative Penalty, Equipped ─────────────── }}
+  <div class="mi-item-stats">
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Armour Points</div>
+      <input type="number" name="system.ap" value="{{system.ap}}"
+             class="mi-stat-input mi-stat-input--num" min="0"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">ENC</div>
+      <input type="number" name="system.enc" value="{{system.enc}}"
+             class="mi-stat-input mi-stat-input--num" min="0" step="0.5"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Init Penalty</div>
+      <input type="number" name="system.initiativePenalty"
+             value="{{system.initiativePenalty}}"
+             class="mi-stat-input mi-stat-input--num"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Equipped</div>
+      <input type="checkbox" name="system.equipped"
+             {{#if system.equipped}}checked{{/if}} class="mi-stat-checkbox"/>
+    </div>
+
+  </div>
+
+  {{! ── LOCATIONS ───────────────────────────────────────────────────────── }}
+  <div class="mi-armour-locations-block">
+    <div class="mi-section-label mi-section-label--teal">Locations Covered</div>
+    <div class="mi-armour-locations-grid">
+      {{#each locations as |loc|}}
+      <label class="mi-armour-loc-option {{#if loc.checked}}active{{/if}}">
+        <input type="checkbox" name="system.locations.{{loc.key}}"
+               {{#if loc.checked}}checked{{/if}}/>
+        {{loc.label}}
+      </label>
+      {{/each}}
+    </div>
+  </div>
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  {{! ── PRICE ───────────────────────────────────────────────────────────── }}
+  <div class="mi-item-price-row">
+    <div class="mi-section-label">Price</div>
+    <div class="mi-price-inputs">
+      <input class="mi-price-amount" type="number" name="system.price.amount"
+             value="{{system.price.amount}}" min="0" step="1"
+             placeholder="0" title="Cost in the listed denomination"/>
+      <input class="mi-price-denom" type="text" name="system.price.denominationAbbr"
+             value="{{system.price.denominationAbbr}}"
+             placeholder="GP" title="Currency abbreviation (e.g. GP, SP, Cr)"/>
+    </div>
+  </div>
+
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">Description</div>
+    <textarea name="system.description" class="mi-item-desc"
+              placeholder="Armour notes…">{{system.description}}</textarea>
+  </div>
+
+</div>

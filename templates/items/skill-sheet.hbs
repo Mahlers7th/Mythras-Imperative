@@ -1,0 +1,92 @@
+{{! systems/mythras-imperative/templates/items/skill-sheet.hbs }}
+<div class="mi-item-sheet-body">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-item-header">
+    <img class="mi-item-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <div class="mi-item-title-block">
+      <input class="mi-item-name" type="text" name="name" value="{{item.name}}" placeholder="Skill name"/>
+      <div class="mi-item-subtitle">
+        {{#if isPassion}}
+          <span class="mi-item-type-pill">Passion</span>
+        {{else if isCombatStyle}}
+          <span class="mi-item-type-pill">Combat Style</span>
+        {{else if (eq system.category 'standard')}}
+          <span class="mi-item-type-pill">Standard Skill</span>
+        {{else}}
+          <span class="mi-item-type-pill">Professional Skill</span>
+        {{/if}}
+        <span class="mi-item-formula mi-muted">{{system.baseFormula}}</span>
+      </div>
+    </div>
+    {{! Live total — large and prominent }}
+    <div class="mi-item-total-block">
+      <div class="mi-item-total-num">{{liveTotal}}%</div>
+      <div class="mi-item-total-label">Total</div>
+    </div>
+  </header>
+
+  {{! ── STATS ROW ───────────────────────────────────────────────────────── }}
+  <div class="mi-item-stats">
+
+    {{#if isSkill}}
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Category</div>
+      <select name="system.category" class="mi-stat-select">
+        {{#select system.category}}
+          <option value="standard">Standard</option>
+          <option value="professional">Professional</option>
+        {{/select}}
+      </select>
+    </div>
+    {{/if}}
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Base Formula</div>
+      <input type="text" name="system.baseFormula" value="{{system.baseFormula}}"
+             class="mi-stat-input" placeholder="e.g. STR+DEX"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Base Value</div>
+      <div class="mi-stat-value mi-muted">{{liveBase}}</div>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Bonus Pts</div>
+      <input type="number" name="system.bonusPoints" value="{{system.bonusPoints}}"
+             class="mi-stat-input mi-stat-input--num" min="0"/>
+    </div>
+
+    {{#if isPassion}}
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Verb</div>
+      <input type="text" name="system.verb" value="{{system.verb}}"
+             class="mi-stat-input" placeholder="Love, Hate…"/>
+    </div>
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Target</div>
+      <input type="text" name="system.target" value="{{system.target}}"
+             class="mi-stat-input" placeholder="Person, group…"/>
+    </div>
+    {{/if}}
+
+  </div>
+
+  {{! ── EXPERIENCE ──────────────────────────────────────────────────────── }}
+  <div class="mi-item-exp-row">
+    <label class="mi-exp-label">
+      <input type="checkbox" name="system.fumbledLastSession"
+             {{#if system.fumbledLastSession}}checked{{/if}}/>
+      Fumbled this session <span class="mi-muted">(free +1% on next improvement roll)</span>
+    </label>
+  </div>
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">Description</div>
+    <textarea name="system.description" class="mi-item-desc"
+              placeholder="Skill description…">{{system.description}}</textarea>
+  </div>
+
+</div>

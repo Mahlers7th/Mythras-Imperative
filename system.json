@@ -1,0 +1,106 @@
+{
+  "id": "mythras-imperative",
+  "title": "Mythras Imperative",
+  "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
+  "version": "1.4.197",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "14",
+    "maximum": "14"
+  },
+  "authors": [
+    {
+      "name": "Christopher Herrell, vibe coded by Claude"
+    }
+  ],
+  "esmodules": [
+    "mythras.mjs"
+  ],
+  "styles": [
+    "styles/mythras.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "packs": [
+    {
+      "name": "standard-skills",
+      "label": "Standard Skills",
+      "path": "packs/standard-skills",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "professional-skills",
+      "label": "Professional Skills",
+      "path": "packs/professional-skills",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "melee-weapons",
+      "label": "Melee Weapons",
+      "path": "packs/melee-weapons",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "ranged-weapons",
+      "label": "Ranged Weapons",
+      "path": "packs/ranged-weapons",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "armour",
+      "label": "Armour",
+      "path": "packs/armour",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "traits",
+      "label": "Traits",
+      "path": "packs/traits",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "vehicle-traits",
+      "label": "Vehicle Traits",
+      "path": "packs/vehicle-traits",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "vehicle-weapons",
+      "label": "Vehicle Weapons",
+      "path": "packs/vehicle-weapons",
+      "type": "Item",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "macros",
+      "label": "Macros",
+      "path": "packs/macros",
+      "type": "Macro",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    }
+  ],
+  "socket": true,
+  "url": "",
+  "manifest": "",
+  "download": ""
+}

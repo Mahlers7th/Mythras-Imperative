@@ -1,0 +1,2200 @@
+/* ==========================================================================
+   Mythras Imperative — Complete Stylesheet v1.0
+   Design: Professional reference document  |  Accent: Dark Teal
+   Side-tab navigation
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;500;600&display=swap');
+
+/* --- Design Tokens -------------------------------------------------------- */
+:root {
+  --mi-teal:           #1a4a8a;
+  --mi-teal-light:     #2563c4;
+  --mi-teal-lighter:   #5b9cf6;
+  --mi-teal-dark:      #0d2a52;
+  --mi-teal-bg:        #e8eef8;
+  --mi-teal-bg-sub:    #f0f4fc;
+
+  --mi-ink:            #1a1a1e;
+  --mi-ink-2:          #36363a;
+  --mi-ink-3:          #5e5e63;
+  --mi-ink-4:          #a8a8ae;
+
+  --mi-paper:          #dddde3;
+  --mi-paper-2:        #ebebf0;
+  --mi-paper-3:        #ccccd4;
+  --mi-rule:           #c4c4cc;
+
+  --mi-wound-minor:    #d97706;
+  --mi-wound-serious:  #c2410c;
+  --mi-wound-major:    #991b1b;
+
+  --mi-critical-c:     #14532d;
+  --mi-critical-bg:    #dcfce7;
+  --mi-success-c:      #166534;
+  --mi-success-bg:     #f0fdf4;
+  --mi-failure-c:      #92400e;
+  --mi-failure-bg:     #fffbeb;
+  --mi-fumble-c:       #7f1d1d;
+  --mi-fumble-bg:      #fef2f2;
+
+  --mi-font-display:   'Cinzel', 'Palatino Linotype', serif;
+  --mi-font-body:      'Crimson Text', Georgia, serif;
+  --mi-font-ui:        'Source Sans 3', 'Segoe UI', sans-serif;
+
+  --mi-tab-w:          68px;
+  --mi-radius:         4px;
+  --mi-radius-lg:      8px;
+}
+
+/* --- Reset ---------------------------------------------------------------- */
+.mythras-sheet *, .mythras-sheet *::before, .mythras-sheet *::after,
+.mi-item-sheet *, .mi-item-sheet *::before, .mi-item-sheet *::after { box-sizing: border-box; }
+.mythras-sheet input, .mythras-sheet select, .mythras-sheet textarea,
+.mi-item-sheet input, .mi-item-sheet select, .mi-item-sheet textarea {
+  font-family: var(--mi-font-ui); font-size: 12px; color: var(--mi-ink);
+}
+
+/* Override Foundry window chrome for item sheets */
+.mi-item-sheet .window-content {
+  padding: 0 !important;
+  background: var(--mi-paper) !important;
+  overflow: hidden; /* body handles its own scroll */
+  display: flex; flex-direction: column;
+}
+.mi-item-sheet .window-header {
+  background: var(--mi-teal) !important;
+  color: #fff !important;
+  border-bottom: none !important;
+}
+.mi-item-sheet .window-title { color: #fff !important; }
+.mi-item-sheet .header-button { color: rgba(255,255,255,.8) !important; }
+.mi-item-sheet .header-button:hover { color: #fff !important; }
+
+/* ==========================================================================
+   SHELL
+   ========================================================================== */
+.mythras-sheet {
+  display: flex; height: 100%;
+  background: var(--mi-paper); font-family: var(--mi-font-ui);
+  font-size: 12px; color: var(--mi-ink); overflow: hidden;
+}
+
+/* ==========================================================================
+   SPINE TABS
+   ========================================================================== */
+.mi-tabs-spine {
+  width: var(--mi-tab-w); background: var(--mi-teal-dark);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 0; flex-shrink: 0; gap: 2px; z-index: 10;
+}
+.mi-spine-brand {
+  font-family: var(--mi-font-display); font-size: 11px; font-weight: 600;
+  color: var(--mi-teal-lighter); letter-spacing: .15em;
+  padding: 8px 0 12px; border-bottom: 1px solid rgba(255,255,255,.1);
+  width: 100%; text-align: center; margin-bottom: 6px;
+}
+.mi-tab-btn {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; width: 60px; padding: 10px 4px;
+  border-radius: var(--mi-radius); cursor: pointer;
+  transition: background .15s, color .15s;
+  color: rgba(255,255,255,.45); text-decoration: none; gap: 4px;
+}
+.mi-tab-btn i   { font-size: 14px; }
+.mi-tab-btn span { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; text-align: center; }
+.mi-tab-btn:hover  { background: rgba(255,255,255,.08); color: rgba(255,255,255,.75); }
+.mi-tab-btn.active { background: var(--mi-teal); color: #fff; }
+.mi-tab-btn.active i { color: var(--mi-teal-lighter); }
+
+/* ==========================================================================
+   MAIN AREA
+   ========================================================================== */
+/* mi-sheet-main is a column: header → persistent block → scrolling tab body */
+.mi-sheet-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* Always-visible characteristics + attributes block */
+.mi-persistent-block {
+  flex-shrink: 0;
+  padding: 6px 12px 0;
+  background: var(--mi-paper);
+}.mi-persistent-divider {
+  height: 1px; background: var(--mi-rule); margin: 6px 0 0;
+}
+
+/* Scrolling tab area */
+.mi-tab-body { flex: 1; overflow: hidden; position: relative; }
+
+.mi-tab-panel { display: none; height: 100%; overflow-y: auto; padding: 10px 12px; }
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+.mi-sheet-header {
+  display: grid; grid-template-columns: 78px 1fr;
+  gap: 8px; align-items: start;
+  padding: 7px 12px; background: var(--mi-paper);
+  border-bottom: 2px solid var(--mi-teal); flex-shrink: 0;
+}
+.mi-header-portrait { width: 72px; height: 72px; }
+.mi-portrait {
+  width: 72px; height: 72px; object-fit: cover;
+  border-radius: var(--mi-radius); border: 2px solid var(--mi-teal); cursor: pointer;
+}
+.mi-charname {
+  font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
+  color: var(--mi-teal-dark); border: none; background: transparent;
+  width: 100%; padding: 0; margin-bottom: 4px;
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-charname:focus { outline: none; border-bottom-color: var(--mi-teal-light); }
+.mi-identity-row { display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; }
+.mi-identity-row label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--mi-ink-3); white-space: nowrap; flex-shrink: 0; }
+.mi-identity-row input, .mi-identity-row select {
+  border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 2px 5px; font-size: 11px; background: var(--mi-paper-2);
+  flex: 1; min-width: 0;
+}
+.mi-age-input { flex: 0 0 38px !important; }
+.mi-hero-level-select[value="pulp"],
+select.mi-hero-level-select option:checked { font-weight: 600; }
+
+/* Hero Level Banner */
+.mi-hero-banner {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 4px 8px; margin: 4px 0 0;
+  border-radius: var(--mi-radius);
+  font-size: 10px;
+}
+.mi-hero-banner--pulp {
+  background: linear-gradient(90deg, #1a2e4a 0%, #1e3a5f 100%);
+  border: 1px solid #4a7aaa;
+  color: #a8d0f0;
+}
+.mi-hero-banner--paragon {
+  background: linear-gradient(90deg, #0d1a3a 0%, #162850 100%);
+  border: 1px solid var(--mi-teal);
+  color: var(--mi-teal-lighter);
+}
+.mi-hero-banner-title {
+  font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  font-size: 10px; white-space: nowrap; flex-shrink: 0;
+}
+.mi-hero-banner-title i { margin-right: 4px; }
+.mi-hero-banner-advantages { display: flex; flex-wrap: wrap; gap: 4px; }
+.mi-hero-adv-tag {
+  padding: 1px 6px; border-radius: 8px; font-size: 9px;
+  letter-spacing: .04em; white-space: nowrap;
+}
+.mi-hero-banner--pulp    .mi-hero-adv-tag { background: rgba(100,170,240,.15); border: 1px solid rgba(100,170,240,.35); }
+.mi-hero-banner--paragon .mi-hero-adv-tag { background: rgba(91,156,246,.12); border: 1px solid rgba(91,156,246,.3); }
+
+/* Advantage picker dialog */
+.mi-advantage-list { display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.mi-advantage-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: var(--mi-radius);
+  border: 1px solid var(--mi-rule); cursor: pointer;
+  font-size: 12px; transition: background .1s, border-color .1s;
+}
+
+/* Pulp — amber accent */
+.mi-advantage-list.mi-adv-picker--pulp .mi-advantage-row:hover           { background: rgba(100,170,240,.08); }
+.mi-advantage-list.mi-adv-picker--pulp .mi-advantage-row--checked         { border-color: #4a7aaa; background: rgba(100,170,240,.1); }
+
+/* Paragon — blue accent */
+.mi-advantage-list.mi-adv-picker--paragon .mi-advantage-row:hover         { background: rgba(91,156,246,.08); }
+.mi-advantage-list.mi-adv-picker--paragon .mi-advantage-row--checked       { border-color: var(--mi-teal-light); background: rgba(91,156,246,.1); }
+
+/* Header overrides per level */
+.mi-adv-picker-header.mi-adv-picker--pulp    { background: linear-gradient(90deg, #1a2e4a, #1e3a5f); }
+.mi-adv-picker-header.mi-adv-picker--paragon { background: linear-gradient(90deg, #0d1a3a, var(--mi-teal-dark)); }
+.mi-adv-picker-subtitle {
+  font-size: 11px; font-weight: 400; opacity: .75; white-space: nowrap;
+}
+
+/* Footer bar */
+.mi-adv-picker-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 14px; font-size: 10px;
+}
+.mi-adv-picker-footer.mi-adv-picker--pulp    { background: linear-gradient(90deg, #1a2e4a, #1e3a5f); color: #a8d0f0; }
+.mi-adv-picker-footer.mi-adv-picker--paragon { background: linear-gradient(90deg, #0d1a3a, var(--mi-teal-dark)); color: var(--mi-teal-lighter); }
+.mi-adv-picker-note { opacity: .7; font-style: italic; }
+.mi-advantage-count { font-weight: 700; font-size: 13px; }
+.mi-adv-count--done { color: #4caf50; }
+.mi-adv-count--over { color: var(--mi-wound-serious); }
+
+.mi-luck-pips { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; margin-top: 2px; }
+.mi-luck-pip {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 2px solid var(--mi-teal); background: transparent;
+  cursor: pointer; transition: background .1s;
+}
+.mi-luck-pip.filled { background: var(--mi-teal); }
+
+.mi-mp-track { display: flex; align-items: center; justify-content: center; gap: 2px; font-size: 12px; margin-top: 2px; }
+.mi-mp-track input { width: 26px; text-align: center; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 1px 2px; background: var(--mi-paper-2); font-size: 11px; }
+.mi-mp-sep { color: var(--mi-ink-4); }
+.mi-mp-max { font-weight: 600; color: var(--mi-ink-2); }
+
+/* Fatigue select — colour shifts with severity */
+.mi-fatigue-select { background: transparent; color: var(--mi-ink-2); border: none; cursor: pointer; }
+.mi-fatigue-select.fresh        { color: var(--mi-teal-dark); }
+.mi-fatigue-select.winded,
+.mi-fatigue-select.tired        { color: #92400e; }
+.mi-fatigue-select.wearied,
+.mi-fatigue-select.exhausted    { color: #c2410c; }
+.mi-fatigue-select.debilitated,
+.mi-fatigue-select.incapacitated { color: #991b1b; }
+.mi-fatigue-select.semiconscious,
+.mi-fatigue-select.comatose,
+.mi-fatigue-select.dead         { color: #7f1d1d; font-weight: 700; }
+
+/* ==========================================================================
+   TAB PANELS
+   ========================================================================== */
+.mi-tab-panel.active { display: block; }
+.mi-tab-panel::-webkit-scrollbar { width: 5px; }
+.mi-tab-panel::-webkit-scrollbar-thumb { background: var(--mi-rule); border-radius: 3px; }
+
+/* ==========================================================================
+   SECTION LABELS
+   ========================================================================== */
+.mi-section-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--mi-teal);
+  border-bottom: 1px solid var(--mi-teal-bg);
+  padding-bottom: 2px; margin-top: 10px; margin-bottom: 5px;
+}
+.mi-section-label:first-child { margin-top: 0; }
+.mi-persistent-block .mi-section-label { margin-top: 4px; }
+.mi-persistent-block .mi-section-label:first-child { margin-top: 0; }
+.mi-section-with-add { display: flex; justify-content: space-between; align-items: center; }
+.mi-loc-header-btns { display: flex; align-items: center; gap: 6px; }
+.mi-add-btn { color: var(--mi-teal-light); cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: var(--mi-radius); transition: background .1s; }
+.mi-add-btn:hover { background: var(--mi-teal-bg); }
+.mi-heal-all-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: #fff; cursor: pointer; font-size: 12px; font-weight: 600;
+  padding: 3px 9px; border-radius: var(--mi-radius);
+  border: 1px solid var(--mi-teal);
+  background: var(--mi-teal);
+  transition: background .1s, border-color .1s;
+}
+.mi-heal-all-btn:hover { background: var(--mi-teal-dark); border-color: var(--mi-teal-dark); color: #fff; }
+
+/* ==========================================================================
+   CHARACTERISTICS
+   ========================================================================== */
+.mi-chars-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; margin-bottom: 6px; }
+.mi-char-cell {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); padding: 3px 4px; transition: border-color .15s;
+}
+.mi-char-cell:focus-within { border-color: var(--mi-teal-light); }
+.mi-char-abbr { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--mi-teal); letter-spacing: .05em; margin-bottom: 2px; }
+.mi-char-val { width: 36px; text-align: center; font-size: 16px; font-weight: 600; font-family: var(--mi-font-body); border: none; background: transparent; color: var(--mi-ink); }
+.mi-char-val:focus { outline: none; }
+
+/* ==========================================================================
+   DERIVED ATTRIBUTES
+   ========================================================================== */
+.mi-attrs-grid { display: grid; grid-template-columns: repeat(10,1fr); gap: 4px; margin-bottom: 2px; }
+.mi-attr-cell {
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); padding: 3px 4px; text-align: center;
+}
+.mi-attr-cell--interactive { padding: 3px 6px; }
+
+/* Fatigue cell — select fills the cell width */
+.mi-attr-cell--fatigue { padding: 3px 4px; }
+.mi-attr-cell--fatigue .mi-fatigue-select {
+  width: 100%; margin-top: 2px;
+  border: none; border-radius: var(--mi-radius);
+  padding: 1px 4px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em;
+  cursor: pointer; text-align: center;
+}
+.mi-attr-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--mi-ink-3); margin-bottom: 2px; }
+.mi-attr-val { font-size: 13px; font-weight: 600; color: var(--mi-teal-dark); font-family: var(--mi-font-body); }
+
+/* ==========================================================================
+   SKILL LIST
+   ========================================================================== */
+.mi-skill-list { list-style: none; padding: 0; margin: 0 0 4px; }
+
+/* Three explicit columns for the character tab */
+.mi-skills-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0 14px;
+  align-items: start;
+}
+.mi-skills-col { min-width: 0; }
+.mi-skill-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto;
+  align-items: center;
+  padding: 2px 4px;
+  border-radius: var(--mi-radius); gap: 4px; min-height: 22px;
+}
+.mi-skill-row:nth-child(even) { background: var(--mi-paper-2); }
+.mi-skill-row:hover { background: var(--mi-teal-bg-sub); }
+.mi-skill-name { font-size: 12px; color: var(--mi-ink); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mi-skill-name:hover { color: var(--mi-teal); }
+.mi-skill-base { font-size: 10px; color: var(--mi-ink-4); white-space: nowrap; }
+.mi-skill-total { font-size: 12px; font-weight: 700; color: var(--mi-teal-dark); text-align: right; white-space: nowrap; }
+.mi-item-delete { color: var(--mi-ink-4); cursor: pointer; font-size: 10px; text-align: center; opacity: 0; transition: opacity .1s, color .1s; }
+.mi-skill-row:hover .mi-item-delete { opacity: 1; }
+.mi-item-delete:hover { color: var(--mi-wound-major); }
+
+/* ==========================================================================
+   HIT LOCATIONS
+   ========================================================================== */
+.mi-locations-grid {
+  display: grid;
+  grid-template-columns: 1fr;   /* each row is a full-width wrapper */
+  gap: 0; margin-bottom: 4px;
+}
+/* The header row still needs the 8-column layout */
+.mi-locations-grid > .mi-loc-header {
+  display: none; /* headers are inside mi-loc-header-row below */
+}
+.mi-loc-header-row,
+.mi-loc-row-contents {
+  display: grid;
+  grid-template-columns: 18px 1fr 52px 44px 80px 1fr 140px 28px;
+  gap: 3px; align-items: center;
+}
+.mi-loc-header-row .mi-loc-header {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--mi-ink-3); padding: 2px 4px;
+  background: var(--mi-paper-2); border-bottom: 1px solid var(--mi-rule);
+}
+.mi-loc-row-contents {
+  border-bottom: 1px solid color-mix(in srgb, var(--mi-rule) 40%, transparent);
+}
+.mi-loc-row-contents:last-child { border-bottom: none; }
+.mi-loc-header { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--mi-ink-3); padding: 2px 4px; background: var(--mi-paper-2); border-bottom: 1px solid var(--mi-rule); }
+.mi-loc-handle  { display: flex; align-items: center; justify-content: center; cursor: grab; color: var(--mi-ink-3); opacity: 0; transition: opacity .1s; font-size: 10px; padding: 3px 0; }
+.mi-loc-row-contents:hover .mi-loc-handle { opacity: 1; }
+.mi-loc-row-contents:hover { background: var(--mi-teal-bg-sub); }
+.mi-loc-row-contents.mi-loc-dragging { opacity: .4; }
+.mi-loc-row-contents.mi-loc-drag-over { outline: 2px solid var(--mi-teal); outline-offset: -1px; border-radius: 2px; }
+.mi-loc-name-cell { padding: 2px 4px; }
+.mi-loc-name-input {
+  width: 100%; border: none; background: transparent; font-size: 12px; font-weight: 500;
+  color: var(--mi-ink); padding: 1px 2px; border-radius: var(--mi-radius);
+}
+.mi-loc-name-input:hover  { background: var(--mi-paper-2); }
+.mi-loc-name-input:focus  { background: var(--mi-paper-2); outline: 1px solid var(--mi-teal); }
+.mi-loc-ctrl { display: flex; align-items: center; justify-content: center; transition: opacity .1s; }
+.mi-loc-row-contents:hover .mi-loc-ctrl { opacity: 1; }
+.mi-loc-ctrl .mi-item-delete { color: var(--mi-ink-3); font-size: 11px; cursor: pointer; opacity: 0.5; }
+.mi-loc-ctrl .mi-item-delete:hover { color: var(--mi-wound-serious); opacity: 1; }
+.mi-loc-name   { font-size: 12px; padding: 3px 4px; font-weight: 500; }
+.mi-loc-roll   { font-size: 11px; padding: 3px 4px; text-align: center; color: var(--mi-ink-3); }
+.mi-loc-ap     { padding: 2px 4px; }
+.mi-loc-hp     { display: flex; align-items: center; gap: 2px; padding: 2px 4px; }
+.mi-loc-wound  { padding: 2px 4px; }
+.mi-loc-ward   { display: flex; align-items: center; gap: 4px; padding: 2px 4px; }
+.mi-ward-checkbox { width: 13px; height: 13px; cursor: pointer; accent-color: var(--mi-teal); flex-shrink: 0; }
+.mi-ward-weapon {
+  flex: 1; min-width: 0; border: 1px solid var(--mi-teal-light); border-radius: var(--mi-radius);
+  padding: 1px 3px; background: color-mix(in srgb, var(--mi-teal) 6%, var(--mi-paper));
+  font-size: 10px; color: var(--mi-teal); cursor: pointer;
+}
+.mi-ward-weapon:focus { outline: 1px solid var(--mi-teal); }
+.mi-ward-weapon-hidden { display: none; }
+.mi-loc-input  { width: 36px; text-align: center; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 2px 3px; background: var(--mi-paper-2); font-size: 12px; font-weight: 600; }
+.mi-loc-maxhp  { font-size: 10px; color: var(--mi-ink-3); }
+.mi-loc-wound-select {
+  width: 100%; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 2px 4px; background: var(--mi-paper-2); font-size: 11px; cursor: pointer;
+}
+.mi-loc-wound-select.mi-wound-minor   { border-color: #92400e; color: #92400e; background: #fffbeb; }
+.mi-loc-wound-select.mi-wound-serious { border-color: #c2410c; color: #c2410c; background: #fff7ed; }
+.mi-loc-wound-select.mi-wound-major   { border-color: #991b1b; color: #991b1b; background: #fef2f2; font-weight: 700; }
+
+.mi-wound-minor  .mi-loc-input { border-color: var(--mi-wound-minor);   color: var(--mi-wound-minor); }
+.mi-wound-serious .mi-loc-input { border-color: var(--mi-wound-serious); color: var(--mi-wound-serious); }
+.mi-wound-major  .mi-loc-input { border-color: var(--mi-wound-major);   color: var(--mi-wound-major); background: #fef2f2; }
+
+/* ==========================================================================
+   RESISTANCE SKILLS
+   ========================================================================== */
+.mi-resistance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.mi-resistance-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--mi-paper-2);
+  border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius);
+  padding: 4px 6px;
+  cursor: pointer;
+  transition: border-color .1s, background .1s;
+}
+.mi-resistance-cell:hover {
+  border-color: var(--mi-teal);
+  background: color-mix(in srgb, var(--mi-teal) 8%, var(--mi-paper));
+}
+.mi-resistance-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--mi-ink-3);
+  margin-bottom: 2px;
+}
+.mi-resistance-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mi-teal-dark);
+}
+
+/* ==========================================================================
+   WEAPONS
+   ========================================================================== */
+.mi-weapons-table { display: grid; grid-template-columns: 24px 150px 64px 44px 52px 36px 1fr 44px; gap: 3px; align-items: center; margin-bottom: 4px; }
+.mi-weapons-table.mi-weapons-ranged { grid-template-columns: 150px 64px 50px 54px 54px 40px 52px 36px 70px 1fr 44px; }
+.mi-weapon-ammo { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+.mi-weapon-ammo .mi-ammo-empty { color: var(--mi-fumble-c); font-weight: 600; }
+.mi-weapon-ammo .mi-ammo-reloading { color: var(--mi-ink-3); font-style: italic; }
+.mi-clear-jam-btn { color: var(--mi-fumble-c); font-weight: 700; font-size: 11px; cursor: pointer; padding: 1px 3px; border-radius: 3px; }
+.mi-clear-jam-btn:hover { color: var(--mi-teal); }
+.mi-reload-btn { color: var(--mi-ink-3); cursor: pointer; font-size: 11px; padding: 1px 3px; border-radius: 3px; }
+.mi-reload-btn:hover { color: var(--mi-teal); }
+.mi-reload-btn--sheet { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border: 1px solid var(--mi-ink-4); border-radius: 3px; cursor: pointer; color: var(--mi-ink-3); }
+.mi-reload-btn--sheet:hover { color: var(--mi-teal); border-color: var(--mi-teal); }
+.mi-clear-jam-btn--sheet { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border: 1px solid var(--mi-fumble-c); border-radius: 3px; cursor: pointer; color: var(--mi-fumble-c); margin-left: 4px; }
+.mi-clear-jam-btn--sheet:hover { color: var(--mi-teal); border-color: var(--mi-teal); }
+.mi-stat-cell--reload { display: flex; flex-direction: column; justify-content: flex-end; }
+.mi-weapon-attack {
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--mi-ink-4); font-size: 11px;
+  transition: color .1s; padding: 2px;
+}
+.mi-weapon-attack:hover { color: var(--mi-teal); }
+.mi-weapon-traits-cell { display: flex; flex-wrap: wrap; gap: 3px; }
+.mi-weapon-trait-pill { font-size: 10px; padding: 1px 7px; border: 1px solid var(--mi-teal-light); border-radius: 20px; color: var(--mi-teal); background: color-mix(in srgb, var(--mi-teal) 8%, var(--mi-paper)); }
+.mi-weapon-header { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--mi-ink-3); padding: 2px 4px; background: var(--mi-paper-2); border-bottom: 1px solid var(--mi-rule); }
+.mi-weapons-table > div:not(.mi-weapon-header) { font-size: 12px; padding: 3px 4px; }
+.mi-weapon-name { font-weight: 500; cursor: pointer; }
+.mi-weapon-name:hover { color: var(--mi-teal); }
+.mi-weapon-damage { cursor: pointer; }
+.mi-weapon-damage:hover { color: var(--mi-teal); font-weight: 600; }
+.mi-weapon-ctrl { display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
+.mi-weapons-table:hover .mi-weapon-ctrl { opacity: 1; }
+/* Delete inside weapon-ctrl: reset the global opacity:0 so it shows when ctrl fades in */
+.mi-weapon-ctrl .mi-item-delete { opacity: 1; }
+.mi-item-edit { color: var(--mi-teal-light); cursor: pointer; font-size: 10px; }
+.mi-item-edit:hover { color: var(--mi-teal); }
+
+/* ==========================================================================
+   ARMOUR
+   ========================================================================== */
+.mi-armour-table { display: grid; grid-template-columns: 1fr 36px 1fr 60px 36px 44px; gap: 3px; align-items: center; margin-bottom: 4px; }
+.mi-armour-header { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--mi-ink-3); padding: 2px 4px; background: var(--mi-paper-2); border-bottom: 1px solid var(--mi-rule); }
+.mi-armour-table > div:not(.mi-armour-header) { font-size: 12px; padding: 3px 4px; }
+.mi-armour-ctrl { display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
+.mi-armour-table:hover .mi-armour-ctrl { opacity: 1; }
+.mi-armour-ctrl .mi-item-delete { opacity: 1; }
+.mi-armour-name { font-weight: 500; cursor: pointer; }
+.mi-armour-name:hover { color: var(--mi-teal); }
+
+/* ==========================================================================
+   GEAR TAB
+   ========================================================================== */
+.mi-enc-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; margin-bottom: 4px; }
+.mi-enc-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--mi-ink-3); flex-shrink: 0; }
+.mi-enc-bar-wrap { flex: 1; height: 5px; background: var(--mi-paper-3); border-radius: 3px; overflow: hidden; }
+.mi-enc-bar-fill { height: 100%; background: var(--mi-teal-light); border-radius: 3px; transition: width .3s; min-width: 2px; }
+.mi-enc-bar-fill.over-enc { background: var(--mi-wound-major); }
+.mi-enc-value { font-size: 11px; font-weight: 600; color: var(--mi-ink-2); flex-shrink: 0; }
+.mi-enc-over  { color: var(--mi-wound-major); }
+
+.mi-gear-table { display: grid; grid-template-columns: 1fr 48px 44px 60px 20px; gap: 3px; align-items: center; }
+.mi-gear-header { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--mi-ink-3); padding: 2px 4px; background: var(--mi-paper-2); border-bottom: 1px solid var(--mi-rule); }
+.mi-gear-table > div:not(.mi-gear-header) { font-size: 12px; padding: 3px 4px; }
+.mi-qty-input { width: 40px; text-align: center; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 1px 3px; background: var(--mi-paper-2); font-size: 11px; }
+.mi-gear-ctrl { display: flex; gap: 4px; opacity: 0; transition: opacity .1s; }
+.mi-gear-table:hover .mi-gear-ctrl { opacity: 1; }
+.mi-gear-ctrl .mi-item-delete { opacity: 1; }
+.mi-wealth-notes { width: 100%; height: 48px; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 5px 8px; font-size: 12px; resize: none; background: var(--mi-paper-2); }
+.mi-char-currency-table { padding: 4px 0 8px; display: flex; flex-direction: column; gap: 3px; }
+.mi-char-currency-table .mi-merchant-currency-row { padding: 3px 0; }
+.mi-char-currency-table .mi-item-delete { opacity: 0; transition: opacity .1s; }
+.mi-char-currency-table .mi-merchant-currency-row:hover .mi-item-delete { opacity: 1; }
+.mi-char-currency-total { font-size: 10px; text-align: right; padding: 4px 2px 0; border-top: 1px solid var(--mi-rule); margin-top: 2px; }
+.mi-char-currency-empty { font-size: 11px; padding: 8px 4px; text-align: center; }
+
+/* ==========================================================================
+   BACKGROUND TAB
+   ========================================================================== */
+.mi-text-input { width: 100%; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 5px 8px; font-size: 12px; background: var(--mi-paper-2); margin-bottom: 4px; }
+.mi-bio-area   { width: 100%; height: 160px; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 6px 8px; font-family: var(--mi-font-body); font-size: 13px; background: var(--mi-paper-2); resize: vertical; line-height: 1.5; }
+.mi-notes-area { width: 100%; height: 100px; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius); padding: 6px 8px; font-size: 12px; background: var(--mi-paper-2); resize: vertical; }
+
+/* Focus */
+.mi-text-input:focus, .mi-bio-area:focus, .mi-notes-area:focus,
+.mi-loc-input:focus,
+.mi-qty-input:focus, .mi-mp-track input:focus {
+  outline: none; border-color: var(--mi-teal-light);
+  box-shadow: 0 0 0 2px rgba(26,107,107,.12);
+}
+
+/* Utility */
+.mi-muted { color: var(--mi-ink-3); }
+.mi-faint { color: var(--mi-ink-4); }
+
+/* ==========================================================================
+   CHAT CARDS
+   ========================================================================== */
+.mi-chat-card {
+  font-family: var(--mi-font-ui); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius-lg); overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
+}
+.mi-card-header {
+  background: var(--mi-teal); color: #fff;
+  padding: 7px 12px; display: flex; justify-content: space-between; align-items: center;
+}
+.mi-card-header--stacked {
+  flex-direction: column; align-items: flex-start; gap: 2px;
+}
+.mi-card-actor  { font-weight: 600; font-size: 12px; }
+.mi-card-vs     { font-weight: 400; font-size: 10px; opacity: .7; margin: 0 3px; text-transform: uppercase; letter-spacing: .05em; }
+.mi-card-skill  { font-size: 11px; opacity: .85; font-style: italic; }
+.mi-card-combatants {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 13px; color: rgba(255,255,255,.8); margin-top: 4px; flex-wrap: wrap;
+  font-style: normal;
+}
+.mi-card-combatant-atk  { color: #ffffff; font-weight: 700; }
+.mi-card-combatant-def  { color: rgba(255,255,255,.9); font-weight: 600; }
+.mi-card-combatant-sep  { color: rgba(255,255,255,.5); }
+.mi-card-body   { padding: 10px 12px; background: var(--mi-paper); }
+
+/* Detail pills — difficulty, modifier, passion augment */
+.mi-card-details { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 7px; }
+.mi-card-pill {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  border-radius: 8px; padding: 2px 8px;
+}
+.mi-card-target { font-size: 11px; color: var(--mi-ink-3); text-align: center; margin-bottom: 4px; }
+.mi-card-target strong { color: var(--mi-ink-2); }
+
+.mi-roll-result {
+  font-family: var(--mi-font-body); font-size: 2.6em; font-weight: 700;
+  text-align: center; color: var(--mi-ink); line-height: 1; padding: 4px 0 6px;
+}
+.mi-rerolled { font-size: .35em; font-weight: 400; color: var(--mi-ink-3); vertical-align: middle; }
+
+.mi-outcome-row { text-align: center; margin: 4px 0; }
+.mi-outcome {
+  display: inline-block; padding: 3px 16px; border-radius: 10px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+}
+.mi-outcome.critical { background: var(--mi-critical-bg); color: var(--mi-critical-c); }
+.mi-outcome.success  { background: var(--mi-success-bg);  color: var(--mi-success-c); }
+.mi-outcome.failure  { background: var(--mi-failure-bg);  color: var(--mi-failure-c); }
+.mi-outcome.fumble   { background: var(--mi-fumble-bg);   color: var(--mi-fumble-c); }
+
+/* Wound severity pills — distinct from roll outcome colours */
+.mi-outcome.mi-wound-minor   { background: #fef3c7; color: #92400e; }
+.mi-outcome.mi-wound-serious { background: #fff1ee; color: #c2410c; font-weight: 800; }
+.mi-outcome.mi-wound-major   { background: #4c0519; color: #fecdd3; font-weight: 800; letter-spacing: .06em; }
+
+.mi-luck-buttons {
+  display: flex; gap: 6px; justify-content: center;
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--mi-rule);
+}
+.mi-luck-reroll, .mi-luck-swap {
+  flex: 1; font-size: 11px; font-weight: 600; padding: 4px 8px;
+  border: 1px solid var(--mi-teal); border-radius: var(--mi-radius);
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  cursor: pointer; font-family: var(--mi-font-ui); transition: background .15s, color .15s;
+}
+.mi-luck-reroll:hover, .mi-luck-swap:hover { background: var(--mi-teal); color: #fff; }
+
+.mi-manual-actions {
+  display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
+  border-top: 1px solid var(--mi-rule);
+}
+.mi-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
+  padding: 4px 8px; font-size: 11px; font-weight: 600;
+  border: 1px solid var(--mi-teal); border-radius: var(--mi-radius);
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  cursor: pointer; font-family: var(--mi-font-ui); transition: background .15s, color .15s;
+}
+.mi-btn:hover { background: var(--mi-teal); color: #fff; }
+
+/* ==========================================================================
+   ROLL DIALOG
+   ========================================================================== */
+.mi-dialog .window-content { padding: 0; background: var(--mi-paper); }
+.mi-roll-dialog { font-family: var(--mi-font-ui); }
+
+.mi-dialog-skill-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  background: var(--mi-teal); color: #fff; padding: 10px 14px; gap: 10px;
+}
+.mi-dialog-skill-name {
+  font-family: var(--mi-font-display); font-size: 15px; font-weight: 500;
+}
+.mi-dialog-skill-base {
+  font-size: 20px; font-weight: 700; font-family: var(--mi-font-body); opacity: .9;
+}
+.mi-dialog-fields { padding: 12px 14px 8px; }
+
+.mi-form-row { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 6px; margin-bottom: 8px; }
+.mi-form-row label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--mi-ink-3); }
+.mi-form-row select, .mi-form-row input {
+  border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 4px 7px; font-size: 12px; background: var(--mi-paper-2); width: 100%;
+}
+.mi-dialog-target-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 14px; border-top: 1px solid var(--mi-teal-dark);
+  background: var(--mi-teal);
+}
+.mi-dialog-target-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: rgba(255,255,255,.75);
+}
+.mi-dialog-target-val {
+  font-size: 22px; font-weight: 700; font-family: var(--mi-font-body); color: #fff;
+}
+.mi-dialog-skill-raw {
+  font-size: 11px; font-weight: 400; opacity: .7;
+}
+.mi-dialog-fatigue-note {
+  font-size: 11px; font-weight: 600; color: var(--mi-wound-serious);
+  background: color-mix(in srgb, var(--mi-wound-serious) 10%, var(--mi-paper));
+  padding: 5px 14px; border-bottom: 1px solid color-mix(in srgb, var(--mi-wound-serious) 25%, transparent);
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ==========================================================================
+   ACTION POINT TRACK
+   ========================================================================== */
+.mi-ap-track {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; margin-top: 2px; font-size: 12px;
+}
+.mi-ap-btn-stack {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.mi-ap-val { font-weight: 700; color: var(--mi-ink); min-width: 10px; text-align: center; }
+.mi-ap-sep { color: var(--mi-ink-4); }
+.mi-ap-max { font-weight: 600; color: var(--mi-ink-2); }
+.mi-ap-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid var(--mi-teal); color: var(--mi-teal);
+  font-size: 7px; cursor: pointer; flex-shrink: 0;
+  transition: background .1s, color .1s;
+}
+.mi-ap-btn:hover { background: var(--mi-teal); color: #fff; }
+
+/* Max adjust buttons — GM only, visually secondary, fade in on hover */
+.mi-ap-max-btns { opacity: 0; transition: opacity .15s; }
+.mi-ap-track:hover .mi-ap-max-btns { opacity: 1; }
+.mi-ap-max-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1px solid var(--mi-ink-4); color: var(--mi-ink-4);
+  font-size: 7px; cursor: pointer; flex-shrink: 0;
+  transition: border-color .1s, color .1s;
+}
+.mi-ap-max-btn:hover { border-color: var(--mi-ink-2); color: var(--mi-ink-2); }
+
+/* Bonus badge — shown when module hooks add AP */
+.mi-ap-bonus-badge {
+  font-size: 9px; color: var(--mi-teal-dark); font-weight: 600;
+  text-align: center; letter-spacing: .03em;
+}
+
+/* ==========================================================================
+   DAMAGE MODIFIER OFFSET TRACK
+   ========================================================================== */
+.mi-dm-track {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px; margin-top: 2px; font-size: 12px;
+}
+.mi-dm-val { font-weight: 700; color: var(--mi-ink); min-width: 28px; text-align: center; }
+.mi-dm-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid var(--mi-teal); color: var(--mi-teal);
+  font-size: 8px; cursor: pointer; flex-shrink: 0;
+  transition: background .1s, color .1s;
+}
+.mi-dm-btn:hover { background: var(--mi-teal); color: #fff; }
+/* Small offset badge shown when offset ≠ 0 */
+.mi-dm-offset-badge {
+  font-size: 9px; color: var(--mi-teal-dark);
+  text-align: center; margin-top: 1px; font-weight: 600;
+  letter-spacing: .03em;
+}
+
+/* ==========================================================================
+   MOVEMENT RATE — WALK / RUN / SPRINT
+   ========================================================================== */
+.mi-attr-cell--movement { min-width: 80px; }
+.mi-move-track {
+  display: flex; align-items: center; justify-content: center;
+  gap: 2px; font-size: 11px; flex-wrap: nowrap;
+}
+.mi-move-val  { font-weight: 600; color: var(--mi-teal-dark); }
+.mi-move-sep  { color: var(--mi-ink-4); }
+.mi-move-track input[type="text"] {
+  width: 100%; text-align: center; font-size: 11px; font-weight: 600;
+  color: var(--mi-teal-dark); background: transparent;
+  border: none; border-bottom: 1px solid var(--mi-ink-4);
+  padding: 0 2px;
+}
+
+/* ==========================================================================
+   EXPERIENCE ROLLS STEPPER
+   ========================================================================== */
+.mi-exp-track {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px; font-size: 12px;
+}
+.mi-exp-val { font-weight: 700; color: var(--mi-ink); min-width: 14px; text-align: center; }
+.mi-exp-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid var(--mi-teal); color: var(--mi-teal);
+  font-size: 8px; cursor: pointer; flex-shrink: 0;
+  transition: background .1s, color .1s;
+}
+.mi-exp-btn:hover { background: var(--mi-teal); color: #fff; }
+
+/* ==========================================================================
+   FUMBLE CHECKBOX
+   ========================================================================== */
+.mi-fumble-cb {
+  width: 12px; height: 12px; flex-shrink: 0;
+  accent-color: var(--mi-wound-serious);
+  cursor: pointer; margin-left: 2px;
+  opacity: .45; transition: opacity .1s;
+}
+/* Checked state — full opacity + amber tint to signal "fumbled" */
+.mi-fumble-cb:checked { opacity: 1; }
+/* Hover on unchecked shows intent */
+.mi-fumble-cb:not(:checked):hover { opacity: .75; }
+
+/* Skill name — opens item sheet */
+.mi-skill-name { cursor: pointer; }
+.mi-skill-name:hover { color: var(--mi-teal-dark); text-decoration: underline; }
+
+/* Skill total % — triggers roll */
+.mi-skill-total.rollable {
+  cursor: pointer; font-weight: 600; color: var(--mi-teal-dark);
+  border-radius: var(--mi-radius); padding: 0 3px;
+  transition: background .1s;
+}
+.mi-skill-total.rollable:hover { background: var(--mi-teal-bg); }
+
+/* ==========================================================================
+   ABILITIES TAB
+   ========================================================================== */
+.mi-ability-list { list-style: none; padding: 0; margin: 0; }
+.mi-ability-row {
+  display: grid; grid-template-columns: 1fr auto;
+  align-items: start; gap: 4px;
+  padding: 6px 6px; border-radius: var(--mi-radius);
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-ability-row:hover { background: var(--mi-teal-bg-sub); }
+.mi-ability-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mi-ability-name {
+  font-size: 12px; font-weight: 600; color: var(--mi-ink);
+  cursor: pointer;
+}
+.mi-ability-name:hover { color: var(--mi-teal-dark); text-decoration: underline; }
+.mi-ability-rank { font-size: 11px; }
+.mi-ability-type-pill {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  border-radius: 8px; padding: 1px 7px;
+}
+.mi-ability-desc { font-size: 11px; grid-column: 1; padding-top: 2px; line-height: 1.4; }
+.mi-empty-state {
+  text-align: center; padding: 24px 12px;
+  font-size: 12px; color: var(--mi-ink-3); font-style: italic;
+}
+
+/* ==========================================================================
+   ITEM SHEETS (shared base)
+   ========================================================================== */
+.mi-item-sheet-body {
+  display: flex; flex-direction: column;
+  height: 100%; background: var(--mi-paper); font-family: var(--mi-font-ui);
+  overflow-y: auto;
+}
+.mi-item-sheet-body::-webkit-scrollbar { width: 5px; }
+.mi-item-sheet-body::-webkit-scrollbar-thumb { background: var(--mi-rule); border-radius: 3px; }
+
+/* Header */
+.mi-item-header {
+  display: grid; grid-template-columns: 52px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 10px 14px; background: var(--mi-paper);
+  border-bottom: 2px solid var(--mi-teal); flex-shrink: 0;
+}
+.mi-item-img {
+  width: 48px; height: 48px; object-fit: cover;
+  border-radius: var(--mi-radius); border: 2px solid var(--mi-teal); cursor: pointer;
+}
+.mi-item-name {
+  font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
+  color: var(--mi-teal-dark); border: none; background: transparent;
+  width: 100%; padding: 0; margin-bottom: 4px;
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-item-name:focus { outline: none; border-bottom-color: var(--mi-teal-light); }
+.mi-passion-name-display { cursor: default; color: var(--mi-ink-4); font-style: italic; }
+.mi-item-subtitle    { display: flex; align-items: center; gap: 8px; }
+.mi-item-type-pill   {
+  font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  border-radius: 8px; padding: 2px 8px;
+}
+.mi-item-formula     { font-size: 11px; }
+
+/* Total block */
+.mi-item-total-block { text-align: center; }
+.mi-item-total-num   {
+  font-family: var(--mi-font-body); font-size: 28px; font-weight: 700;
+  color: var(--mi-teal-dark); line-height: 1;
+}
+.mi-item-total-label {
+  font-size: 9px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--mi-ink-3);
+}
+
+/* Stats row */
+.mi-item-stats {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 10px 14px; border-bottom: 1px solid var(--mi-rule); flex-shrink: 0;
+  background: var(--mi-paper-2);
+}
+.mi-stat-cell      { display: flex; flex-direction: column; gap: 3px; }
+.mi-stat-label     { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--mi-ink-3); }
+.mi-stat-value     { font-size: 13px; font-weight: 600; color: var(--mi-ink); padding: 3px 0; }
+.mi-stat-input     {
+  border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 3px 7px; font-size: 12px; background: var(--mi-paper); min-width: 80px;
+}
+.mi-stat-input--num { width: 52px; text-align: center; }
+.mi-stat-select    {
+  border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 3px 7px; font-size: 12px; background: var(--mi-paper);
+}
+
+/* Experience row */
+.mi-item-exp-row {
+  padding: 6px 14px; border-bottom: 1px solid var(--mi-rule);
+  background: var(--mi-paper); flex-shrink: 0;
+}
+.mi-exp-label { font-size: 11px; color: var(--mi-ink-2); display: flex; align-items: center; gap: 6px; cursor: pointer; }
+
+/* Description textarea */
+.mi-item-desc-block { flex-shrink: 0; display: flex; flex-direction: column; padding: 8px 14px 12px; }
+
+/* ── Price row on item sheets ──────────────────────────────────────────── */
+.mi-item-price-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px; flex-shrink: 0;
+}
+.mi-item-price-row .mi-section-label { flex-shrink: 0; min-width: 48px; margin: 0; }
+.mi-price-inputs { display: flex; gap: 6px; align-items: center; }
+.mi-price-amount {
+  width: 72px; text-align: right;
+  background: var(--mi-input-bg); border: 1px solid var(--mi-border);
+  border-radius: 4px; color: var(--mi-text); padding: 3px 6px; font-size: 0.9em;
+}
+.mi-price-denom {
+  width: 48px; text-align: center; font-weight: 600;
+  background: var(--mi-input-bg); border: 1px solid var(--mi-border);
+  border-radius: 4px; color: var(--mi-accent); padding: 3px 6px; font-size: 0.9em;
+  text-transform: uppercase;
+}
+.mi-price-display {
+  font-size: 0.9em; color: var(--mi-text);
+}
+.mi-price-display .mi-price-denom-label {
+  color: var(--mi-accent); font-weight: 600; margin-left: 3px;
+}
+.mi-item-desc {
+  width: 100%; border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
+  padding: 8px; font-size: 12px; line-height: 1.5; min-height: 80px;
+  background: var(--mi-paper-2); resize: vertical; font-family: var(--mi-font-ui);
+}
+.mi-item-desc:focus { outline: none; border-color: var(--mi-teal-light); }
+
+/* ── Weapon sheet — Traits block ─────────────────────────────────────────── */
+.mi-weapon-traits-block {
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--mi-rule);
+  flex-shrink: 0;
+}
+
+/* Teal section label variant */
+.mi-section-label--teal {
+  color: var(--mi-teal);
+  border-bottom-color: var(--mi-teal-light);
+}
+
+/* Trait pill grid */
+.mi-traits-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.mi-trait-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 11px;
+  border: 1px solid var(--mi-rule);
+  border-radius: 20px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--mi-paper-2);
+  color: var(--mi-ink-2);
+  transition: border-color .1s, color .1s, background .1s;
+}
+
+.mi-trait-option:hover {
+  border-color: var(--mi-teal-light);
+  color: var(--mi-ink);
+}
+
+.mi-trait-option.active {
+  border-color: var(--mi-teal);
+  background: color-mix(in srgb, var(--mi-teal) 15%, var(--mi-paper));
+  color: var(--mi-teal);
+  font-weight: 600;
+}
+
+.mi-trait-option input[type="checkbox"] {
+  display: none;
+}
+
+/* ── Weapon sheet — compact selects in stats rows ───────────────────────── */
+/* Size/Force/Reach/Impale Size selects: short labels, constrain width */
+.weapon-sheet .mi-item-stats .mi-stat-select { max-width: 110px; }
+/* Ranged stats row: tighter number inputs */
+.weapon-sheet .mi-item-stats--ranged .mi-stat-input--num { width: 48px; }
+
+/* ── Combat Style sheet ──────────────────────────────────────────────────── */
+.mi-cs-sheet-body .mi-item-stats { flex-wrap: wrap; }
+
+.mi-cs-section { padding: 6px 14px 8px; border-bottom: 1px solid var(--mi-rule); }
+
+/* Weapon drop zone */
+.mi-cs-weapons-drop {
+  min-height: 34px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+  margin-top: 5px; padding: 6px 8px;
+  border: 1px dashed var(--mi-rule); border-radius: var(--mi-radius);
+  background: var(--mi-paper-2);
+  transition: border-color .15s, background .15s;
+}
+.mi-cs-weapons-drop:hover { border-color: var(--mi-teal-light); background: var(--mi-teal-bg-sub); }
+.mi-cs-weapon-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px 2px 10px; font-size: 11px; font-weight: 500;
+  border: 1px solid var(--mi-teal-light); border-radius: 20px;
+  background: color-mix(in srgb, var(--mi-teal) 10%, var(--mi-paper));
+  color: var(--mi-teal-dark); cursor: pointer;
+  transition: background .1s, border-color .1s;
+}
+.mi-cs-weapon-pill:hover { background: color-mix(in srgb, var(--mi-teal) 18%, var(--mi-paper)); border-color: var(--mi-teal); }
+.mi-cs-weapon-remove {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; font-size: 9px;
+  color: var(--mi-ink-3); cursor: pointer; border-radius: 50%;
+  transition: color .1s, background .1s;
+}
+.mi-cs-weapon-remove:hover { color: var(--mi-wound-serious); background: rgba(0,0,0,.06); }
+.mi-cs-drop-hint { font-size: 11px; color: var(--mi-ink-4); font-style: italic; }
+.mi-cs-section-hint { font-size: 10px; font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+
+/* Trait toggle grid */
+.mi-cs-traits-grid {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px;
+}
+.mi-cs-trait-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; font-size: 11px;
+  border: 1px solid var(--mi-rule); border-radius: 20px;
+  cursor: pointer; user-select: none;
+  background: var(--mi-paper-2); color: var(--mi-ink-2);
+  transition: border-color .1s, color .1s, background .1s;
+}
+.mi-cs-trait-pill:hover { border-color: var(--mi-teal-light); color: var(--mi-ink); }
+.mi-cs-trait-pill.active {
+  border-color: var(--mi-teal); color: var(--mi-teal-dark); font-weight: 600;
+  background: color-mix(in srgb, var(--mi-teal) 12%, var(--mi-paper));
+}
+.mi-cs-trait-pill.engine-effect.active { border-color: var(--mi-teal-dark); }
+.mi-cs-trait-icon { font-size: 9px; opacity: .7; }
+.mi-cs-trait-legend { font-size: 10px; margin-top: 6px; }
+.mi-cs-trait-legend i { font-size: 9px; }
+
+/* Inline combat style rows on character sheet */
+.mi-cs-row { flex-direction: column; align-items: stretch; gap: 2px; height: auto; padding: 4px 0; }
+.mi-cs-row-main { display: flex; align-items: center; gap: 4px; }
+.mi-cs-row-main .mi-skill-name { flex: 1; }
+.mi-cs-pills-row { display: flex; flex-wrap: wrap; gap: 3px; padding: 2px 0 2px 4px; }
+.mi-cs-inline-weapon {
+  font-size: 10px; padding: 1px 7px;
+  border: 1px solid var(--mi-teal-light); border-radius: 20px;
+  color: var(--mi-teal); background: color-mix(in srgb, var(--mi-teal) 8%, var(--mi-paper));
+}
+.mi-cs-inline-trait {
+  font-size: 10px; padding: 1px 7px;
+  border: 1px solid var(--mi-rule); border-radius: 20px;
+  color: var(--mi-ink-3); background: var(--mi-paper-2);
+  display: inline-flex; align-items: center; gap: 3px;
+}
+.mi-cs-inline-trait.engine {
+  border-color: color-mix(in srgb, var(--mi-teal) 40%, var(--mi-rule));
+  color: var(--mi-teal-dark);
+}
+.mi-cs-inline-trait i { font-size: 8px; opacity: .7; }
+
+/* ── Armour sheet — Locations block ─────────────────────────────────────── */
+.mi-armour-locations-block {
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--mi-rule);
+  flex-shrink: 0;
+}
+
+.mi-armour-locations-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+/* Reuse the same pill style as weapon traits */
+.mi-armour-loc-option {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  border: 1px solid var(--mi-rule);
+  border-radius: 20px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--mi-paper-2);
+  color: var(--mi-ink-2);
+  transition: border-color .1s, color .1s, background .1s;
+}
+
+.mi-armour-loc-option:hover {
+  border-color: var(--mi-teal-light);
+  color: var(--mi-ink);
+}
+
+.mi-armour-loc-option.active {
+  border-color: var(--mi-teal);
+  background: color-mix(in srgb, var(--mi-teal) 15%, var(--mi-paper));
+  color: var(--mi-teal);
+  font-weight: 600;
+}
+
+.mi-armour-loc-option input[type="checkbox"] {
+  display: none;
+}
+
+/* ==========================================================================
+   ATTACKER DIALOG
+   ========================================================================== */
+
+/* Surprised banner — shown when defender token has the 'surprised' condition */
+.mi-attacker-surprised-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--mi-fumble-bg); color: var(--mi-fumble-c);
+  border-bottom: 2px solid var(--mi-fumble-c);
+  padding: 8px 14px; font-size: 11px; font-weight: 600;
+}
+.mi-attacker-surprised-banner i { font-size: 13px; flex-shrink: 0; }
+
+/* Ammo display */
+#mi-atk-ammo-display { font-size: 13px; font-weight: 600; color: var(--mi-ink-1); }
+#mi-atk-ammo-display.mi-ammo-empty { color: var(--mi-fumble-c); }
+#mi-atk-ammo-display.mi-ammo-empty::after { content: ' — OUT OF AMMO'; font-size: 10px; font-weight: 700; letter-spacing: .05em; }
+
+/* Toggle row — charge checkbox */
+.mi-form-row--toggle {
+  align-items: start; margin-top: 4px;
+}
+.mi-toggle {
+  display: flex; flex-direction: column; gap: 3px; cursor: pointer;
+}
+.mi-toggle input[type="checkbox"] { display: none; }
+.mi-toggle-track {
+  display: inline-block; width: 34px; height: 18px; border-radius: 9px;
+  background: var(--mi-rule); border: 1px solid var(--mi-paper-3);
+  position: relative; transition: background .15s;
+  flex-shrink: 0;
+}
+.mi-toggle-track::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: left .15s;
+}
+.mi-toggle input:checked + .mi-toggle-track {
+  background: var(--mi-teal);
+}
+.mi-toggle input:checked + .mi-toggle-track::after {
+  left: 18px;
+}
+.mi-toggle-hint {
+  font-size: 10px; color: var(--mi-ink-3); font-style: italic;
+  line-height: 1.3; max-width: 200px;
+}
+
+/* Alert pill variant — for Surprised indicator in chat card */
+.mi-card-pill--alert {
+  background: var(--mi-fumble-bg); color: var(--mi-fumble-c);
+}
+
+.mi-card-pill--range {
+  background: color-mix(in srgb, var(--mi-teal) 15%, var(--mi-paper));
+  color: var(--mi-teal-dark);
+}
+
+/* ==========================================================================
+   DEFENDER DIALOG
+   ========================================================================== */
+
+.mi-defender-dialog { font-family: var(--mi-font-ui); }
+
+/* Defence option rows — radio + label layout */
+.mi-defence-options {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px 14px 4px;
+}
+
+.mi-defence-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: var(--mi-radius);
+  cursor: pointer; transition: background .1s;
+}
+.mi-defence-option:hover { background: var(--mi-teal-bg-sub); }
+.mi-defence-option input[type="radio"] { flex-shrink: 0; accent-color: var(--mi-teal); }
+
+.mi-defence-label {
+  display: flex; align-items: baseline; gap: 8px; flex: 1;
+}
+.mi-defence-name {
+  font-weight: 600; font-size: 12px; color: var(--mi-ink); min-width: 90px;
+}
+.mi-defence-skill {
+  font-size: 13px; font-weight: 700; font-family: var(--mi-font-body);
+  color: var(--mi-teal-dark); min-width: 40px;
+}
+.mi-defence-note {
+  font-size: 10px; color: var(--mi-ink-3); font-style: italic;
+}
+
+/* Parry weapon/style selectors — indented block shown only when parry is selected */
+.mi-parry-selectors {
+  padding: 4px 0 4px 28px;
+  border-left: 2px solid var(--mi-teal-bg);
+  margin: 0 0 4px 18px;
+}
+
+/* ==========================================================================
+   SPECIAL EFFECT DIALOG
+   ========================================================================== */
+
+.mi-se-dialog { font-family: var(--mi-font-ui); }
+
+/* Teal header strip — matches chat card and roll dialog headers */
+.mi-se-dialog-header {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--mi-teal); color: #fff;
+  padding: 10px 14px 8px;
+}
+.mi-se-dialog-winner {
+  font-family: var(--mi-font-display); font-size: 15px; font-weight: 600;
+  color: #fff;
+}
+.mi-se-dialog-vs {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: rgba(255,255,255,.7);
+}
+
+.mi-se-hint {
+  font-size: 11px; color: var(--mi-ink-3); font-style: italic;
+  padding: 6px 14px 2px;
+}
+
+.mi-se-options {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 6px 10px 4px; max-height: 280px; overflow-y: auto;
+}
+
+.mi-se-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 8px; border-radius: var(--mi-radius);
+  cursor: pointer; transition: background .1s;
+  border: 1px solid transparent;
+}
+.mi-se-option:hover:not(.mi-se-disabled) {
+  background: var(--mi-teal-bg); border-color: var(--mi-teal-light);
+}
+.mi-se-option--ff {
+  border-color: color-mix(in srgb, var(--mi-fumble-c) 30%, transparent);
+  background: color-mix(in srgb, var(--mi-fumble-bg) 60%, var(--mi-paper));
+}
+.mi-se-option--ff:hover:not(.mi-se-disabled) {
+  background: var(--mi-fumble-bg); border-color: var(--mi-fumble-c);
+}
+.mi-se-disabled { opacity: .45; cursor: not-allowed; }
+.mi-se-option input[type="checkbox"] { flex-shrink: 0; accent-color: var(--mi-teal); }
+.mi-se-label { flex: 1; font-size: 12px; font-weight: 600; color: var(--mi-ink); }
+.mi-se-ff-note { font-weight: 400; font-size: 10px; color: var(--mi-ink-3); font-style: italic; }
+.mi-se-stackable { font-size: 10px; color: var(--mi-teal); font-style: italic; flex-shrink: 0; }
+
+.mi-se-selected-count {
+  padding: 4px 14px 8px; font-size: 11px; color: var(--mi-ink-3); text-align: right;
+  border-top: 1px solid var(--mi-rule); margin-top: 4px;
+}
+
+/* SE pill in chat card */
+.mi-card-pill--se {
+  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  border: 1px solid var(--mi-teal);
+}
+.mi-card-se-list {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+  padding: 4px 0;
+}
+.mi-card-se-label {
+  font-size: 11px; color: var(--mi-ink-3); font-weight: 600; margin-right: 4px;
+}
+
+/* ==========================================================================
+   RESOLUTION CHAT CARD — roll rows and damage
+   ========================================================================== */
+
+.mi-card-rolls {
+  display: flex; flex-direction: column; gap: 4px; padding: 6px 0;
+}
+/* Roll row: label on top line, numbers on bottom line */
+.mi-card-roll-row {
+  display: flex; flex-direction: column;
+  padding: 4px 8px; border-radius: var(--mi-radius);
+  background: var(--mi-paper-2);
+}
+.mi-card-roll-row-top {
+  font-size: 11px; font-weight: 600; color: var(--mi-ink);
+  white-space: normal; word-break: break-word; line-height: 1.3;
+}
+.mi-card-roll-row-bottom {
+  display: flex; align-items: center; gap: 8px; margin-top: 2px;
+}
+/* Keep old class names working as no-ops / fallbacks */
+.mi-card-roll-label  { font-size: 11px; font-weight: 600; color: var(--mi-ink); }
+.mi-card-roll-target { font-size: 11px; color: var(--mi-ink-3); }
+.mi-card-roll-result {
+  font-size: 14px; font-weight: 700; font-family: var(--mi-font-body);
+  color: var(--mi-ink);
+}
+
+/* Damage row */
+.mi-card-damage-row  { padding: 4px 0; border-top: 1px solid var(--mi-rule); margin-top: 4px; }
+.mi-card-damage-applied {
+  display: flex; align-items: center; gap: 10px; padding: 4px 6px;
+}
+.mi-card-damage-num  { font-size: 12px; font-weight: 700; color: var(--mi-ink); }
+.mi-card-note        { font-size: 10px; color: var(--mi-ink-3); margin-left: 6px; }
+
+/* GM Mode section divider in attacker dialog */
+.mi-dialog-divider {
+  border: none; border-top: 1px solid var(--mi-rule); margin: 10px 0 6px;
+}
+.mi-dialog-section-title {
+  padding: 0 14px 6px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--mi-ink-3);
+}
+.mi-dialogue-section-title i { margin-right: 6px; }
+
+.mi-defence-options--inline { padding: 0 14px 8px; }
+
+/* ==========================================================================
+   CSS UPDATES v1.4.15 — larger cards, stack count display
+   ========================================================================== */
+
+/* Larger resolution card */
+.mi-chat-card--resolution .mi-card-body { padding: 10px 14px 14px; }
+.mi-chat-card--resolution .mi-card-header { padding: 10px 14px; }
+.mi-chat-card--resolution .mi-card-actor { font-size: 14px; }
+.mi-chat-card--resolution .mi-card-skill { font-size: 12px; margin-top: 2px; }
+
+/* Bigger roll rows */
+.mi-card-roll-row      { padding: 6px 10px; }
+.mi-card-roll-row-top  { font-size: 12px; }
+.mi-card-roll-row-bottom { gap: 10px; }
+.mi-card-roll-label    { font-size: 12px; }
+.mi-card-roll-target   { font-size: 12px; }
+.mi-card-roll-result   { font-size: 20px; font-weight: 800; }
+.mi-card-roll-row--defender { background: var(--mi-paper-1); }
+
+/* Outcome labels larger */
+.mi-outcome { font-size: 12px; font-weight: 700; padding: 2px 8px; }
+
+/* Damage display */
+.mi-card-damage-header {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 6px 0;
+}
+.mi-card-damage-num    { font-size: 16px; font-weight: 800; color: var(--mi-ink); }
+.mi-card-damage-final  { font-size: 13px; font-weight: 700; color: var(--mi-teal-dark); }
+.mi-card-note--warn    { color: var(--mi-fumble-c); font-weight: 700; }
+.mi-roll-result--location { font-size: 1.4em; }
+
+/* SE stack count badge */
+.mi-se-stack-count {
+  background: var(--mi-teal); color: #fff;
+  border-radius: 10px; padding: 0 7px;
+  font-size: 11px; font-weight: 700;
+  margin-left: 4px;
+}
+.mi-se-stackable { color: var(--mi-teal); font-size: 10px; font-style: italic; margin-left: 4px; }
+
+/* ── SE opposed roll dialogs — Bleed, Trip ─────────────────────────────────── */
+.mi-se-roll-dialog { font-family: var(--mi-font-ui); }
+
+.mi-se-roll-header {
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--mi-teal); color: #fff;
+  padding: 10px 14px 8px;
+}
+.mi-se-roll-title {
+  font-family: var(--mi-font-display); font-size: 15px; font-weight: 600; color: #fff;
+}
+.mi-se-roll-subtitle {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .08em; color: rgba(255,255,255,.7);
+}
+.mi-se-roll-body {
+  padding: 10px 14px 6px; display: flex; flex-direction: column; gap: 5px;
+}
+.mi-se-roll-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 8px; border-radius: var(--mi-radius);
+  background: var(--mi-paper-2);
+}
+.mi-se-roll-row--resist {
+  background: var(--mi-teal-bg); border: 1px solid var(--mi-teal-light);
+}
+.mi-se-roll-label { font-size: 12px; font-weight: 600; color: var(--mi-ink); }
+.mi-se-roll-val   { font-size: 15px; font-weight: 800; color: var(--mi-teal-dark); font-family: var(--mi-font-body); }
+.mi-se-roll-note  { font-size: 11px; color: var(--mi-ink-3); font-style: italic; margin: 2px 0; }
+
+
+
+/* ── Dice breakdown ────────────────────────────────────────────────────────── */
+.mi-dice-breakdown {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mi-ink-2);
+  letter-spacing: .02em;
+  margin: 6px 0 8px;
+  font-family: var(--mi-font-body);
+  background: var(--mi-paper-1);
+  border-radius: var(--mi-radius);
+  padding: 6px 10px;
+}
+.mi-dice-breakdown-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mi-dice-breakdown-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--mi-ink-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.mi-dice-breakdown-die {
+  display: inline-block;
+  background: var(--mi-teal-bg);
+  color: var(--mi-teal-dark);
+  border: 1px solid var(--mi-teal-light);
+  border-radius: 4px;
+  min-width: 26px;
+  height: 26px;
+  line-height: 24px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0 5px;
+}
+
+/* ==========================================================================
+   PAUSE GRAPHIC — The Design Mechanism logo
+   ========================================================================== */
+.mi-pause-logo {
+  width: 240px;
+  height: auto;
+  display: block;
+  /* Preserve the existing slow-spin animation Foundry applies to the pause icon */
+  animation: inherit;
+}
+
+/* ==========================================================================
+   CSS v1.4.59 — Full Auto hit location row on outcome card
+   ========================================================================== */
+
+.mi-card-location-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 0 4px;
+  border-top: 1px solid var(--mi-rule); margin-top: 4px;
+}
+.mi-card-location-die {
+  font-size: 11px; color: var(--mi-ink-3); white-space: nowrap;
+}
+.mi-card-location-die strong { color: var(--mi-ink); font-weight: 800; }
+.mi-card-location-label {
+  font-size: 13px; font-weight: 700; color: var(--mi-teal-dark);
+}
+
+/* ==========================================================================
+   CSS v1.4.70 — Impale double damage roll display
+   ========================================================================== */
+
+.mi-card-impale-rolls {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0 2px;
+  flex-wrap: wrap;
+}
+.mi-card-impale-die {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 28px; height: 28px; padding: 0 6px;
+  border-radius: 4px;
+  font-size: 14px; font-weight: 800; line-height: 1;
+}
+.mi-impale-winner {
+  background: var(--mi-teal-dark); color: #fff;
+}
+.mi-impale-loser {
+  background: var(--mi-rule); color: var(--mi-ink-3);
+  text-decoration: line-through;
+}
+
+/* ==========================================================================
+   CSS v1.4.81 — Choose Location picker dialog
+   Replaces the inline <style> block that was in _showLocationPicker.
+   ========================================================================== */
+
+.mi-loc-picker {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 0 2px;
+}
+.mi-loc-picker-option {
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 8px; border-radius: var(--mi-radius);
+  cursor: pointer; transition: background 0.1s;
+  border: 1px solid transparent;
+}
+.mi-loc-picker-option:hover {
+  background: var(--mi-teal-bg); border-color: var(--mi-teal-light);
+}
+.mi-loc-picker-option:has(input:checked) {
+  background: var(--mi-teal-bg-sub); border-color: var(--mi-teal-light);
+}
+.mi-loc-picker-option input[type="radio"] {
+  flex-shrink: 0; margin: 0; accent-color: var(--mi-teal);
+}
+.mi-loc-picker-name {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--mi-ink);
+}
+.mi-loc-picker-range {
+  margin-left: auto; font-size: 11px; color: var(--mi-ink-4);
+  font-family: var(--mi-font-body); font-weight: 600;
+  background: var(--mi-paper-2); border-radius: var(--mi-radius);
+  padding: 1px 6px; white-space: nowrap;
+}
+.mi-loc-picker-header {
+  font-size: 11px; color: var(--mi-ink-3); font-style: italic;
+  margin: 0 0 4px 0; padding: 0 2px;
+}
+
+/* ==========================================================================
+   CSS v1.4.81 — Blind Opponent SE
+   ========================================================================== */
+
+/* Chat card note for blinding grade */
+.mi-blind-grade-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 8px; border-radius: var(--mi-radius);
+  background: var(--mi-paper-2); margin-top: 2px;
+}
+.mi-blind-grade-row .mi-se-roll-label { color: var(--mi-ink-2); }
+.mi-blind-grade-val {
+  font-size: 13px; font-weight: 800; color: var(--mi-wound-serious);
+  font-family: var(--mi-font-body);
+}
+
+/* ==========================================================================
+   CSS v1.4.103 — Burst Fire chat card
+   ========================================================================== */
+
+.mi-card-burst-header {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 4px 0; border-top: 1px solid var(--mi-rule); margin-top: 4px;
+}
+
+.mi-card-burst-round {
+  padding: 3px 0 3px 8px;
+  border-left: 2px solid var(--mi-teal);
+  margin: 3px 0;
+}
+
+.mi-card-burst-round .mi-card-location-row {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px;
+  padding: 2px 0;
+}
+
+.mi-card-burst-round .mi-card-damage-num {
+  font-size: 12px; font-weight: 700; color: var(--mi-ink);
+}
+
+.mi-card-burst-round .mi-card-damage-final {
+  font-size: 12px; font-weight: 700; color: var(--mi-teal-dark);
+}
+
+/* ==========================================================================
+   CSS v1.4.106 — Full Auto dialog and consolidated card
+   ========================================================================== */
+
+/* ── Dialog: target list banner ── */
+.mi-full-auto-target-list {
+  font-size: 11px; color: var(--mi-ink-2); font-style: italic;
+  padding: 2px 8px 4px 8px; text-align: center;
+}
+
+/* ── Dialog: rounds slider row ── */
+.mi-rounds-slider-group {
+  display: flex; align-items: center; gap: 6px; flex: 1;
+}
+.mi-rounds-slider {
+  flex: 1; accent-color: var(--mi-teal);
+}
+.mi-rounds-value {
+  font-weight: 800; font-size: 14px; color: var(--mi-ink); min-width: 24px; text-align: right;
+}
+.mi-rounds-info {
+  font-size: 11px; color: var(--mi-ink-2); font-style: italic;
+}
+
+/* ── Consolidated card: spray summary ── */
+.mi-card-full-auto-summary { padding: 4px 0; }
+.mi-full-auto-spray-line {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--mi-ink-2); padding: 2px 0;
+}
+.mi-full-auto-spray-line i { color: var(--mi-teal); }
+.mi-full-auto-targets {
+  font-size: 11px; color: var(--mi-ink-3); font-style: italic; padding: 2px 0;
+}
+.mi-full-auto-pending {
+  font-size: 12px; color: var(--mi-ink-2); font-style: italic; margin-top: 4px;
+}
+
+/* ── Consolidated card: per-target sections ── */
+.mi-full-auto-targets-list { margin-top: 4px; }
+
+.mi-full-auto-target-section {
+  border-top: 1px solid var(--mi-rule);
+  padding: 5px 0 3px 0;
+  margin-top: 3px;
+}
+.mi-full-auto-target-section--first { border-top: 2px solid var(--mi-teal); }
+
+.mi-full-auto-target-header {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+  margin-bottom: 3px;
+}
+.mi-full-auto-target-name {
+  font-weight: 800; font-size: 13px; color: var(--mi-ink);
+}
+
+/* Outcome pills per target */
+.mi-card-pill--outcome-critical { background: var(--mi-teal); color: #fff; }
+.mi-card-pill--outcome-success  { background: var(--mi-success, #2a7a2a); color: #fff; }
+.mi-card-pill--outcome-failure  { background: var(--mi-ink-3); color: #fff; }
+.mi-card-pill--outcome-fumble   { background: var(--mi-wound-major, #8b0000); color: #fff; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MERCHANT SHEET
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Window chrome — same treatment as item sheets */
+.merchant-sheet .window-content {
+  padding: 0 !important;
+  background: var(--mi-paper) !important;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.merchant-sheet .window-header {
+  background: var(--mi-teal) !important;
+  color: #fff !important;
+  border-bottom: none !important;
+}
+.merchant-sheet .window-title { color: #fff !important; }
+.merchant-sheet .header-button { color: rgba(255,255,255,.8) !important; }
+.merchant-sheet .header-button:hover { color: #fff !important; }
+
+/* Body */
+.merchant-sheet-body {
+  display: flex; flex-direction: column; gap: 0;
+  height: 100%; overflow-y: auto; padding-bottom: 12px;
+  background: var(--mi-paper); font-family: var(--mi-font-ui);
+  font-size: 12px; color: var(--mi-ink);
+}
+
+/* Header — matches .mi-sheet-header */
+.mi-merchant-header {
+  display: grid; grid-template-columns: 78px 1fr;
+  gap: 8px; align-items: start;
+  padding: 7px 12px; background: var(--mi-paper);
+  border-bottom: 2px solid var(--mi-teal); flex-shrink: 0;
+}
+.mi-actor-img {
+  width: 72px; height: 72px; object-fit: cover;
+  border-radius: var(--mi-radius); border: 2px solid var(--mi-teal); cursor: pointer;
+}
+.mi-actor-name {
+  font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
+  color: var(--mi-teal-dark); border: none; background: transparent;
+  width: 100%; padding: 0; margin-bottom: 4px;
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-actor-name:focus { outline: none; border-bottom-color: var(--mi-teal-light); }
+.mi-merchant-proprietor {
+  font-size: 11px; color: var(--mi-ink-3);
+  background: transparent; border: none;
+  border-bottom: 1px solid var(--mi-rule);
+  width: 100%; padding: 2px 0; outline: none; margin-bottom: 3px;
+}
+.mi-merchant-proprietor:focus { border-bottom-color: var(--mi-teal-light); }
+.mi-merchant-mode-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 4px;
+}
+.mi-merchant-mode-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--mi-ink-3);
+}
+.mi-merchant-mode-sel {
+  font-size: 11px; padding: 2px 5px;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+}
+.mi-merchant-lock-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--mi-ink-3); cursor: pointer;
+  margin-left: auto;
+}
+
+/* Meta row (Commerce %, Trade-in %) */
+.mi-merchant-meta {
+  display: flex; background: var(--mi-teal-bg-sub);
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-merchant-meta-cell {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 12px; flex: 1;
+}
+.mi-merchant-meta-cell:not(:last-child) {
+  border-right: 1px solid var(--mi-rule);
+}
+.mi-merchant-meta-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--mi-ink-3);
+}
+.mi-merchant-meta-val {
+  width: 44px; text-align: right;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+  padding: 2px 4px; font-size: 11px;
+}
+.mi-merchant-meta-unit { font-size: 10px; color: var(--mi-ink-4); }
+
+/* Section labels */
+.merchant-sheet-body .mi-section-label {
+  padding: 7px 12px 3px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--mi-ink-3);
+  border-bottom: 1px solid var(--mi-rule); margin: 0 0 4px;
+}
+.mi-merchant-drop-hint {
+  font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--mi-ink-4);
+}
+
+/* Currency table */
+.mi-merchant-currency-table {
+  padding: 4px 12px 8px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.mi-merchant-currency-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 3px 0; border-bottom: 1px solid var(--mi-rule);
+}
+.mi-currency-name { flex: 1; font-size: 11px; color: var(--mi-ink-2); }
+.mi-currency-abbr {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  color: var(--mi-teal); min-width: 28px;
+}
+.mi-currency-qty {
+  width: 56px; text-align: right;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+  padding: 2px 4px; font-size: 11px;
+}
+
+/* Inventory table — CSS grid with named columns */
+.mi-merchant-inv-list {
+  padding: 0 12px 8px; display: flex; flex-direction: column; gap: 1px;
+}
+.mi-merchant-inv-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 2px; border-bottom: 1px solid var(--mi-rule);
+}
+.container-mode .mi-merchant-inv-row[draggable="true"] { cursor: grab; }
+.container-mode .mi-merchant-inv-row[draggable="true"]:active { cursor: grabbing; }
+.mi-merchant-item-name {
+  display: flex; align-items: center; gap: 6px;
+  flex: 1; font-size: 11px; cursor: pointer; color: var(--mi-ink-2);
+  text-decoration: none;
+}
+.mi-merchant-item-name:hover { color: var(--mi-teal); }
+.mi-merchant-item-img {
+  width: 20px; height: 20px; border-radius: 3px;
+  object-fit: cover; border: 1px solid var(--mi-rule); flex-shrink: 0;
+}
+.mi-merchant-item-qty {
+  font-size: 11px; color: var(--mi-ink-3); flex-shrink: 0; min-width: 24px;
+  text-align: right;
+}
+.mi-merchant-item-price {
+  font-size: 11px; color: var(--mi-ink-2); flex-shrink: 0; min-width: 60px;
+  text-align: right;
+}
+.mi-merchant-inv-empty { padding: 10px 12px; }
+
+/* Drop zones re-use combat style sheet pattern */
+.merchant-sheet-body .mi-cs-weapons-empty {
+  padding: 8px 12px; color: var(--mi-ink-4); font-size: 11px;
+}
+
+/* Buy button — compact */
+.mi-merchant-buy-btn {
+  font-size: 10px; padding: 2px 8px;
+  background: var(--mi-teal); color: #fff;
+  border: none; border-radius: var(--mi-radius);
+  cursor: pointer; white-space: nowrap;
+}
+.mi-merchant-buy-btn:hover { background: var(--mi-teal-light); }
+
+/* Description */
+.mi-merchant-desc { min-height: 60px; }
+
+/* Wealth insufficient warning in Buy dialog */
+.mi-wealth-insufficient { color: var(--mi-wound-serious); font-weight: 600; }
+
+/* ==========================================================================
+   VEHICLE SHEET
+   Two-tab layout: spine + mi-sheet-main, same chrome as CharacterSheet.
+   ========================================================================== */
+
+/* Override spine brand for vehicle */
+.vehicle-sheet .mi-spine-brand { letter-spacing: .08em; }
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.vehicle-sheet .mi-sheet-header {
+  display: grid; grid-template-columns: 62px 1fr;
+  gap: 8px; align-items: start;
+  padding: 7px 12px;
+  border-bottom: 2px solid var(--mi-teal); flex-shrink: 0;
+}
+.vehicle-sheet .mi-header-portrait { width: 56px; }
+.vehicle-sheet .mi-portrait {
+  width: 56px; height: 56px; object-fit: cover;
+  border-radius: var(--mi-radius); border: 2px solid var(--mi-teal); cursor: pointer;
+}
+.mi-vehicle-type-row {
+  display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;
+}
+.mi-vehicle-sel {
+  font-size: 11px; padding: 2px 5px;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+}
+.mi-vehicle-sep { color: var(--mi-ink-4); font-size: 11px; }
+.mi-vehicle-trait-budget {
+  font-size: 10px; font-weight: 600; color: var(--mi-ink-3);
+  padding: 2px 7px; border-radius: 10px;
+  background: var(--mi-teal-bg); border: 1px solid transparent;
+}
+.mi-vehicle-trait-over {
+  color: var(--mi-wound-serious);
+  background: #fff0eb; border-color: var(--mi-wound-serious);
+}
+
+/* ── Persistent stats bar (Hull / Structure / Speed / Handling / Shields) ── */
+.mi-vehicle-stats-bar {
+  display: flex; flex-wrap: wrap;
+  border-bottom: 2px solid var(--mi-rule);
+  background: var(--mi-teal-bg-sub); flex-shrink: 0;
+}
+.mi-vehicle-stat-cell {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5px 8px; gap: 3px; flex: 1; min-width: 80px;
+}
+.mi-vehicle-stat-cell:not(:last-child) { border-right: 1px solid var(--mi-rule); }
+.mi-vehicle-stat-cell--shields-off { opacity: .65; }
+.mi-vehicle-stat-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--mi-ink-3); white-space: nowrap;
+}
+.mi-vehicle-stat-input {
+  width: 52px; text-align: center;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+  padding: 2px 4px; font-size: 13px; font-weight: 600;
+}
+.mi-vehicle-stat-sel {
+  font-size: 11px; padding: 2px 4px; text-align: center;
+  background: var(--mi-paper-2); border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); color: var(--mi-ink);
+}
+
+/* AP-style track for Structure and Shields — mirrors the CharacterSheet AP cell.
+   Layout: [+/− stack] value / max [+/− max-stack]                              */
+.mi-veh-ap-track {
+  display: flex; align-items: center; justify-content: center;
+  gap: 4px; margin-top: 2px; font-size: 12px;
+}
+.mi-veh-ap-btn-stack {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.mi-veh-ap-val  { font-weight: 700; color: var(--mi-ink); min-width: 18px; text-align: center; }
+.mi-veh-ap-sep  { color: var(--mi-ink-4); }
+.mi-veh-ap-max  { font-weight: 600; color: var(--mi-ink-2); min-width: 18px; text-align: center; }
+
+.mi-veh-ap-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid var(--mi-teal); color: var(--mi-teal);
+  font-size: 7px; cursor: pointer; flex-shrink: 0;
+  background: transparent;
+  transition: background .1s, color .1s;
+}
+.mi-veh-ap-btn:hover { background: var(--mi-teal); color: #fff; }
+
+/* Max-adjust stack — fade in on cell hover; visually secondary */
+.mi-veh-ap-max-btns { opacity: 1; }
+.mi-veh-ap-max-btn {
+  border-color: var(--mi-ink-4) !important; color: var(--mi-ink-4) !important;
+}
+.mi-veh-ap-max-btn:hover {
+  border-color: var(--mi-ink-2) !important; color: var(--mi-ink-2) !important;
+  background: transparent !important;
+}
+
+/* Shields "not fitted" state */
+.mi-veh-shields-off-label { font-size: 10px; }
+.mi-vehicle-stat-cell--shields-off .mi-veh-ap-max-btns { opacity: 1; }
+.mi-veh-fit-shield-btn {
+  font-size: 9px !important; width: auto !important; height: auto !important;
+  border-radius: var(--mi-radius) !important; padding: 1px 5px !important;
+  border: 1px solid var(--mi-teal) !important; color: var(--mi-teal) !important;
+}
+.mi-veh-fit-shield-btn:hover {
+  background: var(--mi-teal) !important; color: #fff !important;
+}
+
+
+/* ── Section labels inside tab panels ───────────────────────────────────── */
+.vehicle-sheet .mi-section-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--mi-ink-3);
+  border-bottom: 1px solid var(--mi-rule); margin-bottom: 4px;
+}
+.mi-section-icon { color: var(--mi-teal); font-size: 10px; }
+.mi-vehicle-drop-hint {
+  font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--mi-ink-4);
+}
+.mi-vehicle-empty-hint {
+  padding: 6px 0; font-size: 11px; color: var(--mi-ink-4);
+}
+
+/* ── Shared item thumbnail ───────────────────────────────────────────────── */
+.mi-vehicle-item-img {
+  width: 20px; height: 20px; border-radius: 3px;
+  object-fit: cover; border: 1px solid var(--mi-rule); flex-shrink: 0;
+}
+
+/* ── Trait list ──────────────────────────────────────────────────────────── */
+.mi-vehicle-trait-list { display: flex; flex-direction: column; gap: 1px; }
+.mi-vehicle-trait-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--mi-rule);
+}
+.mi-veh-trait-name {
+  flex: 1; font-size: 11px; cursor: pointer; color: var(--mi-ink-2); text-decoration: none;
+}
+.mi-veh-trait-name:hover { color: var(--mi-teal); }
+.mi-veh-trait-delete {
+  opacity: 1; color: var(--mi-ink-4); font-size: 11px; cursor: pointer;
+}
+
+/* ── Description / Notes ─────────────────────────────────────────────────── */
+.mi-vehicle-desc { min-height: 60px; }
+.mi-vehicle-gmnotes { background: #f8f7f0; min-height: 50px; }
+
+/* ── Crew list ───────────────────────────────────────────────────────────── */
+.mi-vehicle-crew-list { display: flex; flex-direction: column; gap: 1px; }
+.mi-vehicle-crew-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--mi-rule);
+}
+.mi-veh-crew-unavailable { opacity: .55; }
+.mi-vehicle-crew-img {
+  width: 24px; height: 24px; border-radius: 50%;
+  object-fit: cover; border: 2px solid var(--mi-rule); flex-shrink: 0;
+}
+.mi-veh-crew-name {
+  flex: 1; font-size: 11px; cursor: pointer; color: var(--mi-ink-2);
+  text-decoration: none; font-weight: 500;
+}
+.mi-veh-crew-name:hover { color: var(--mi-teal); }
+.mi-veh-crew-role {
+  width: 90px; font-size: 11px; color: var(--mi-ink-3);
+  background: transparent; border: none; border-bottom: 1px solid var(--mi-rule);
+  padding: 1px 3px; outline: none;
+}
+.mi-veh-crew-role:focus { border-bottom-color: var(--mi-teal-light); }
+.mi-veh-crew-delete {
+  opacity: 1; color: var(--mi-ink-4); font-size: 11px; cursor: pointer;
+}
+
+/* ── System damage grid (hit-location style) ────────────────────────────────────────── */
+.vehicle-sheet .mi-section-label .mi-veh-sys-add-btn {
+  margin-left: auto; font-size: 10px; padding: 1px 7px;
+  background: var(--mi-teal-bg); border: 1px solid var(--mi-teal);
+  border-radius: var(--mi-radius); color: var(--mi-teal); cursor: pointer;
+  text-transform: none; letter-spacing: 0;
+}
+.vehicle-sheet .mi-section-label .mi-veh-sys-add-btn:hover {
+  background: var(--mi-teal); color: #fff;
+}
+
+/* 6-column grid: handle | name | 1d10 | hits | state | delete */
+.mi-veh-sys-grid { margin-bottom: 4px; }
+.mi-veh-sys-header-row,
+.mi-veh-sys-row {
+  display: grid;
+  grid-template-columns: 14px 69px 32px 60px 52px 18px;
+  gap: 3px; align-items: center;
+}
+.mi-veh-sys-header-row { border-bottom: 1px solid var(--mi-teal); }
+.mi-veh-sys-hdr {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--mi-ink-3);
+  padding: 2px 4px; background: var(--mi-paper-2);
+}
+.mi-veh-sys-row {
+  border-bottom: 1px solid var(--mi-rule);
+  transition: background .1s;
+}
+.mi-veh-sys-row:hover { background: var(--mi-teal-bg-sub); }
+.mi-veh-sys-row.mi-wound-major  { background: #fff4f4; }
+.mi-veh-sys-row.mi-wound-serious { background: #fff8f0; }
+.mi-veh-sys-name-cell { padding: 2px 4px; }
+.mi-veh-sys-range { font-size: 11px; color: var(--mi-ink-3); padding: 2px 4px; text-align: center; }
+.mi-veh-sys-hp    { display: flex; align-items: center; gap: 2px; padding: 2px 4px; justify-content: center; }
+.mi-veh-sys-state { padding: 2px 4px; text-align: center; }
+.mi-veh-sys-ctrl  { display: flex; justify-content: center; }
+.mi-center        { text-align: center; }
+
+.mi-veh-sys-state-ok        { font-size: 10px; color: var(--mi-success-c); }
+.mi-veh-sys-state-damaged   { font-size: 10px; color: var(--mi-wound-serious); font-weight: 600; }
+.mi-veh-sys-state-destroyed { font-size: 10px; color: var(--mi-wound-major); font-weight: 700; text-transform: uppercase; }
+
+.mi-veh-sys-delete {
+  opacity: 1; color: var(--mi-ink-4); font-size: 11px; cursor: pointer;
+}
+
+/* ── Weapon list ─────────────────────────────────────────────────────────── */
+.mi-vehicle-weapon-list { display: flex; flex-direction: column; gap: 1px; }
+.mi-vehicle-weapon-header {
+  display: flex; align-items: center; gap: 6px;
+  padding: 2px 0 4px; border-bottom: 1px solid var(--mi-teal);
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--mi-ink-3);
+}
+.mi-vehicle-weapon-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0; border-bottom: 1px solid var(--mi-rule);
+}
+.mi-veh-weapon-name {
+  display: flex; align-items: center; gap: 6px;
+  flex: 1; font-size: 11px; cursor: pointer; color: var(--mi-ink-2); text-decoration: none;
+}
+.mi-veh-weapon-name:hover { color: var(--mi-teal); }
+.mi-veh-weapon-name { cursor: pointer; }
+.mi-veh-weapon-name[title]::after { content: ' \2022'; font-size: 8px; opacity: 0; }
+.mi-veh-wcol-name  { flex: 1; }
+.mi-veh-wcol-dmg   { min-width: 52px; text-align: right; font-size: 11px; }
+.mi-veh-wcol-range { min-width: 60px; text-align: right; font-size: 11px; }
+.mi-veh-wcol-load  { min-width: 36px; text-align: right; font-size: 11px; }
+.mi-veh-wcol-del   { min-width: 20px; text-align: right; }
+.mi-veh-weapon-delete {
+  opacity: 1; color: var(--mi-ink-4); font-size: 11px; cursor: pointer;
+}
+
+/* ── Combat tab two-column layout (system damage | weapon systems) ───────── */
+.mi-veh-combat-columns {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+.mi-veh-combat-col-sys {
+  flex: 0 0 260px;
+  width: 260px;
+  min-width: 0;
+  overflow: hidden;
+}
+.mi-veh-combat-col-weapons {
+  flex: 1;
+  min-width: 180px;
+  padding-top: 3px;
+}
+
+/* ── 1d10 System Damage reference table ─────────────────────────────────── */
+.mi-veh-dmg-table-label { margin-top: 8px; }
+.mi-veh-dmg-table {
+  font-size: 10px; border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius); overflow: hidden;
+  margin-bottom: 8px;
+}
+.mi-veh-dmg-table-head {
+  display: grid;
+  grid-template-columns: 36px 80px 1fr 1fr;
+  gap: 4px; padding: 3px 6px;
+  background: var(--mi-teal-dark); color: #fff;
+  font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+}
+.mi-veh-dmg-table-row {
+  display: grid;
+  grid-template-columns: 36px 80px 1fr 1fr;
+  gap: 4px; padding: 3px 6px;
+  border-top: 1px solid var(--mi-rule);
+  color: var(--mi-ink-2);
+}
+.mi-veh-dmg-table-row:nth-child(even) { background: var(--mi-teal-bg-sub); }
+.mi-veh-dtcol-roll  { font-weight: 700; color: var(--mi-teal); text-align: center; }
+.mi-veh-dtcol-sys   { font-weight: 600; }
+.mi-veh-dtcol-hit   { color: var(--mi-ink-3); }
+.mi-veh-dtcol-dest  { color: var(--mi-wound-major); }
+
+/* ==========================================================================
+   VEHICLE COMBAT CHAT CARDS
+   ========================================================================== */
+
+.mi-veh-combat-result {
+  margin: 6px 10px 2px;
+  border: 1px solid var(--mi-rule);
+  border-radius: var(--mi-radius);
+  overflow: hidden;
+}
+.mi-veh-dmg-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 3px 8px; font-size: 11px;
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-veh-dmg-row:last-child { border-bottom: none; }
+.mi-veh-dmg-label {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--mi-ink-3);
+  min-width: 120px; flex-shrink: 0;
+}
+.mi-veh-dmg-val { flex: 1; color: var(--mi-ink-2); }
+.mi-veh-dmg-raw { background: var(--mi-teal-bg-sub); }
+.mi-veh-dmg-stopped { background: #f0fdf4; }
+.mi-veh-dmg-stopped .mi-veh-dmg-label { color: var(--mi-success-c); }
+.mi-veh-dmg-penetrate { background: #fff8f0; }
+.mi-veh-dmg-penetrate .mi-veh-dmg-label { color: var(--mi-wound-serious); }
+.mi-veh-dmg-system { background: var(--mi-fumble-bg); }
+.mi-veh-dmg-system .mi-veh-dmg-label { color: var(--mi-fumble-c); }
+
+/* Roll Vehicle Damage button — same look as mi-btn-dmg */
+.mi-btn-veh-dmg {
+  background: var(--mi-teal); color: #fff;
+  border: none; border-radius: var(--mi-radius);
+  padding: 4px 12px; font-size: 11px; font-weight: 600;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+}
+.mi-btn-veh-dmg:hover { background: var(--mi-teal-light); }
+.mi-btn-veh-dmg:disabled { opacity: .55; cursor: default; }
+
+/* ── Crew / style picker dialog ─────────────────────────────────────────── */
+.mi-crew-picker-dialog .window-content { padding: 10px 12px 6px; }
+.mi-crew-picker { display: flex; flex-direction: column; gap: 8px; }
+.mi-crew-pick-prompt { margin: 0 0 4px; font-size: 12px; color: var(--mi-ink-2); }
+.mi-crew-pick-list { display: flex; flex-direction: column; gap: 3px; }
+.mi-crew-pick-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: var(--mi-radius);
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .1s;
+}
+.mi-crew-pick-row:hover { background: var(--mi-teal-bg-sub); }
+.mi-crew-pick-row:has(input:checked) {
+  background: var(--mi-teal-bg-sub); border-color: var(--mi-teal);
+}
+.mi-crew-pick-row input[type="radio"] { display: none; }
+.mi-crew-pick-img { width: 24px; height: 24px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+.mi-crew-pick-name { flex: 1; font-size: 12px; color: var(--mi-ink); }
+.mi-crew-role-label { font-size: 10px; }
+.mi-crew-style-pct { font-size: 11px; font-weight: 600; color: var(--mi-teal-dark); min-width: 36px; text-align: right; }

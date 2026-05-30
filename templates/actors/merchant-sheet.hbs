@@ -1,0 +1,131 @@
+{{! systems/mythras-imperative/templates/actors/merchant-sheet.hbs }}
+<div class="mi-actor-sheet-body merchant-sheet-body {{#if isShop}}shop-mode{{else}}container-mode{{/if}}">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-sheet-header mi-merchant-header">
+    <img class="mi-actor-img" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+    <div class="mi-header-body">
+      <input class="mi-actor-name" type="text" name="name" value="{{actor.name}}"
+             placeholder="Name"/>
+      {{#if isShop}}
+        <input class="mi-merchant-proprietor" type="text" name="system.proprietorName"
+               value="{{system.proprietorName}}" placeholder="Proprietor name"/>
+      {{/if}}
+      <div class="mi-merchant-mode-row">
+        <label class="mi-merchant-mode-label">Mode</label>
+        <select id="mi-merchant-mode" name="system.mode" class="mi-merchant-mode-sel">
+          <option value="shop" {{#if isShop}}selected{{/if}}>Shop</option>
+          <option value="container" {{#if isContainer}}selected{{/if}}>Container</option>
+        </select>
+        {{#if isContainer}}
+          <label class="mi-merchant-lock-label">
+            <input type="checkbox" id="mi-merchant-locked"
+                   {{#if system.locked}}checked{{/if}}/>
+            <i class="fas {{#if system.locked}}fa-lock{{else}}fa-lock-open{{/if}}"></i>
+            {{#if system.locked}}Locked{{else}}Unlocked{{/if}}
+          </label>
+        {{/if}}
+      </div>
+    </div>
+  </header>
+
+  {{! ── SHOP META (shop mode only) ─────────────────────────────────────── }}
+  {{#if isShop}}
+  <div class="mi-merchant-meta">
+    <div class="mi-merchant-meta-cell">
+      <span class="mi-merchant-meta-label">Commerce Skill</span>
+      <input class="mi-merchant-meta-val" type="number" name="system.commerceSkill"
+             value="{{system.commerceSkill}}" min="0" max="200" step="1"/>
+      <span class="mi-merchant-meta-unit">%</span>
+    </div>
+    <div class="mi-merchant-meta-cell">
+      <span class="mi-merchant-meta-label">Trade-in</span>
+      <input class="mi-merchant-meta-val mi-merchant-tradein" type="number"
+             name="system.tradeInFraction"
+             value="{{tradeInPct}}" min="0" max="100" step="5"
+             title="Default trade-in offer as % of list price"/>
+      <span class="mi-merchant-meta-unit">%</span>
+    </div>
+  </div>
+  {{/if}}
+
+  {{! ── CURRENCY / WEALTH ───────────────────────────────────────────────── }}
+  <div class="mi-section-label mi-section-with-add">
+    <span>{{#if isShop}}Merchant Funds{{else}}Currency{{/if}}</span>
+    <span class="mi-muted mi-merchant-drop-hint">— drag currency items here</span>
+  </div>
+  <div class="mi-merchant-currency-table
+              {{#unless currencyItems}}mi-cs-weapons-empty{{/unless}}">
+    {{#if currencyItems}}
+      {{#each currencyItems as |c|}}
+      <div class="mi-merchant-currency-row">
+        <span class="mi-currency-name">{{c.name}}</span>
+        <span class="mi-currency-abbr mi-muted">{{c.system.abbreviation}}</span>
+        <input class="mi-currency-qty" type="number"
+               data-item-id="{{c.id}}"
+               value="{{c.system.quantity}}" min="0" step="1"/>
+        <a class="mi-merchant-item-delete mi-faint" data-item-id="{{c.id}}"
+           title="Remove"><i class="fas fa-times"></i></a>
+      </div>
+      {{/each}}
+    {{else}}
+      <span class="mi-cs-drop-hint">
+        <i class="fas fa-arrow-down"></i> Drop currency items here
+      </span>
+    {{/if}}
+  </div>
+
+  {{! ── INVENTORY ───────────────────────────────────────────────────────── }}
+  <div class="mi-section-label">
+    <span>Inventory</span>
+    {{#if isShop}}
+      <span class="mi-muted mi-merchant-drop-hint">— drag items here to stock</span>
+    {{else}}
+      <span class="mi-muted mi-merchant-drop-hint">— drag items here</span>
+    {{/if}}
+  </div>
+
+  {{#if inventory}}
+  <div class="mi-merchant-inv-list">
+    {{#each inventory as |item|}}
+    <div class="mi-merchant-inv-row" data-item-uuid="{{item.uuid}}">
+      <a class="mi-merchant-item-name mi-link" data-item-id="{{item.id}}">
+        <img class="mi-merchant-item-img" src="{{item.img}}" title="{{item.name}}"/>
+        <span>{{item.name}}</span>
+      </a>
+      <span class="mi-merchant-item-qty mi-muted">×{{item.quantity}}</span>
+      {{#if isShop}}
+      <span class="mi-merchant-item-price {{#unless item.hasPrice}}mi-muted{{/unless}}">
+        {{item.priceDisplay}}
+      </span>
+      {{#if item.canBuy}}
+        <button class="mi-btn mi-merchant-buy-btn" data-item-id="{{item.id}}"
+                title="Buy this item">
+          <i class="fas fa-coins"></i> Buy
+        </button>
+      {{/if}}
+      {{/if}}
+      <a class="mi-merchant-item-delete mi-faint" data-item-id="{{item.id}}"
+         title="Remove"><i class="fas fa-times"></i></a>
+    </div>
+    {{/each}}
+  </div>
+  {{else}}
+  <div class="mi-cs-weapons-empty mi-merchant-inv-empty">
+    <span class="mi-cs-drop-hint">
+      <i class="fas fa-arrow-down"></i>
+      {{#if isShop}}Drag items here to stock the shop{{else}}Drag items here to fill the container{{/if}}
+    </span>
+  </div>
+  {{/if}}
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">
+      {{#if isShop}}Shop Description{{else}}Notes{{/if}}
+    </div>
+    <textarea name="system.description" class="mi-item-desc mi-merchant-desc"
+              placeholder="{{#if isShop}}Shop description, hours, reputation...{{else}}What's in this chest? Where is it?{{/if}}">{{system.description}}</textarea>
+  </div>
+
+</div>

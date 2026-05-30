@@ -1,0 +1,17 @@
+<div class="mi-se-roll-dialog">
+  <div class="mi-se-roll-header">
+    <span class="mi-se-roll-title">Bleed</span>
+    <span class="mi-se-roll-subtitle">{{attackerName}} → {{defenderName}}</span>
+  </div>
+  <div class="mi-se-roll-body">
+    <div class="mi-se-roll-row">
+      <span class="mi-se-roll-label">Attack roll</span>
+      <span class="mi-se-roll-val">{{attackRoll}}</span>
+    </div>
+    <div class="mi-se-roll-row mi-se-roll-row--resist">
+      <span class="mi-se-roll-label">{{defenderName}} — {{defenderSkill}}{{{condNote}}}</span>
+      <span class="mi-se-roll-val">{{defenderTotal}}%</span>
+    </div>
+    <p class="mi-se-roll-note">Roll {{defenderSkill}} to resist bleeding. Failure means 1 Fatigue lost per Round until staunched.</p>
+  </div>
+</div>

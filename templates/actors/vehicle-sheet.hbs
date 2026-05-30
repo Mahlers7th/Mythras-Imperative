@@ -1,0 +1,348 @@
+{{! systems/mythras-imperative/templates/actors/vehicle-sheet.hbs }}
+<div class="mythras-sheet vehicle-sheet">
+
+  {{! ── SPINE TABS ──────────────────────────────────────────────────────── }}
+  <nav class="mi-tabs-spine">
+    <div class="mi-spine-brand">VEH</div>
+    <a class="mi-tab-btn {{#if (eq activeTab 'overview')}}active{{/if}}"
+       data-tab="overview" title="Overview">
+      <i class="fas fa-car"></i><span>Overview</span>
+    </a>
+    <a class="mi-tab-btn {{#if (eq activeTab 'combat')}}active{{/if}}"
+       data-tab="combat" title="Combat">
+      <i class="fas fa-crosshairs"></i><span>Combat</span>
+    </a>
+  </nav>
+
+  {{! ── MAIN ────────────────────────────────────────────────────────────── }}
+  <div class="mi-sheet-main">
+
+    {{! ── HEADER (always visible) ─────────────────────────────────────────}}
+    <header class="mi-sheet-header mi-vehicle-header">
+      <div class="mi-header-portrait">
+        <img class="mi-portrait" src="{{actor.img}}" data-edit="img" title="{{actor.name}}"/>
+      </div>
+      <div class="mi-header-body">
+        <input class="mi-actor-name" type="text" name="name"
+               value="{{actor.name}}" placeholder="Vehicle name"/>
+        <div class="mi-vehicle-type-row">
+          <select name="system.vehicleType" class="mi-vehicle-sel">
+            <option value="terrestrial" {{#if (eq system.vehicleType "terrestrial")}}selected{{/if}}>Terrestrial</option>
+            <option value="spacecraft"  {{#if (eq system.vehicleType "spacecraft")}}selected{{/if}}>Spacecraft</option>
+          </select>
+          <span class="mi-vehicle-sep">·</span>
+          <select name="system.size" class="mi-vehicle-sel">
+            <option value="small"     {{#if (eq system.size "small")}}selected{{/if}}>Small</option>
+            <option value="medium"    {{#if (eq system.size "medium")}}selected{{/if}}>Medium</option>
+            <option value="large"     {{#if (eq system.size "large")}}selected{{/if}}>Large</option>
+            <option value="huge"      {{#if (eq system.size "huge")}}selected{{/if}}>Huge</option>
+            <option value="enormous"  {{#if (eq system.size "enormous")}}selected{{/if}}>Enormous</option>
+            <option value="colossal"  {{#if (eq system.size "colossal")}}selected{{/if}}>Colossal</option>
+          </select>
+          <span class="mi-vehicle-sep">·</span>
+          <span class="mi-vehicle-trait-budget {{#if traitOver}}mi-vehicle-trait-over{{/if}}">
+            {{traitCount}} / {{maxTraits}} traits
+          </span>
+        </div>
+      </div>
+    </header>
+
+    {{! ── PERSISTENT STATS BAR (always visible) ───────────────────────────}}
+    <div class="mi-vehicle-stats-bar">
+
+      <div class="mi-vehicle-stat-cell">
+        <div class="mi-vehicle-stat-label">Hull <span class="mi-muted">(AP)</span></div>
+        <input class="mi-vehicle-stat-input" type="number"
+               name="system.hull" value="{{system.hull}}" min="0" step="1"/>
+      </div>
+
+      <div class="mi-vehicle-stat-cell">
+        <div class="mi-vehicle-stat-label">Structure</div>
+        <div class="mi-veh-ap-track">
+          <div class="mi-veh-ap-btn-stack">
+            <button type="button" class="mi-veh-track-btn mi-veh-ap-btn"
+                    data-field="structure.value" data-delta="1" title="Restore 1 Structure"><i class="fas fa-plus"></i></button>
+            <button type="button" class="mi-veh-track-btn mi-veh-ap-btn"
+                    data-field="structure.value" data-delta="-1" title="Remove 1 Structure"><i class="fas fa-minus"></i></button>
+          </div>
+          <span class="mi-veh-ap-val">{{system.structure.value}}</span>
+          <span class="mi-veh-ap-sep">/</span>
+          <span class="mi-veh-ap-max">{{system.structure.max}}</span>
+          <div class="mi-veh-ap-btn-stack mi-veh-ap-max-btns">
+            <button type="button" class="mi-veh-max-btn mi-veh-ap-btn mi-veh-ap-max-btn"
+                    data-field="structure.max" data-delta="1" title="Increase max Structure"><i class="fas fa-plus"></i></button>
+            <button type="button" class="mi-veh-max-btn mi-veh-ap-btn mi-veh-ap-max-btn"
+                    data-field="structure.max" data-delta="-1" title="Decrease max Structure"><i class="fas fa-minus"></i></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mi-vehicle-stat-cell">
+        <div class="mi-vehicle-stat-label">Speed</div>
+        <select name="system.speed" class="mi-vehicle-stat-sel">
+          {{#each speedOptions as |opt|}}
+            <option value="{{opt.value}}" {{#if opt.selected}}selected{{/if}}>{{opt.label}}</option>
+          {{/each}}
+        </select>
+      </div>
+
+      <div class="mi-vehicle-stat-cell">
+        <div class="mi-vehicle-stat-label">Handling</div>
+        <select name="system.handling" class="mi-vehicle-stat-sel">
+          <option value="easy"       {{#if (eq system.handling "easy")}}selected{{/if}}>Easy</option>
+          <option value="standard"   {{#if (eq system.handling "standard")}}selected{{/if}}>Standard</option>
+          <option value="hard"       {{#if (eq system.handling "hard")}}selected{{/if}}>Hard</option>
+          <option value="formidable" {{#if (eq system.handling "formidable")}}selected{{/if}}>Formidable</option>
+          <option value="herculean"  {{#if (eq system.handling "herculean")}}selected{{/if}}>Herculean</option>
+        </select>
+      </div>
+
+      {{#if hasShields}}
+      <div class="mi-vehicle-stat-cell">
+        <div class="mi-vehicle-stat-label">Shields</div>
+        <div class="mi-veh-ap-track">
+          <div class="mi-veh-ap-btn-stack">
+            <button type="button" class="mi-veh-track-btn mi-veh-ap-btn"
+                    data-field="shields.value" data-delta="1" title="Restore 1 Shield"><i class="fas fa-plus"></i></button>
+            <button type="button" class="mi-veh-track-btn mi-veh-ap-btn"
+                    data-field="shields.value" data-delta="-1" title="Remove 1 Shield"><i class="fas fa-minus"></i></button>
+          </div>
+          <span class="mi-veh-ap-val">{{system.shields.value}}</span>
+          <span class="mi-veh-ap-sep">/</span>
+          <span class="mi-veh-ap-max">{{system.shields.max}}</span>
+          <div class="mi-veh-ap-btn-stack mi-veh-ap-max-btns">
+            <button type="button" class="mi-veh-max-btn mi-veh-ap-btn mi-veh-ap-max-btn"
+                    data-field="shields.max" data-delta="1" title="Increase max Shields"><i class="fas fa-plus"></i></button>
+            <button type="button" class="mi-veh-max-btn mi-veh-ap-btn mi-veh-ap-max-btn"
+                    data-field="shields.max" data-delta="-1" title="Decrease max Shields"><i class="fas fa-minus"></i></button>
+          </div>
+        </div>
+      </div>
+      {{else}}
+      <div class="mi-vehicle-stat-cell mi-vehicle-stat-cell--shields-off">
+        <div class="mi-vehicle-stat-label">Shields</div>
+        <div class="mi-veh-ap-track">
+          <span class="mi-muted mi-veh-shields-off-label">not fitted</span>
+          <button type="button" class="mi-veh-max-btn mi-veh-ap-btn mi-veh-fit-shield-btn"
+                  data-field="shields.max" data-delta="1" title="Fit shields">fit</button>
+        </div>
+      </div>
+      {{/if}}
+
+    </div>{{! end stats-bar }}
+
+    {{! ── TAB BODY ─────────────────────────────────────────────────────────}}
+    <div class="mi-tab-body">
+
+      {{! ════════════ OVERVIEW TAB ════════════ }}
+      <section class="mi-tab-panel {{#if (eq activeTab 'overview')}}active{{/if}}"
+               data-tab="overview">
+
+        {{! Traits }}
+        <div class="mi-section-label">
+          <i class="fas fa-star mi-section-icon"></i>
+          <span>Traits</span>
+          <span class="mi-vehicle-drop-hint">— drag from Vehicle Traits compendium</span>
+        </div>
+        {{#if traits}}
+        <div class="mi-vehicle-trait-list">
+          {{#each traits as |trait|}}
+          <div class="mi-vehicle-trait-row" title="{{trait.desc}}">
+            <img class="mi-vehicle-item-img" src="{{trait.img}}" title="{{trait.name}}"/>
+            <a class="mi-veh-trait-name mi-link" data-item-id="{{trait.id}}">{{trait.name}}</a>
+            <a class="mi-veh-trait-delete mi-faint" data-item-id="{{trait.id}}"
+               title="Remove"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+        {{else}}
+        <div class="mi-vehicle-empty-hint">
+          <i class="fas fa-arrow-down"></i> Drag vehicle traits here
+        </div>
+        {{/if}}
+
+        {{! Description }}
+        <div class="mi-section-label" style="margin-top:8px;">
+          <i class="fas fa-book-open mi-section-icon"></i>
+          <span>Description</span>
+        </div>
+        <div class="mi-item-desc-block">
+          <textarea name="system.description" class="mi-item-desc mi-vehicle-desc"
+                    placeholder="Vehicle description, history, capabilities…">{{system.description}}</textarea>
+        </div>
+
+        {{! GM Notes }}
+        <div class="mi-section-label" style="margin-top:6px;">
+          <i class="fas fa-lock mi-section-icon"></i>
+          <span>GM Notes</span>
+        </div>
+        <div class="mi-item-desc-block">
+          <textarea name="system.gmNotes" class="mi-item-desc mi-vehicle-desc mi-vehicle-gmnotes"
+                    placeholder="Private notes — damage log, modifications, crew briefing…">{{system.gmNotes}}</textarea>
+        </div>
+
+      </section>
+
+      {{! ════════════ COMBAT TAB ════════════ }}
+      <section class="mi-tab-panel {{#if (eq activeTab 'combat')}}active{{/if}}"
+               data-tab="combat">
+
+        {{! ── CREW ──────────────────────────────────────────────────────── }}
+        <div class="mi-section-label">
+          <i class="fas fa-users mi-section-icon"></i>
+          <span>Crew</span>
+          <span class="mi-vehicle-drop-hint">— drag actor tokens here</span>
+        </div>
+        {{#if crew}}
+        <div class="mi-vehicle-crew-list">
+          {{#each crew as |member|}}
+          <div class="mi-vehicle-crew-row {{#unless member.available}}mi-veh-crew-unavailable{{/unless}}">
+            <img class="mi-vehicle-crew-img" src="{{member.img}}" title="{{member.name}}"/>
+            <a class="mi-veh-crew-name mi-link" data-uuid="{{member.uuid}}"
+               title="{{#if member.available}}Open sheet{{else}}Actor not available{{/if}}">
+              {{member.name}}
+            </a>
+            <input class="mi-veh-crew-role" type="text" data-idx="{{member.idx}}"
+                   value="{{member.role}}" placeholder="Role…"/>
+            <a class="mi-veh-crew-delete mi-faint" data-idx="{{member.idx}}"
+               title="Remove from crew"><i class="fas fa-times"></i></a>
+          </div>
+          {{/each}}
+        </div>
+        {{else}}
+        <div class="mi-vehicle-empty-hint">
+          <i class="fas fa-arrow-down"></i> Drag character/NPC actors here to assign crew
+        </div>
+        {{/if}}
+
+        {{! ── SYSTEM DAMAGE + WEAPONS (side-by-side) ─────────────────────── }}
+        <div class="mi-veh-combat-columns">
+
+          <div class="mi-veh-combat-col-sys">
+          {{! ── SYSTEM DAMAGE ──────────────────────────────────────────────── }}
+          <div class="mi-section-label">
+            <i class="fas fa-cogs mi-section-icon"></i>
+            <span>System Damage</span>
+            <button type="button" class="mi-veh-sys-add-btn mi-btn mi-btn--xs"
+                    title="Add custom system component">
+              <i class="fas fa-plus"></i> Add
+            </button>
+          </div>
+
+          {{#if systemSlots}}
+          <div class="mi-veh-sys-grid">
+            <div class="mi-veh-sys-header-row">
+              <div class="mi-veh-sys-hdr"></div>
+              <div class="mi-veh-sys-hdr">System</div>
+              <div class="mi-veh-sys-hdr mi-center">1d10</div>
+              <div class="mi-veh-sys-hdr mi-center">Hits</div>
+              <div class="mi-veh-sys-hdr mi-center">State</div>
+              <div class="mi-veh-sys-hdr"></div>
+            </div>
+            {{#each systemSlots as |slot|}}
+            <div class="mi-veh-sys-row {{slot.woundClass}}">
+              <div class="mi-loc-handle" title="Drag to reorder (coming soon)">
+                <i class="fas fa-grip-vertical"></i>
+              </div>
+              <div class="mi-veh-sys-name-cell">
+                <input class="mi-loc-name-input mi-veh-sys-field" type="text"
+                       data-item-id="{{slot.itemId}}"
+                       data-field="system.label"
+                       data-name-field="true"
+                       value="{{slot.label}}" title="Click to rename"/>
+              </div>
+              <div class="mi-veh-sys-range mi-muted mi-center">{{slot.range}}</div>
+              <div class="mi-veh-sys-hp mi-center">
+                <input class="mi-loc-input mi-veh-sys-field {{slot.woundClass}}" type="number"
+                       data-item-id="{{slot.itemId}}"
+                       data-field="system.current"
+                       value="{{slot.current}}" min="0"/>
+                <span class="mi-loc-maxhp">/{{slot.hp}}</span>
+              </div>
+              <div class="mi-veh-sys-state mi-center">
+                <span class="mi-veh-sys-state-{{#if (eq slot.current 0)}}destroyed
+                             {{else if (eq slot.woundClass '')}}ok
+                             {{else}}damaged{{/if}}">
+                  {{slot.stateLabel}}
+                </span>
+              </div>
+              <div class="mi-veh-sys-ctrl">
+                <a class="mi-item-delete mi-veh-sys-delete" data-item-id="{{slot.itemId}}"
+                   title="Remove component"><i class="fas fa-times"></i></a>
+              </div>
+            </div>
+            {{/each}}
+          </div>
+          {{else}}
+          <div class="mi-vehicle-empty-hint">No system components. Click Add to create.</div>
+          {{/if}}
+
+          </div>{{! end col-sys }}
+
+          <div class="mi-veh-combat-col-weapons">
+          {{! ── WEAPONS ────────────────────────────────────────────────────── }}
+          <div class="mi-section-label">
+            <i class="fas fa-crosshairs mi-section-icon"></i>
+            <span>Weapon Systems</span>
+            <span class="mi-vehicle-drop-hint">— drag weapon items here</span>
+          </div>
+          {{#if weapons}}
+          <div class="mi-vehicle-weapon-list">
+            <div class="mi-vehicle-weapon-header">
+              <span class="mi-veh-wcol-name">Weapon</span>
+              <span class="mi-veh-wcol-dmg">Damage</span>
+              <span class="mi-veh-wcol-range">Range</span>
+              <span class="mi-veh-wcol-load">Load</span>
+              <span class="mi-veh-wcol-del"></span>
+            </div>
+            {{#each weapons as |w|}}
+            <div class="mi-vehicle-weapon-row">
+              <a class="mi-veh-weapon-name mi-link" data-item-id="{{w.id}}" title="Click to fire · Double-click to open">
+                <img class="mi-vehicle-item-img" src="{{w.img}}" title="{{w.name}}"/>
+                {{w.name}}
+              </a>
+              <span class="mi-veh-wcol-dmg mi-muted">{{w.damage}}</span>
+              <span class="mi-veh-wcol-range mi-muted">{{w.range}}</span>
+              <span class="mi-veh-wcol-load mi-muted">{{w.load}}</span>
+              <a class="mi-veh-weapon-delete mi-faint" data-item-id="{{w.id}}"
+                 title="Remove"><i class="fas fa-times"></i></a>
+            </div>
+            {{/each}}
+          </div>
+          {{else}}
+          <div class="mi-vehicle-empty-hint">
+            <i class="fas fa-arrow-down"></i> Drag weapon items here
+          </div>
+          {{/if}}
+
+          </div>{{! end col-weapons }}
+
+        </div>{{! end combat-columns }}
+
+        {{! ── 1d10 SYSTEM DAMAGE REFERENCE TABLE ─────────────────────────── }}
+        <div class="mi-section-label mi-veh-dmg-table-label" style="margin-top:8px;">
+          <i class="fas fa-dice mi-section-icon"></i>
+          <span>System Component Damage — 1d10</span>
+        </div>
+        <div class="mi-veh-dmg-table">
+          <div class="mi-veh-dmg-table-head">
+            <span class="mi-veh-dtcol-roll">Roll</span>
+            <span class="mi-veh-dtcol-sys">System</span>
+            <span class="mi-veh-dtcol-hit">Damaged</span>
+            <span class="mi-veh-dtcol-dest">Destroyed</span>
+          </div>
+          {{#each systemDamageTable as |row|}}
+          <div class="mi-veh-dmg-table-row">
+            <span class="mi-veh-dtcol-roll mi-muted">{{row.roll}}</span>
+            <span class="mi-veh-dtcol-sys">{{row.system}}</span>
+            <span class="mi-veh-dtcol-hit mi-muted">{{row.damaged}}</span>
+            <span class="mi-veh-dtcol-dest mi-muted">{{row.destroyed}}</span>
+          </div>
+          {{/each}}
+        </div>
+
+      </section>{{! end combat tab }}
+
+    </div>{{! end tab-body }}
+  </div>{{! end mi-sheet-main }}
+</div>{{! end mythras-sheet }}

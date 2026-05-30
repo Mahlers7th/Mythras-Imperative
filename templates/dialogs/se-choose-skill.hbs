@@ -1,0 +1,15 @@
+<div class="mi-se-roll-dialog">
+  <div class="mi-se-roll-header">
+    <span class="mi-se-roll-title">{{title}}</span>
+    <span class="mi-se-roll-subtitle">{{subtitle}}</span>
+  </div>
+  <div class="mi-se-roll-body">
+    {{#if showAttackRow}}
+    <div class="mi-se-roll-row">
+      <span class="mi-se-roll-label">{{attackRowLabel}} (opposing)</span>
+      <span class="mi-se-roll-val">{{attackRoll}}</span>
+    </div>
+    {{/if}}
+    <p class="mi-se-roll-note">{{note}}</p>
+  </div>
+</div>
