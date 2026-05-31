@@ -6,6 +6,16 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.211 — May 2026
+- Fix: `opposed.js` dynamic `import('./CombatSocket.js')` used a path relative to `effects/` — should be `'../CombatSocket.js'`. Affected all 7 opposed-roll resolvers in semi-auto non-GM mode (Trip, Bleed, Stun, Disarm, Blind, DropFoe, PinDown would silently fail to show their dialog)
+- Fix: Creature actor skill rolls showing 0% in the roll dialog. `CharacterSheet._onRoll` and `_onRollResistance` recompute skill total from `baseFormula + bonusPoints` for character/NPC actors, but creature actors (including MEG imports) store skills with a flat `system.total` — no formula. Added `actor.type !== 'creature'` guard to use `system.total` directly for creature actors
+
+## v1.4.210 — May 2026
+- Fix: `helpers.js` used `getFatigueSkillGrade` in `applyFatigueToSkill` but never imported it (it was available in `CombatEngine.js` scope but the import wasn't carried across during extraction). At runtime this caused `applyFatigueToSkill` to throw, breaking combat initiation (0% skill totals, combat style clicks doing nothing). Added missing `import { getFatigueSkillGrade } from '../../utils/fatigue.js'` to `helpers.js`
+
+## v1.4.209 — May 2026
+- Fix: `opposed.js` imported `resolveOpposedRoll` from `helpers.js`, but `helpers.js` only imports it for internal use and does not re-export it. At runtime this resolved to `undefined`, causing every opposed-roll resolver to throw on call (breaking character sheets). Fixed: `resolveOpposedRoll` and `classifyLocation` now imported directly from `combat-math.js` in `opposed.js`
+
 ## v1.4.208 — May 2026
 - **Refactor 2b, Batch 3:** extracted 7 opposed-roll SE resolvers into `module/combat/effects/opposed.js`: `resolveBleed`, `resolveTripOpponent`, `resolveStunLocation`, `resolveDisarmOpponent`, `resolveBlindOpponent`, `resolveDropFoe`, `resolvePinDown`
 - Extracted `classifyLocation` from `CombatEngine._classifyLocation` into `module/utils/combat-math.js` (pure function, zero Foundry deps, now testable). `CombatEngine._classifyLocation` becomes a delegating wrapper

@@ -22,9 +22,8 @@ import {
   applyStatusToActor,
   applyProneToDefender,
   applyFatigueToSkill,
-  resolveOpposedRoll,
 } from './helpers.js';
-import { classifyLocation } from '../../utils/combat-math.js';
+import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
 
 
 // -------------------------------------------------------------------------
@@ -64,7 +63,7 @@ export async function resolveBleed(ctx, damage, forcesFail) {
         defenderTotal:      enduranceTotal
       });
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
@@ -169,7 +168,7 @@ export async function resolveTripOpponent(ctx, damage, forcesFail) {
         tripIsOffensive
       });
     } else {
-      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('../CombatSocket.js');
       const targetUserId = tripIsOffensive
         ? _findDefenderUserId(defender)
         : _findUserIdForActor(attacker);
@@ -273,7 +272,7 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
         damage
       });
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
@@ -469,7 +468,7 @@ export async function resolveDisarmOpponent(ctx, damage, forcesFail) {
         disarmIsOffensive
       });
     } else {
-      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('../CombatSocket.js');
       const targetUserId = disarmIsOffensive
         ? _findDefenderUserId(defender)
         : _findUserIdForActor(attacker);
@@ -633,7 +632,7 @@ export async function resolveBlindOpponent(ctx) {
         defenderTotal:      resistSkillTotal
       });
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = _findDefenderUserId(attacker); // the attacker's player resists
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
@@ -778,7 +777,7 @@ export async function resolveDropFoe(ctx, damage, forcesFail) {
         defenderTotal:      enduranceTotal
       });
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
@@ -889,7 +888,7 @@ export async function resolvePinDown(ctx, forcesFail) {
         defenderTotal:      wpTotal
       });
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {

@@ -670,9 +670,13 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }
     }
 
-    // Compute live total without mutating the TypeDataModel proxy
+    // Compute live total without mutating the TypeDataModel proxy.
+    // For character/NPC actors: recompute from baseFormula + bonusPoints.
+    // For creature actors: skills are stored with a flat system.total (set by
+    // MEG import or manual entry) — no formula to recompute, use it directly.
     let skillTotal = item.system.total ?? 0;
-    if (item.type === 'skill' || item.type === 'combat-style' || item.type === 'passion') {
+    if ((item.type === 'skill' || item.type === 'combat-style' || item.type === 'passion')
+        && this.document.type !== 'creature') {
       const c = this.document.system.characteristics;
       const chars = {
         STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
@@ -998,14 +1002,19 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
 
-    // Compute live total (same as _onRoll)
-    const c = actor.system.characteristics;
-    const chars = {
-      STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-      DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-    };
-    const base       = this._evalFormula(item.system.baseFormula ?? '', chars);
-    const skillTotal = base + (item.system.bonusPoints ?? 0);
+    // Compute live total — creature actors store a flat system.total, skip formula
+    let skillTotal;
+    if (actor.type === 'creature') {
+      skillTotal = item.system.total ?? 0;
+    } else {
+      const c = actor.system.characteristics;
+      const chars = {
+        STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
+        DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
+      };
+      const base = this._evalFormula(item.system.baseFormula ?? '', chars);
+      skillTotal = base + (item.system.bonusPoints ?? 0);
+    }
 
     const { MythrasRoll } = await import('../rolls/MythrasRoll.js');
     await MythrasRoll.rollDialog({

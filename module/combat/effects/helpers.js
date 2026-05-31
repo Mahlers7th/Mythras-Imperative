@@ -10,6 +10,7 @@
  */
 
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
+import { getFatigueSkillGrade } from '../../utils/fatigue.js';
 
 const NS = 'mythras-imperative';
 
