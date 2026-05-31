@@ -224,3 +224,4 @@ export function classifyLocation(locationName) {
   if (/head|skull/.test(n))                            return 'head';
   return 'torso'; // abdomen, chest, thorax, and unknown default
 }
+

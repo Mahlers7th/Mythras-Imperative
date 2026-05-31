@@ -1049,3 +1049,12 @@ export async function spendActionPoint(actor) {
   await actor.update({ 'system.attributes.actionPoints.value': newValue });
   return newValue;
 }
+
+// -------------------------------------------------------------------------
+// getItem — null-safe wrapper to retrieve an item from an actor by id.
+// -------------------------------------------------------------------------
+export function getItem(actor, itemId) {
+  if (!actor || !itemId) return null;
+  try { return actor.items.get(itemId) ?? null; }
+  catch (_) { return null; }
+}

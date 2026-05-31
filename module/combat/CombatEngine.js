@@ -26,7 +26,7 @@
  */
 
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
-import { classifyLocation } from '../utils/combat-math.js';
+import { classifyLocation, getImpaleGrade } from '../utils/combat-math.js';
 import {
   waitForCard,
   runSEDialog,
@@ -39,6 +39,7 @@ import {
   getActiveImpaleGrade,
   getActiveEntangleGrade,
   spendActionPoint,
+  getItem,
 } from './effects/helpers.js';
 import {
   resolveWithdraw,
@@ -72,6 +73,12 @@ import { resolveSlipFree }     from './effects/slip-free.js';
 import { resolveBash }         from './effects/bash.js';
 import { resolveDamageWeapon } from './effects/damage-weapon.js';
 import { resolvePinWeapon }    from './effects/pin-weapon.js';
+import {
+  resolveImpale,
+  postImpaleDecisionCard,
+  applyImpaleLodge,
+  resolveImpaleYank,
+} from './effects/impale.js';
 
 export class CombatEngine {
 
@@ -81,11 +88,7 @@ export class CombatEngine {
   }
 
   // Safe item getter — returns null instead of throwing when id is missing from collection.
-  static _getItem(actor, itemId) {
-    if (!actor || !itemId) return null;
-    try { return actor.items.get(itemId) ?? null; }
-    catch (_) { return null; }
-  }
+  static _getItem(actor, itemId) { return getItem(actor, itemId); }
 
   /** Whether GM Mode is active (inline defender panel, no socket) */
   static get gmMode() {
@@ -3552,76 +3555,7 @@ export class CombatEngine {
   // presented because the attacker must choose (rules p.44).
   // -------------------------------------------------------------------------
 
-  static async _resolveImpale(ctx, damage) {
-    const { attacker, defender, weapon } = ctx;
-    if (!attacker || !defender || !weapon) return;
-
-    // Grade from Impale Effects Table
-    const defenderSIZ = defender.system?.characteristics?.siz?.value ?? 13;
-    const weaponSize  = weapon.system?.size ?? 'M';
-    const gradeId     = CombatEngine._getImpaleGrade(weaponSize, defenderSIZ);
-
-    // Grade label for display
-    const gradeLabels = {
-      none:          'No additional penalty',
-      hard:          'Hard (all skills)',
-      formidable:    'Formidable (all skills)',
-      herculean:     'Herculean (all skills)',
-      incapacitated: 'Incapacitated (status effect)'
-    };
-    const gradeDisplay = gradeLabels[gradeId] ?? gradeId;
-
-    // Half-damage formula — weapon base dice only, no DM (rules p.44)
-    // We store the base formula so the yank handler can roll it later.
-    const halfDmgFormula = weapon.system?.damage ?? '1d4';
-
-    // Unique entry key for the impaledBy flag
-    const impaleEntryId = foundry.utils.randomID(8);
-
-    // Post an immediate notification card so the table knows the weapon lodged,
-    // then write a pending flag to the attacker — the lodge/yank decision card
-    // will appear at the START of the attacker's next turn via updateCombat.
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender.name}</span>
-            <span class="mi-card-skill">Impale — ${weapon.name} lodges!</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-serious">
-                <i class="fas fa-khanda"></i> ${weapon.name} is embedded in ${defender.name}'s ${ctx.hitLocationLabel ?? 'wound'}
-              </span>
-            </div>
-            <div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">Penalty while lodged</span>
-              <span class="mi-se-roll-val">${gradeDisplay}</span>
-            </div>
-            <p class="mi-se-roll-note">Leave In / Yank Free decision will appear at the start of ${attacker.name}'s next turn.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-
-    // Store the pending decision on the attacker so updateCombat can post it next turn.
-    const pendingImpales = attacker.getFlag('mythras-imperative', 'pendingImpales') ?? {};
-    pendingImpales[impaleEntryId] = {
-      defenderId:       defender.id,
-      weaponId:         weapon.id,
-      impaleEntryId,
-      gradeId,
-      gradeDisplay,
-      hitLocationId:    ctx.hitLocationId   ?? '',
-      hitLocationLabel: ctx.hitLocationLabel ?? '',
-      halfDmgFormula,
-      attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-      defenderName:     defender.name,
-      weaponName:       weapon.name
-    };
-    await attacker.setFlag('mythras-imperative', 'pendingImpales', pendingImpales);
-  }
+  static async _resolveImpale(ctx, damage) { return resolveImpale(ctx, damage); }
 
   // -------------------------------------------------------------------------
   // _resolveEntangleTrip — called from updateCombat at the start of the
@@ -3660,148 +3594,14 @@ export class CombatEngine {
   // entry: a pending impale entry from flags['mythras-imperative'].pendingImpales
   // -------------------------------------------------------------------------
 
-  static async _postImpaleDecisionCard(attacker, entry) {
-    const {
-      defenderId, weaponId, impaleEntryId, gradeId, gradeDisplay,
-      hitLocationId, hitLocationLabel, halfDmgFormula,
-      attackerSkillTotal, defenderName, weaponName
-    } = entry;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defenderName}</span>
-            <span class="mi-card-skill">Impale — Leave In or Yank Free?</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-serious">
-                <i class="fas fa-khanda"></i> ${weaponName} remains embedded in ${defenderName}'s ${hitLocationLabel || 'wound'}
-              </span>
-            </div>
-            <div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">Penalty while lodged</span>
-              <span class="mi-se-roll-val">${gradeDisplay}</span>
-            </div>
-            <div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">Yank damage</span>
-              <span class="mi-se-roll-val">½ ${halfDmgFormula} (no DM, ignores armour)</span>
-            </div>
-            <p class="mi-se-roll-note">Costs Ready Weapon action. Yanking requires a Brawn roll — failure means it stays (retry next turn).</p>
-            <div class="mi-manual-actions">
-              <button class="mi-btn mi-btn-impale-leave"
-                data-attacker-id="${attacker.id}"
-                data-defender-id="${defenderId}"
-                data-weapon-id="${weaponId}"
-                data-impale-entry-id="${impaleEntryId}"
-                data-grade-id="${gradeId}"
-                data-hit-location-id="${hitLocationId}"
-                data-hit-location-label="${hitLocationLabel}"
-                data-half-dmg-formula="${halfDmgFormula}">
-                <i class="fas fa-hand-paper"></i> Leave In
-              </button>
-              <button class="mi-btn mi-btn-impale-yank"
-                data-attacker-id="${attacker.id}"
-                data-defender-id="${defenderId}"
-                data-weapon-id="${weaponId}"
-                data-impale-entry-id="${impaleEntryId}"
-                data-grade-id="${gradeId}"
-                data-hit-location-id="${hitLocationId}"
-                data-hit-location-label="${hitLocationLabel}"
-                data-half-dmg-formula="${halfDmgFormula}"
-                data-attacker-skill-total="${attackerSkillTotal}">
-                <i class="fas fa-hand-rock"></i> Yank Free
-              </button>
-            </div>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker }),
-      flags: {
-        'mythras-imperative': {
-          stage:            'impale-decision',
-          attackerId:       attacker.id,
-          defenderId,
-          weaponId,
-          impaleEntryId,
-          gradeId,
-          hitLocationId,
-          hitLocationLabel,
-          halfDmgFormula,
-          attackerSkillTotal
-        }
-      }
-    });
-  }
+  static async _postImpaleDecisionCard(attacker, entry) { return postImpaleDecisionCard(attacker, entry); }
 
   // -------------------------------------------------------------------------
   // _applyImpaleLodge — called when attacker clicks "Leave In".
   // Writes the impaledBy flag to the defender, applies the condition.
   // -------------------------------------------------------------------------
 
-  static async _applyImpaleLodge(btn) {
-    const attackerId      = btn.dataset.attackerId;
-    const defenderId      = btn.dataset.defenderId;
-    const weaponId        = btn.dataset.weaponId;
-    const impaleEntryId   = btn.dataset.impaleEntryId;
-    const gradeId         = btn.dataset.gradeId;
-    const hitLocationId   = btn.dataset.hitLocationId;
-    const hitLocationLabel = btn.dataset.hitLocationLabel;
-    const halfDmgFormula  = btn.dataset.halfDmgFormula;
-
-    const attacker = game.actors.get(attackerId);
-    const defender = game.actors.get(defenderId);
-    const weapon   = CombatEngine._getItem(attacker, weaponId);
-    if (!defender || !weapon) return;
-
-    // Write the flag entry
-    const existing = defender.getFlag('mythras-imperative', 'impaledBy') ?? {};
-    existing[impaleEntryId] = {
-      attackerId, weaponId,
-      weaponName:    weapon.name,
-      weaponSize:    weapon.system?.size ?? 'M',
-      halfDmgFormula,
-      gradeId,
-      hitLocationId,
-      hitLocationLabel
-    };
-    await defender.setFlag('mythras-imperative', 'impaledBy', existing);
-
-    // Clear the pending impale — the decision has been made
-    const pending = attacker?.getFlag('mythras-imperative', 'pendingImpales') ?? {};
-    delete pending[impaleEntryId];
-    if (attacker) await attacker.setFlag('mythras-imperative', 'pendingImpales', pending);
-
-    // Stamp the decision card as resolved so buttons re-disable on re-render
-    const decisionMsg = game.messages.contents.find(
-      m => m.flags?.['mythras-imperative']?.impaleEntryId === impaleEntryId
-        && m.flags?.['mythras-imperative']?.stage === 'impale-decision'
-    );
-    if (decisionMsg) {
-      await decisionMsg.setFlag('mythras-imperative', 'impaleResolved', true);
-    }
-
-    // Apply status effect if incapacitated
-    if (gradeId === 'incapacitated') {
-      await CombatEngine._applyStatusToActor(defender, 'incapacitated');
-    }
-
-    // Notification
-    const gradeLabels = {
-      none: 'no additional penalty', hard: 'Hard', formidable: 'Formidable',
-      herculean: 'Herculean', incapacitated: 'Incapacitated'
-    };
-    const msg = gradeId === 'none'
-      ? `${weapon.name} lodges in ${defender.name} — no skill penalty for this creature's size.`
-      : gradeId === 'incapacitated'
-        ? `${weapon.name} lodges in ${defender.name} — Incapacitated (too large for this creature).`
-        : `${weapon.name} lodges in ${defender.name} — all skill rolls at ${gradeLabels[gradeId]} while it remains.`;
-
-    await ChatMessage.create({
-      content: `<div class="mi-chat-card"><div class="mi-card-body"><div class="mi-outcome-row"><span class="mi-outcome mi-wound-serious"><i class="fas fa-khanda"></i> ${msg}</span></div></div></div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _applyImpaleLodge(btn) { return applyImpaleLodge(btn); }
 
   // -------------------------------------------------------------------------
   // _resolveImpaleYank — called when attacker clicks "Yank Free".
@@ -3812,178 +3612,7 @@ export class CombatEngine {
   // Barbed weapons (trait: 'barbed'): deal full normal damage on yank.
   // -------------------------------------------------------------------------
 
-  static async _resolveImpaleYank(btn) {
-    const attackerId       = btn.dataset.attackerId;
-    const defenderId       = btn.dataset.defenderId;
-    const weaponId         = btn.dataset.weaponId;
-    const impaleEntryId    = btn.dataset.impaleEntryId;
-    const gradeId          = btn.dataset.gradeId;
-    const hitLocationId    = btn.dataset.hitLocationId;
-    const hitLocationLabel = btn.dataset.hitLocationLabel;
-    const halfDmgFormula   = btn.dataset.halfDmgFormula;
-    const attackerSkillTotal = parseInt(btn.dataset.attackerSkillTotal ?? '0', 10);
-
-    const attacker = game.actors.get(attackerId);
-    const defender = game.actors.get(defenderId);
-    const weapon   = CombatEngine._getItem(attacker, weaponId);
-    if (!attacker || !defender || !weapon) return;
-
-    const isSemi   = CombatEngine.automationLevel === 'semi';
-    const isGMMode = CombatEngine.gmMode;
-    const isBarbed = (weapon.system?.traits ?? []).includes('barbed');
-
-    // Brawn skill on the defender — resists the yank (opposed if they resist, unopposed if not)
-    // Rules p.44: "unopposed Brawn roll (or win an Opposed Brawn roll if the opponent resists)"
-    // We treat it as always opposed using the attacker's original attack roll total as the target.
-    const brawnSkill = Array.from(defender.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-    const brawnRaw   = brawnSkill?.system.total ?? 0;
-    const brawnTotal = CombatEngine._applyFatigueToSkill(brawnRaw, defender);
-
-    let defenderRoll     = null;
-    let defenderSucceeds = false; // defender succeeds = yank FAILS (defender holds weapon)
-
-    if (isSemi && !isGMMode) {
-      // Socket to defender's controlling user
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
-      const targetUserId = _findDefenderUserId(defender);
-      const exchangeId   = foundry.utils.randomID(16);
-      const response = await CombatSocket.seChallenge(exchangeId, {
-        seType:             'impaleYank',
-        attackerName:       attacker.name,
-        defenderName:       defender.name,
-        attackRoll:         attackerSkillTotal, // attacker's skill total is the fixed opposing target
-        attackerSkillTotal,
-        defenderSkill:      'Brawn',
-        defenderRaw:        brawnRaw,
-        defenderTotal:      brawnTotal
-      }, targetUserId);
-      defenderRoll     = response?.roll     ?? null;
-      defenderSucceeds = response?.succeeds ?? false;
-    } else {
-      // GM Mode semi or Full Auto — roll silently
-      const roll = new Roll('1d100');
-      await roll.evaluate();
-      defenderRoll     = roll.total;
-      // Defender wins (holds weapon) if better level of success, or tie with higher roll
-      defenderSucceeds = CombatEngine._resolveOpposedRoll(
-        attackerSkillTotal, attackerSkillTotal,
-        defenderRoll, brawnTotal
-      );
-    }
-
-    const yankSucceeds = !defenderSucceeds;
-
-    // Stamp the decision card as resolved regardless of yank outcome
-    const decisionMsg = game.messages.contents.find(
-      m => m.flags?.['mythras-imperative']?.impaleEntryId === impaleEntryId
-        && m.flags?.['mythras-imperative']?.stage === 'impale-decision'
-    );
-    if (decisionMsg) {
-      await decisionMsg.setFlag('mythras-imperative', 'impaleResolved', true);
-    }
-
-    if (yankSucceeds) {
-      // Clear the impaledBy flag entry
-      const existing = defender.getFlag('mythras-imperative', 'impaledBy') ?? {};
-      delete existing[impaleEntryId];
-      await defender.setFlag('mythras-imperative', 'impaledBy', existing);
-
-      // Clear the pending impale — the weapon has been freed
-      const pending = attacker.getFlag('mythras-imperative', 'pendingImpales') ?? {};
-      delete pending[impaleEntryId];
-      await attacker.setFlag('mythras-imperative', 'pendingImpales', pending);
-
-      // Clear Incapacitated if it came from this impale and no other source
-      if (gradeId === 'incapacitated') {
-        const remaining = Object.values(existing);
-        const stillIncap = remaining.some(e => e.gradeId === 'incapacitated');
-        if (!stillIncap) {
-          await CombatEngine._applyStatusToActor(defender, 'incapacitated'); // toggles off
-        }
-      }
-
-      // Roll yank damage — half weapon formula, no DM, ignores armour
-      // Barbed: full normal damage formula instead
-      const yankFormula = isBarbed ? weapon.system?.damage ?? halfDmgFormula : halfDmgFormula;
-      const yankRoll    = new Roll(yankFormula);
-      await yankRoll.evaluate();
-      let yankDamage = yankRoll.total;
-
-      // Half for non-barbed (rules: "half the normal damage roll")
-      if (!isBarbed) yankDamage = Math.ceil(yankDamage / 2);
-
-      // Apply to the same location — armour does NOT reduce (rules p.44)
-      if (hitLocationId && yankDamage > 0) {
-        const locItem = CombatEngine._getItem(defender, hitLocationId);
-        if (locItem) {
-          const newCurrent = (locItem.system.current ?? locItem.system.hp) - yankDamage;
-          await locItem.update({ 'system.current': newCurrent });
-        }
-      }
-
-      await ChatMessage.create({
-        content: `<div class="mi-chat-card"><div class="mi-card-body">
-          <div class="mi-outcome-row"><span class="mi-outcome success"><i class="fas fa-check-circle"></i>
-            ${attacker.name} wrenches ${weapon.name} free — ${yankDamage} additional damage to ${hitLocationLabel} (armour ignored${isBarbed ? ', barbed weapon: full damage' : ''}).
-          </span></div>
-          <div class="mi-se-roll-row"><span class="mi-se-roll-label">Brawn roll</span><span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span></div>
-        </div></div>`,
-        speaker: ChatMessage.getSpeaker({ actor: attacker })
-      });
-    } else {
-      // Yank fails — weapon stays. Re-queue the decision card for attacker's next turn.
-      const pending = attacker.getFlag('mythras-imperative', 'pendingImpales') ?? {};
-      const defenderSIZ  = defender.system?.characteristics?.siz?.value ?? 13;
-      const weaponSize   = weapon.system?.size ?? 'M';
-      const gradeLabels  = {
-        none: 'No additional penalty', hard: 'Hard (all skills)',
-        formidable: 'Formidable (all skills)', herculean: 'Herculean (all skills)',
-        incapacitated: 'Incapacitated (status effect)'
-      };
-      pending[impaleEntryId] = {
-        defenderId,
-        weaponId,
-        impaleEntryId,
-        gradeId,
-        gradeDisplay:      gradeLabels[gradeId] ?? gradeId,
-        hitLocationId,
-        hitLocationLabel,
-        halfDmgFormula,
-        attackerSkillTotal,
-        defenderName:      defender.name,
-        weaponName:        weapon.name
-      };
-      await attacker.setFlag('mythras-imperative', 'pendingImpales', pending);
-
-      // Ensure impaledBy is still written on the defender
-      const existing = defender.getFlag('mythras-imperative', 'impaledBy') ?? {};
-      if (!existing[impaleEntryId]) {
-        existing[impaleEntryId] = {
-          attackerId, weaponId,
-          weaponName:    weapon.name,
-          weaponSize:    weapon.system?.size ?? 'M',
-          halfDmgFormula,
-          gradeId,
-          hitLocationId,
-          hitLocationLabel
-        };
-        await defender.setFlag('mythras-imperative', 'impaledBy', existing);
-        if (gradeId === 'incapacitated') {
-          await CombatEngine._applyStatusToActor(defender, 'incapacitated');
-        }
-      }
-
-      await ChatMessage.create({
-        content: `<div class="mi-chat-card"><div class="mi-card-body">
-          <div class="mi-outcome-row"><span class="mi-outcome mi-wound-minor"><i class="fas fa-times-circle"></i>
-            ${attacker.name} fails to yank ${weapon.name} free — it remains lodged. May try again next turn.
-          </span></div>
-          <div class="mi-se-roll-row"><span class="mi-se-roll-label">Brawn roll</span><span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span></div>
-        </div></div>`,
-        speaker: ChatMessage.getSpeaker({ actor: attacker })
-      });
-    }
-  }
+  static async _resolveImpaleYank(btn) { return resolveImpaleYank(btn); }
 
   // -------------------------------------------------------------------------
   // -------------------------------------------------------------------------
@@ -4787,28 +4416,7 @@ export class CombatEngine {
   // weaponSize: 'S' | 'M' | 'L' | 'H' | 'E'
   // defenderSIZ: the defender's SIZ characteristic value
   // -------------------------------------------------------------------------
-  static _getImpaleGrade(weaponSize, defenderSIZ) {
-    const table = [
-      { min: 1,  max: 10,  S: 'formidable', M: 'herculean',  L: 'incapacitated', H: 'incapacitated', E: 'incapacitated' },
-      { min: 11, max: 20,  S: 'hard',       M: 'formidable', L: 'herculean',     H: 'incapacitated', E: 'incapacitated' },
-      { min: 21, max: 30,  S: 'none',       M: 'hard',       L: 'formidable',    H: 'herculean',     E: 'incapacitated' },
-      { min: 31, max: 40,  S: 'none',       M: 'none',       L: 'hard',          H: 'formidable',    E: 'herculean'     },
-      { min: 41, max: 50,  S: 'none',       M: 'none',       L: 'none',          H: 'hard',          E: 'formidable'    },
-    ];
-    const siz  = Math.max(1, defenderSIZ ?? 13);
-    const size = weaponSize ?? 'M';
-
-    if (siz <= 50) {
-      const row = table.find(r => siz >= r.min && siz <= r.max);
-      return row?.[size] ?? 'none';
-    }
-    // SIZ > 50: each +10 beyond 50 shifts one column easier
-    const sizeOrder   = ['S', 'M', 'L', 'H', 'E'];
-    const extraBands  = Math.floor((siz - 50) / 10);
-    const baseIdx     = sizeOrder.indexOf(size);
-    const shiftedSize = sizeOrder[Math.max(0, baseIdx - extraBands)];
-    return table[4][shiftedSize] ?? 'none';
-  }
+  static _getImpaleGrade(weaponSize, defenderSIZ) { return getImpaleGrade(weaponSize, defenderSIZ); }
 
   // -------------------------------------------------------------------------
   // _getConditionFloorGrade — returns the worst active condition grade id

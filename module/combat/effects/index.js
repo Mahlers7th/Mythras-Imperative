@@ -47,6 +47,14 @@ import { resolveBash }         from './bash.js';
 import { resolveDamageWeapon } from './damage-weapon.js';
 import { resolvePinWeapon }    from './pin-weapon.js';
 
+// ── Batch 6: impale family ────────────────────────────────────────────────────
+import {
+  resolveImpale,
+  postImpaleDecisionCard,
+  applyImpaleLodge,
+  resolveImpaleYank,
+} from './impale.js';
+
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
 // Grows as each batch of resolvers is extracted.
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
@@ -78,4 +86,7 @@ export const SE_RESOLVERS = {
   bash:              resolveBash,
   damageWeapon:      resolveDamageWeapon,
   pinWeapon:         resolvePinWeapon,
+
+  // Batch 6 — impale family
+  impale:            resolveImpale,
 };
