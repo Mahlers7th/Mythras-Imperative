@@ -26,6 +26,17 @@ import {
   resolveWeaponMalfunction,
 } from './simple.js';
 
+// ── Batch 3: opposed-roll resolvers ──────────────────────────────────────────
+import {
+  resolveBleed,
+  resolveTripOpponent,
+  resolveStunLocation,
+  resolveDisarmOpponent,
+  resolveBlindOpponent,
+  resolveDropFoe,
+  resolvePinDown,
+} from './opposed.js';
+
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
 // Grows as each batch of resolvers is extracted.
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
@@ -38,4 +49,13 @@ export const SE_RESOLVERS = {
   circumventCover:   resolveCircumventCover,
   selectTarget:      resolveSelectTarget,
   weaponMalfunction: resolveWeaponMalfunction,
+
+  // Batch 3 — opposed roll resolvers
+  bleed:             resolveBleed,
+  tripOpponent:      resolveTripOpponent,
+  stunLocation:      resolveStunLocation,
+  disarmOpponent:    resolveDisarmOpponent,
+  blindOpponent:     resolveBlindOpponent,
+  dropFoe:           resolveDropFoe,
+  pinDown:           resolvePinDown,
 };

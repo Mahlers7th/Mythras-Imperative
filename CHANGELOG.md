@@ -6,6 +6,13 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.208 — May 2026
+- **Refactor 2b, Batch 3:** extracted 7 opposed-roll SE resolvers into `module/combat/effects/opposed.js`: `resolveBleed`, `resolveTripOpponent`, `resolveStunLocation`, `resolveDisarmOpponent`, `resolveBlindOpponent`, `resolveDropFoe`, `resolvePinDown`
+- Extracted `classifyLocation` from `CombatEngine._classifyLocation` into `module/utils/combat-math.js` (pure function, zero Foundry deps, now testable). `CombatEngine._classifyLocation` becomes a delegating wrapper
+- `module/combat/effects/index.js` `SE_RESOLVERS` catalogue updated with batch 3 entries
+- `CombatEngine.js` reduced from 6,707 to 5,912 lines
+- No behaviour changes
+
 ## v1.4.207 — May 2026
 - **Refactor 2b, Batch 2:** extracted 7 simple SE resolvers into `module/combat/effects/simple.js`: `resolveWithdraw`, `resolveDuckBack`, `resolveRapidReload`, `resolveOverpenetrate`, `resolveCircumventCover`, `resolveSelectTarget`, `resolveWeaponMalfunction`
 - Created `module/combat/effects/index.js` — the SE resolver catalogue (`SE_RESOLVERS` map, id → function). This is the node editor's entry point. Grows with each subsequent batch

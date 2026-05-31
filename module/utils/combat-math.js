@@ -207,3 +207,20 @@ export function getImpaleGrade(weaponSize, defenderSIZ) {
   const shifted    = sizeOrder[Math.max(0, baseIdx - extraBands)];
   return table[4][shifted] ?? 'none';
 }
+
+// ---------------------------------------------------------------------------
+// Location classification  (used by wound consequence logic)
+// ---------------------------------------------------------------------------
+
+/**
+ * Classify a hit location name as 'limb', 'head', or 'torso'.
+ *
+ * @param {string} locationName  The location item's name or label
+ * @returns {'limb'|'head'|'torso'}
+ */
+export function classifyLocation(locationName) {
+  const n = (locationName ?? '').toLowerCase();
+  if (/arm|hand|leg|foot|claw|tentacle|wing/.test(n)) return 'limb';
+  if (/head|skull/.test(n))                            return 'head';
+  return 'torso'; // abdomen, chest, thorax, and unknown default
+}
