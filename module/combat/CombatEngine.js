@@ -38,6 +38,15 @@ import {
   getActiveImpaleGrade,
   getActiveEntangleGrade,
 } from './effects/helpers.js';
+import {
+  resolveWithdraw,
+  resolveDuckBack,
+  resolveRapidReload,
+  resolveOverpenetrate,
+  resolveCircumventCover,
+  resolveSelectTarget,
+  resolveWeaponMalfunction,
+} from './effects/simple.js';
 
 export class CombatEngine {
 
@@ -3881,28 +3890,7 @@ export class CombatEngine {
     }
   }
 
-  static async _resolveWithdraw(ctx) {
-    const { attacker, defender } = ctx;
-    if (!defender) return;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker?.name ?? '?'} → ${defender.name}</span>
-            <span class="mi-card-skill">Withdraw</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome success">
-                <i class="fas fa-running"></i> ${defender.name} withdraws out of reach of ${attacker?.name ?? 'their opponent'}
-              </span>
-            </div>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: defender })
-    });
-  }
+  static async _resolveWithdraw(ctx) { return resolveWithdraw(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolveDuckBack — SE: Duck Back (attacker, firearms only)
@@ -3916,29 +3904,7 @@ export class CombatEngine {
   // The GM should narrate the cover move at the table.
   // -------------------------------------------------------------------------
 
-  static async _resolveDuckBack(ctx) {
-    const { attacker, defender } = ctx;
-    if (!attacker) return;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name}</span>
-            <span class="mi-card-skill">Duck Back</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-outcome--success">
-                <i class="fas fa-shield-alt"></i> ${attacker.name} ducks back into cover
-              </span>
-            </div>
-            <p class="mi-card-note">No Action Point required. ${attacker.name} must be adjacent to cover — GM adjudicates availability.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveDuckBack(ctx) { return resolveDuckBack(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolveRapidReload — SE: Rapid Reload (attacker, ranged, stackable)
@@ -3954,46 +3920,7 @@ export class CombatEngine {
   // quicker technique and applies it going forward.
   // -------------------------------------------------------------------------
 
-  static async _resolveRapidReload(ctx) {
-    const { attacker, weapon } = ctx;
-    if (!attacker || !weapon) return;
-
-    // Count stack instances
-    const stackCount = ctx.chosenSpecialEffects.filter(se => se === 'rapidReload').length;
-    if (stackCount === 0) return;
-
-    const currentLoad = weapon.system.load ?? 0;
-    const newLoad     = Math.max(0, currentLoad - stackCount);
-    const reduction   = currentLoad - newLoad;
-
-    if (reduction > 0) {
-      await weapon.update({ 'system.load': newLoad });
-    }
-
-    const stackNote  = stackCount > 1 ? ` (×${stackCount} — stacked)` : '';
-    const loadNote   = reduction > 0
-      ? `Reload time: ${currentLoad}T → ${newLoad}T${stackNote}`
-      : `Reload time already 0 — no further reduction possible`;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name}</span>
-            <span class="mi-card-skill">Rapid Reload — ${weapon.name}</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-outcome--success">
-                <i class="fas fa-redo"></i> ${loadNote}
-              </span>
-            </div>
-            <p class="mi-card-note">Applies to the next reload. Reload time has been updated on the weapon.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveRapidReload(ctx) { return resolveRapidReload(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolveDropFoe — SE: Drop Foe (attacker, firearms only)
@@ -4249,33 +4176,7 @@ export class CombatEngine {
   // No cross-turn flags or opposed rolls needed.
   // -------------------------------------------------------------------------
 
-  static async _resolveOverpenetrate(ctx) {
-    const { attacker, defender } = ctx;
-    if (!attacker) return;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender?.name ?? '?'}</span>
-            <span class="mi-card-skill">SE: Over-penetration</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-outcome--success">
-                <i class="fas fa-bullseye"></i> Shot penetrates through ${defender?.name ?? 'target'}
-              </span>
-            </div>
-            <p class="mi-card-note">
-              The round passes through the first victim and strikes a second target behind them.
-              GM: if the shot overcame ${defender?.name ?? 'the target'}'s armour, identify the second victim.
-              The second victim suffers <strong>half damage</strong> (attenuated shot). No Special Effects are applied to the second target.
-            </p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveOverpenetrate(ctx) { return resolveOverpenetrate(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolveCircumventCover — SE: Circumvent Cover (attacker, high-tech firearms)
@@ -4289,32 +4190,7 @@ export class CombatEngine {
   // for this exchange. Damage calculation itself is unchanged by the system.
   // -------------------------------------------------------------------------
 
-  static async _resolveCircumventCover(ctx) {
-    const { attacker, defender } = ctx;
-    if (!attacker) return;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender?.name ?? '?'}</span>
-            <span class="mi-card-skill">SE: Circumvent Cover</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-outcome--success">
-                <i class="fas fa-crosshairs"></i> Shot bypasses ${defender?.name ?? 'target'}'s cover
-              </span>
-            </div>
-            <p class="mi-card-note">
-              High-tech ammunition circumvents the protection of any cover the target is sheltering behind.
-              GM: do not apply cover Armour Points to this shot. Normal worn and natural armour still applies.
-            </p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveCircumventCover(ctx) { return resolveCircumventCover(ctx); }
 
 
   // -------------------------------------------------------------------------
@@ -4329,30 +4205,7 @@ export class CombatEngine {
   // No flags written, no status effects, no cross-turn state.
   // -------------------------------------------------------------------------
 
-  static async _resolveSelectTarget(ctx) {
-    const { attacker, defender, weapon } = ctx;
-    if (!defender) return;
-
-    const weaponName = weapon?.name ?? 'weapon';
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker?.name ?? '?'} → ${defender.name}</span>
-            <span class="mi-card-skill">Select Target</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome success">
-                <i class="fas fa-crosshairs"></i> ${defender.name} deflects ${attacker?.name ?? "their opponent"}'s fumbled ${weaponName} strike toward an adjacent bystander
-              </span>
-            </div>
-            <p class="mi-card-note">The new victim is automatically hit with no chance to defend and suffers no Special Effects. GM determines the target and resolves any damage.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: defender })
-    });
-  }
+  static async _resolveSelectTarget(ctx) { return resolveSelectTarget(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolveWeaponMalfunction — SE: Weapon Malfunction (defender, attacker fumbles, firearm only)
@@ -4370,49 +4223,7 @@ export class CombatEngine {
   //   - Flag cleared on deleteToken (via own-flags list) and deleteItem (weapon).
   // -------------------------------------------------------------------------
 
-  static async _resolveWeaponMalfunction(ctx) {
-    const { attacker, defender, weapon } = ctx;
-    if (!attacker || !weapon) return;
-
-    const NS       = 'mythras-imperative';
-    const weaponId = weapon.id;
-    const weaponName = weapon.name ?? 'firearm';
-
-    // Always write to the BASE actor, not the synthetic token actor.
-    // ctx.attacker may be a synthetic actor (canvas token) when called from
-    // the macro or full-auto paths. Flags written to the synthetic actor live
-    // in the token's actorDelta and are invisible to CharacterSheet._prepareContext,
-    // which reads from this.document (the base actor).
-    const baseActor = game.actors.get(attacker.id) ?? attacker;
-
-    // Write the jammed flag on the attacker's base actor
-    const existing = baseActor.getFlag(NS, 'jammedWeapons') ?? {};
-    await baseActor.setFlag(NS, 'jammedWeapons', {
-      ...existing,
-      [weaponId]: { weaponName }
-    });
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name}</span>
-            <span class="mi-card-skill">Weapon Malfunction</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-major">
-                <i class="fas fa-exclamation-triangle"></i> ${attacker.name}'s ${weaponName} jams and cannot fire!
-              </span>
-            </div>
-            <p class="mi-card-note">Field-strip the weapon to clear the jam (costs 1 Action Point). The weapon cannot be used until cleared.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: defender ?? attacker })
-    });
-
-    ui.notifications.warn(`${attacker.name}'s ${weaponName} has jammed — field-strip required to clear.`);
-  }
+  static async _resolveWeaponMalfunction(ctx) { return resolveWeaponMalfunction(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolvePrepareCounter — Phase 1: Declaration

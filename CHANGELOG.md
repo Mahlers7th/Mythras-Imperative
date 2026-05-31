@@ -6,6 +6,12 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.207 — May 2026
+- **Refactor 2b, Batch 2:** extracted 7 simple SE resolvers into `module/combat/effects/simple.js`: `resolveWithdraw`, `resolveDuckBack`, `resolveRapidReload`, `resolveOverpenetrate`, `resolveCircumventCover`, `resolveSelectTarget`, `resolveWeaponMalfunction`
+- Created `module/combat/effects/index.js` — the SE resolver catalogue (`SE_RESOLVERS` map, id → function). This is the node editor's entry point. Grows with each subsequent batch
+- `CombatEngine.js` reduced from 6,896 to 6,707 lines. Wrapper stubs retained for backwards compatibility
+- No behaviour changes
+
 ## v1.4.206 — May 2026
 - **Refactor 2b, Batch 1:** extracted 10 shared helper methods from `CombatEngine` into `module/combat/effects/helpers.js`. `CombatEngine` retains thin static wrapper stubs for backwards compatibility — all existing callsites continue to work unchanged. `CombatEngine.js` reduced from 7,875 to 6,896 lines (~980 lines moved)
 - Helpers extracted: `waitForCard`, `runSEDialog`, `runWoundEnduranceDialog`, `postOpposedSEResult`, `applyStatusToActor`, `removeStatusFromActor`, `applyProneToDefender`, `applyFatigueToSkill`, `getActiveImpaleGrade`, `getActiveEntangleGrade`
