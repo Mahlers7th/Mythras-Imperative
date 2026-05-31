@@ -6,6 +6,11 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.206 — May 2026
+- **Refactor 2b, Batch 1:** extracted 10 shared helper methods from `CombatEngine` into `module/combat/effects/helpers.js`. `CombatEngine` retains thin static wrapper stubs for backwards compatibility — all existing callsites continue to work unchanged. `CombatEngine.js` reduced from 7,875 to 6,896 lines (~980 lines moved)
+- Helpers extracted: `waitForCard`, `runSEDialog`, `runWoundEnduranceDialog`, `postOpposedSEResult`, `applyStatusToActor`, `removeStatusFromActor`, `applyProneToDefender`, `applyFatigueToSkill`, `getActiveImpaleGrade`, `getActiveEntangleGrade`
+- No behaviour changes
+
 ## v1.4.205 — May 2026
 - Cleanup: removed redundant double-import of `CombatEngine` (`CE2`) in Apply Damage handler
 - Cleanup: replaced stale `_resolveOpposedSEs` block-comment (listed only Bleed/Trip/ForceFailure from the old if-wall era) with accurate description of all three call sites
