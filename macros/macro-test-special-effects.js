@@ -1,5 +1,5 @@
 // ============================================================
-// Mythras Imperative — Special Effect Test Macro  v1.4.203
+// Mythras Imperative — Special Effect Test Macro  v1.4.215
 // ============================================================
 // Select exactly two tokens before running: attacker first,
 // then shift-click the defender (or target the defender).

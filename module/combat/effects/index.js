@@ -41,6 +41,12 @@ import {
 import { resolveEntangle } from './entangle.js';
 import { resolveGrip } from './grip.js';
 
+// ── Batch 5: standalone resolvers ────────────────────────────────────────────
+import { resolveSlipFree }     from './slip-free.js';
+import { resolveBash }         from './bash.js';
+import { resolveDamageWeapon } from './damage-weapon.js';
+import { resolvePinWeapon }    from './pin-weapon.js';
+
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
 // Grows as each batch of resolvers is extracted.
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
@@ -66,4 +72,10 @@ export const SE_RESOLVERS = {
   // Batch 4 — entangle and grip families
   entangle:          resolveEntangle,
   grip:              resolveGrip,
+
+  // Batch 5 — standalone resolvers
+  slipFree:          resolveSlipFree,
+  bash:              resolveBash,
+  damageWeapon:      resolveDamageWeapon,
+  pinWeapon:         resolvePinWeapon,
 };

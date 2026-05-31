@@ -41,10 +41,13 @@ export class CombatStyleSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const item    = this.document;
     const system  = item.system.toObject ? item.system.toObject() : { ...item.system };
 
-    // Live total from owning actor characteristics
+    // Live total from owning actor characteristics.
+    // Creature actors (MEG import) store totals directly in system.total —
+    // baseFormula is empty and recomputation produces 0. Guard exactly as
+    // CharacterSheet._onRoll does.
     let liveBase = system.baseValue ?? 0;
     let liveTotal = system.total ?? 0;
-    if (item.actor) {
+    if (item.actor && item.actor.type !== 'creature') {
       const c = item.actor.system.characteristics;
       const chars = {
         STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
