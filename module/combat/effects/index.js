@@ -37,6 +37,10 @@ import {
   resolvePinDown,
 } from './opposed.js';
 
+// ── Batch 4: entangle and grip families ──────────────────────────────────────
+import { resolveEntangle } from './entangle.js';
+import { resolveGrip } from './grip.js';
+
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
 // Grows as each batch of resolvers is extracted.
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
@@ -58,4 +62,8 @@ export const SE_RESOLVERS = {
   blindOpponent:     resolveBlindOpponent,
   dropFoe:           resolveDropFoe,
   pinDown:           resolvePinDown,
+
+  // Batch 4 — entangle and grip families
+  entangle:          resolveEntangle,
+  grip:              resolveGrip,
 };

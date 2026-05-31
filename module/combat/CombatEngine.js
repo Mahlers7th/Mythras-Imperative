@@ -38,6 +38,7 @@ import {
   applyFatigueToSkill,
   getActiveImpaleGrade,
   getActiveEntangleGrade,
+  spendActionPoint,
 } from './effects/helpers.js';
 import {
   resolveWithdraw,
@@ -57,6 +58,16 @@ import {
   resolveDropFoe,
   resolvePinDown,
 } from './effects/opposed.js';
+import {
+  resolveEntangle,
+  postEntangleTripCard,
+  resolveEntangleTripYes,
+  resolveEntangleBreakFree,
+} from './effects/entangle.js';
+import {
+  resolveGrip,
+  resolveGripBreakFree,
+} from './effects/grip.js';
 
 export class CombatEngine {
 
@@ -2957,101 +2968,7 @@ export class CombatEngine {
   // Rules p.44: Offensive, Entangling weapons only. No opposed roll — the
   // location is immediately entangled. Effects depend on location type.
   // -------------------------------------------------------------------------
-  static async _resolveEntangle(ctx, damage, forcesFail) {
-    const { attacker, defender } = ctx;
-    const attackRoll = ctx.attackResult ?? 0;
-
-    const _rawLabel  = ctx.hitLocationLabel
-      || (ctx.hitLocationId ? (defender.items.get(ctx.hitLocationId)?.name ?? '') : '')
-      || 'the struck location';
-    const locType   = ctx.locationType ?? CombatEngine._classifyLocation(_rawLabel);
-    const locLabel  = _rawLabel;
-    const isLimb    = locType === 'limb';
-    const isHead    = locType === 'head';
-    const isTorso   = locType === 'torso';
-    const gradeHard = isHead || isTorso;
-
-    const armWords  = /arm|hand/i.test(locLabel);
-    const legWords  = /leg|foot/i.test(locLabel);
-    const limbNote  = armWords
-      ? `${defender.name}'s ${locLabel} is snared — cannot use whatever it is holding`
-      : legWords
-        ? `${defender.name}'s ${locLabel} is snared — cannot move`
-        : `${defender.name}'s ${locLabel} is entangled`;
-    const effectNote = gradeHard
-      ? `${defender.name}'s ${locLabel} is enmeshed — all skill rolls Hard`
-      : limbNote;
-
-    const entangleId = foundry.utils.randomID(8);
-
-    const entangledBy = defender.getFlag('mythras-imperative', 'entangledBy') ?? {};
-    entangledBy[entangleId] = {
-      attackerActorId:   attacker.id,
-      attackerName:      attacker.name,
-      attackerRoll:      attackRoll,
-      attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-      weaponName:        ctx.weapon?.name ?? 'weapon',
-      locationType:      locType,
-      locationLabel:     locLabel,
-      gradeHard,
-      entangleId
-    };
-    await defender.setFlag('mythras-imperative', 'entangledBy', entangledBy);
-    await CombatEngine._applyStatusToActor(defender, 'entangled');
-
-    const pendingEntangleTrip = attacker.getFlag('mythras-imperative', 'pendingEntangleTrip') ?? {};
-    pendingEntangleTrip[entangleId] = {
-      defenderId:        defender.id,
-      defenderName:      defender.name,
-      attackerRoll:      attackRoll,
-      attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-      locationLabel:     locLabel,
-      entangleId
-    };
-    await attacker.setFlag('mythras-imperative', 'pendingEntangleTrip', pendingEntangleTrip);
-
-    const pendingEntangleBreakFree = defender.getFlag('mythras-imperative', 'pendingEntangleBreakFree') ?? {};
-    pendingEntangleBreakFree[entangleId] = {
-      attackerActorId:   attacker.id,
-      attackerName:      attacker.name,
-      attackerRoll:      attackRoll,
-      attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-      weaponName:        ctx.weapon?.name ?? 'weapon',
-      locationLabel:     locLabel,
-      gradeHard,
-      entangleId
-    };
-    await defender.setFlag('mythras-imperative', 'pendingEntangleBreakFree', pendingEntangleBreakFree);
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender.name}</span>
-            <span class="mi-card-skill">Entangle — ${locLabel}</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-serious">
-                <i class="fas fa-spider"></i> ${effectNote}
-              </span>
-            </div>
-            ${gradeHard ? `<div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">Skill penalty</span>
-              <span class="mi-se-roll-val">Hard (all skills while enmeshed)</span>
-            </div>` : ''}
-            <p class="mi-se-roll-note">
-              ${attacker.name} may spend 1 AP at the start of their next turn to attempt an automatic Trip.<br>
-              ${defender.name} may attempt to break free (Brawn) at the start of their next turn.
-            </p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveEntangle(ctx, damage, forcesFail) { return resolveEntangle(ctx, damage, forcesFail); }
 
   // -------------------------------------------------------------------------
   // _resolveGrip — SE: Grip
@@ -3059,97 +2976,7 @@ export class CombatEngine {
   // Gripper chooses holding skill (Brawn or Unarmed). Gripped actor may
   // break free on their own turn.
   // -------------------------------------------------------------------------
-  static async _resolveGrip(ctx, damage, forcesFail) {
-    const { attacker, defender } = ctx;
-    const isSemi   = CombatEngine.automationLevel === 'semi';
-    const isGMMode = CombatEngine.gmMode;
-    const attackRoll = ctx.attackResult ?? 0;
-
-    const gripperBrawn   = Array.from(attacker.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-    const gripperUnarmed = Array.from(attacker.items).find(i => i.type === 'skill' && i.name === 'Unarmed');
-
-    const _adjG = raw => CombatEngine._applyFatigueToSkill(raw, attacker);
-    const gripperSkillOptions = [
-      gripperBrawn   && { name: 'Brawn',   rawTotal: gripperBrawn.system.total   ?? 0, total: _adjG(gripperBrawn.system.total   ?? 0) },
-      gripperUnarmed && { name: 'Unarmed', rawTotal: gripperUnarmed.system.total ?? 0, total: _adjG(gripperUnarmed.system.total ?? 0) }
-    ].filter(Boolean);
-    if (gripperSkillOptions.length === 0) gripperSkillOptions.push({ name: 'Brawn', rawTotal: 0, total: 0 });
-
-    let gripperSkill = gripperSkillOptions[0];
-
-    if (!forcesFail && isSemi) {
-      let response;
-      if (isGMMode) {
-        response = await CombatEngine._runSEDialog({
-          seType:             'gripChooseSkill',
-          attackerName:       attacker.name,
-          defenderName:       defender.name,
-          attackRoll,
-          attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-          skillOptions:       gripperSkillOptions
-        });
-      } else {
-        const { CombatSocket, _findUserIdForActor } = await import('./CombatSocket.js');
-        const targetUserId = _findUserIdForActor(attacker);
-        const exchangeId   = foundry.utils.randomID(16);
-        response = await CombatSocket.seChallenge(exchangeId, {
-          seType:             'gripChooseSkill',
-          attackerName:       attacker.name,
-          defenderName:       defender.name,
-          attackRoll,
-          attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
-          lastCardId:         ctx.chatMessageId,
-          skillOptions:       gripperSkillOptions
-        }, targetUserId);
-      }
-      if (response) {
-        gripperSkill = { name: response.chosenSkillName, total: response.chosenSkillTotal, rawTotal: response.chosenSkillRaw ?? response.chosenSkillTotal };
-      }
-    } else if (!forcesFail) {
-      if (gripperSkillOptions.length > 1) {
-        gripperSkill = gripperSkillOptions.reduce((best, sk) => sk.total > best.total ? sk : best);
-      }
-    }
-
-    const gripEntryId = foundry.utils.randomID(8);
-    const grippedBy   = defender.getFlag('mythras-imperative', 'grippedBy') ?? {};
-    grippedBy[gripEntryId] = {
-      gripperActorId:  attacker.id,
-      gripperName:     attacker.name,
-      gripperSkillName:  gripperSkill.name,
-      gripperSkillTotal: gripperSkill.total,
-      gripperSkillRaw:   gripperSkill.rawTotal ?? gripperSkill.total
-    };
-    await defender.setFlag('mythras-imperative', 'grippedBy', grippedBy);
-
-    const pendingGrip = defender.getFlag('mythras-imperative', 'pendingGripCheck') ?? {};
-    pendingGrip[gripEntryId] = grippedBy[gripEntryId];
-    await defender.setFlag('mythras-imperative', 'pendingGripCheck', pendingGrip);
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender.name}</span>
-            <span class="mi-card-skill">Grip</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-serious">
-                <i class="fas fa-hands"></i> ${attacker.name} has ${defender.name} in a grip — cannot disengage
-              </span>
-            </div>
-            <div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">Gripper's holding skill</span>
-              <span class="mi-se-roll-val">${gripperSkill.name} ${gripperSkill.total}%</span>
-            </div>
-            <p class="mi-se-roll-note">${defender.name} may attempt to break free at the start of their next turn.</p>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveGrip(ctx, damage, forcesFail) { return resolveGrip(ctx, damage, forcesFail); }
 
   // -------------------------------------------------------------------------
   // _resolveSlipFree — SE: Slip Free (defender, Defender Critical only).
@@ -4192,150 +4019,10 @@ export class CombatEngine {
   // entry: one entry from flags['mythras-imperative'].pendingEntangleTrip
   // -------------------------------------------------------------------------
 
-  static async _postEntangleTripCard(attackerActor, entry) {
-    const { defenderId, defenderName, attackerRoll, attackerSkillTotal, locationLabel, entangleId } = entry;
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attackerActor.name} → ${defenderName}</span>
-            <span class="mi-card-skill">Entangle — Trip Attempt?</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome mi-wound-serious">
-                <i class="fas fa-spider"></i> ${defenderName} is still entangled at ${locationLabel}
-              </span>
-            </div>
-            <p class="mi-se-roll-note">
-              ${attackerActor.name} may spend 1 AP to attempt an automatic Trip against ${defenderName}.<br>
-              ${defenderName} will resist with Brawn if the trip is attempted.
-            </p>
-            <div class="mi-manual-actions">
-              <button class="mi-btn mi-btn-entangle-trip-yes"
-                data-attacker-id="${attackerActor.id}"
-                data-defender-id="${defenderId}"
-                data-attacker-roll="${attackerRoll}"
-                data-attacker-skill-total="${attackerSkillTotal}"
-                data-entangle-id="${entangleId}">
-                <i class="fas fa-hiking"></i> Spend 1 AP — Trip ${defenderName}
-              </button>
-              <button class="mi-btn mi-btn-entangle-trip-no"
-                data-attacker-id="${attackerActor.id}"
-                data-entangle-id="${entangleId}">
-                <i class="fas fa-times"></i> Skip — Act normally
-              </button>
-            </div>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attackerActor }),
-      flags: {
-        'mythras-imperative': {
-          stage:       'entangle-trip',
-          attackerId:  attackerActor.id,
-          defenderId,
-          entangleId
-        }
-      }
-    });
-  }
+  static async _postEntangleTripCard(attackerActor, entry) { return postEntangleTripCard(attackerActor, entry); }
 
   // Called when attacker clicks "Spend 1 AP — Trip"
-  static async _resolveEntangleTripYes(btn) {
-    const attackerId       = btn.dataset.attackerId;
-    const defenderId       = btn.dataset.defenderId;
-    const attackerRoll     = parseInt(btn.dataset.attackerRoll ?? '0', 10);
-    const attackerSkillTotal = parseInt(btn.dataset.attackerSkillTotal ?? '0', 10);
-    const entangleId       = btn.dataset.entangleId;
-
-    const attacker = game.actors.get(attackerId);
-    const defender = game.actors.get(defenderId);
-    if (!attacker || !defender) return;
-
-    // Spend the AP
-    const remaining = await CombatEngine._spendActionPoint(attacker);
-    if (remaining === 0 && remaining !== null) {
-      // Already warned by _spendActionPoint — bail
-    }
-
-    const isSemi   = CombatEngine.automationLevel === 'semi';
-    const isGMMode = CombatEngine.gmMode;
-
-    // Defender resists with Brawn — same opposed pattern as Trip
-    const brawnSkill = Array.from(defender.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-    const brawnRaw   = brawnSkill?.system.total ?? 0;
-    const brawnTotal = CombatEngine._applyFatigueToSkill(brawnRaw, defender);
-
-    let defenderRoll     = null;
-    let defenderSucceeds = false;
-
-    if (isSemi && !isGMMode) {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
-      const targetUserId = _findDefenderUserId(defender);
-      const exchangeId   = foundry.utils.randomID(16);
-      const response = await CombatSocket.seChallenge(exchangeId, {
-        seType:             'entangleTrip',
-        attackerName:       attacker.name,
-        defenderName:       defender.name,
-        attackRoll:         attackerRoll,
-        attackerSkillTotal,
-        defenderSkill:      'Brawn',
-        defenderRaw:        brawnRaw,
-        defenderTotal:      brawnTotal
-      }, targetUserId);
-      defenderRoll     = response?.roll     ?? null;
-      defenderSucceeds = response?.succeeds ?? false;
-    } else if (isSemi && isGMMode) {
-      const response = await CombatEngine._runSEDialog({
-        seType:             'entangleTrip',
-        attackerName:       attacker.name,
-        defenderName:       defender.name,
-        attackRoll:         attackerRoll,
-        attackerSkillTotal,
-        lastCardId:         null,
-        defenderSkill:      'Brawn',
-        defenderRaw:        brawnRaw,
-        defenderTotal:      brawnTotal
-      });
-      defenderRoll     = response?.roll     ?? null;
-      defenderSucceeds = response?.succeeds ?? false;
-    } else {
-      const roll = new Roll('1d100');
-      await roll.evaluate();
-      defenderRoll     = roll.total;
-      defenderSucceeds = CombatEngine._resolveOpposedRoll(
-        attackerRoll, attackerSkillTotal,
-        defenderRoll, brawnTotal
-      );
-    }
-
-    const tripApplied = !defenderSucceeds;
-    if (tripApplied) await CombatEngine._applyProneToDefender(defender);
-
-    await ChatMessage.create({
-      content: `
-        <div class="mi-chat-card">
-          <div class="mi-card-header mi-card-header--stacked">
-            <span class="mi-card-actor">${attacker.name} → ${defender.name}</span>
-            <span class="mi-card-skill">Entangle Trip — ${tripApplied ? 'Success' : 'Resisted'}</span>
-          </div>
-          <div class="mi-card-body">
-            <div class="mi-outcome-row">
-              <span class="mi-outcome ${tripApplied ? 'success' : 'mi-wound-minor'}">
-                <i class="fas fa-${tripApplied ? 'check-circle' : 'times-circle'}"></i>
-                ${tripApplied ? `${defender.name} is knocked prone` : `${defender.name} maintains balance`}
-              </span>
-            </div>
-            <div class="mi-se-roll-row">
-              <span class="mi-se-roll-label">${defender.name} — Brawn</span>
-              <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span>
-            </div>
-          </div>
-        </div>`,
-      speaker: ChatMessage.getSpeaker({ actor: attacker })
-    });
-  }
+  static async _resolveEntangleTripYes(btn) { return resolveEntangleTripYes(btn); }
 
   // -------------------------------------------------------------------------
   // _resolveEntangleBreakFree — called from updateCombat at the start of the
@@ -4343,134 +4030,7 @@ export class CombatEngine {
   // entry: one entry from flags['mythras-imperative'].pendingEntangleBreakFree
   // -------------------------------------------------------------------------
 
-  static async _resolveEntangleBreakFree(entangledActor, entry, entangleId) {
-    const { attackerActorId, attackerName, attackerRoll, attackerSkillTotal, weaponName, locationLabel, gradeHard } = entry;
-
-    const isSemi   = CombatEngine.automationLevel === 'semi';
-    const isGMMode = CombatEngine.gmMode;
-
-    const brawnSkill = Array.from(entangledActor.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-    const brawnRaw   = brawnSkill?.system.total ?? 0;
-    const brawnTotal = CombatEngine._applyFatigueToSkill(brawnRaw, entangledActor);
-
-    let defenderRoll = null;
-    let freeSucceeds = false;
-
-    if (isSemi && !isGMMode) {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
-      const targetUserId = _findDefenderUserId(entangledActor);
-      const exchangeId   = foundry.utils.randomID(16);
-      const response = await CombatSocket.seChallenge(exchangeId, {
-        seType:             'entangleBreakFree',
-        attackerName,
-        defenderName:       entangledActor.name,
-        attackRoll:         attackerRoll,
-        attackerSkillTotal,
-        defenderSkill:      'Brawn',
-        defenderRaw:        brawnRaw,
-        defenderTotal:      brawnTotal,
-        weaponName,
-        locationLabel
-      }, targetUserId);
-      defenderRoll = response?.roll     ?? null;
-      freeSucceeds = response?.succeeds ?? false;
-    } else if (isSemi && isGMMode) {
-      const response = await CombatEngine._runSEDialog({
-        seType:             'entangleBreakFree',
-        attackerName,
-        defenderName:       entangledActor.name,
-        attackRoll:         attackerRoll,
-        attackerSkillTotal,
-        lastCardId:         null,
-        defenderSkill:      'Brawn',
-        defenderRaw:        brawnRaw,
-        defenderTotal:      brawnTotal,
-        weaponName,
-        locationLabel
-      });
-      defenderRoll = response?.roll     ?? null;
-      freeSucceeds = response?.succeeds ?? false;
-    } else {
-      const roll = new Roll('1d100');
-      await roll.evaluate();
-      defenderRoll = roll.total;
-      freeSucceeds = CombatEngine._resolveOpposedRoll(
-        attackerRoll, attackerSkillTotal,
-        defenderRoll, brawnTotal
-      );
-    }
-
-    if (freeSucceeds) {
-      // Clear entangle state
-      const entangledBy = entangledActor.getFlag('mythras-imperative', 'entangledBy') ?? {};
-      delete entangledBy[entangleId];
-      await entangledActor.setFlag('mythras-imperative', 'entangledBy', entangledBy);
-
-      // Remove the entangled token status if no other entangle entries remain
-      if (Object.keys(entangledBy).length === 0) {
-        await CombatEngine._removeStatusFromActor(entangledActor, 'entangled');
-      }
-
-      // Also clear the attacker's pending trip for this entangle if still present
-      const attackerActor = game.actors.get(attackerActorId);
-      if (attackerActor) {
-        const pending = attackerActor.getFlag('mythras-imperative', 'pendingEntangleTrip') ?? {};
-        if (pending[entangleId]) {
-          delete pending[entangleId];
-          await attackerActor.setFlag('mythras-imperative', 'pendingEntangleTrip', pending);
-        }
-      }
-
-      await ChatMessage.create({
-        content: `
-          <div class="mi-chat-card">
-            <div class="mi-card-header mi-card-header--stacked">
-              <span class="mi-card-actor">${entangledActor.name} vs ${attackerName}</span>
-              <span class="mi-card-skill">Break Free from Entangle — Success</span>
-            </div>
-            <div class="mi-card-body">
-              <div class="mi-outcome-row">
-                <span class="mi-outcome success">
-                  <i class="fas fa-check-circle"></i> ${entangledActor.name} yanks free of ${weaponName}
-                </span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${entangledActor.name} — Brawn</span>
-                <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span>
-              </div>
-            </div>
-          </div>`,
-        speaker: ChatMessage.getSpeaker({ actor: entangledActor })
-      });
-    } else {
-      // Still entangled — re-queue for next turn
-      const pendingBreakFree = entangledActor.getFlag('mythras-imperative', 'pendingEntangleBreakFree') ?? {};
-      pendingBreakFree[entangleId] = entry;
-      await entangledActor.setFlag('mythras-imperative', 'pendingEntangleBreakFree', pendingBreakFree);
-
-      await ChatMessage.create({
-        content: `
-          <div class="mi-chat-card">
-            <div class="mi-card-header mi-card-header--stacked">
-              <span class="mi-card-actor">${entangledActor.name} vs ${attackerName}</span>
-              <span class="mi-card-skill">Break Free from Entangle — Failed</span>
-            </div>
-            <div class="mi-card-body">
-              <div class="mi-outcome-row">
-                <span class="mi-outcome mi-wound-minor">
-                  <i class="fas fa-times-circle"></i> ${entangledActor.name} cannot break free — still entangled. May try again next turn.
-                </span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${entangledActor.name} — Brawn</span>
-                <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span>
-              </div>
-            </div>
-          </div>`,
-        speaker: ChatMessage.getSpeaker({ actor: entangledActor })
-      });
-    }
-  }
+  static async _resolveEntangleBreakFree(entangledActor, entry, entangleId) { return resolveEntangleBreakFree(entangledActor, entry, entangleId); }
 
   // -------------------------------------------------------------------------
   // _resolveGripBreakFree — called from updateCombat at the start of the
@@ -4480,150 +4040,7 @@ export class CombatEngine {
   // entry: one entry from flags['mythras-imperative'].pendingGripCheck
   // -------------------------------------------------------------------------
 
-  static async _resolveGripBreakFree(grippedActor, entry, gripEntryId) {
-    const { gripperActorId, gripperName, gripperSkillName, gripperSkillTotal } = entry;
-
-    const gripper = game.actors.get(gripperActorId);
-    const isSemi  = CombatEngine.automationLevel === 'semi';
-    const isGMMode = CombatEngine.gmMode;
-
-    // Skills available to the gripped actor
-    const brawnSkill   = Array.from(grippedActor.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-    const unarmedSkill = Array.from(grippedActor.items).find(i => i.type === 'skill' && i.name === 'Unarmed');
-
-    const _adj = raw => CombatEngine._applyFatigueToSkill(raw, grippedActor);
-    const skillOptions = [
-      brawnSkill   && { name: 'Brawn',   rawTotal: brawnSkill.system.total   ?? 0, total: _adj(brawnSkill.system.total   ?? 0) },
-      unarmedSkill && { name: 'Unarmed', rawTotal: unarmedSkill.system.total ?? 0, total: _adj(unarmedSkill.system.total ?? 0) }
-    ].filter(Boolean);
-    if (skillOptions.length === 0) skillOptions.push({ name: 'Brawn', rawTotal: 0, total: 0 });
-
-    let chosenSkill  = skillOptions.reduce((best, sk) => sk.total > best.total ? sk : best);
-    let defenderRoll = null;
-    let freeSucceeds = false;
-
-    if (isSemi && !isGMMode) {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
-      const targetUserId = _findDefenderUserId(grippedActor);
-      const exchangeId   = foundry.utils.randomID(16);
-      const response = await CombatSocket.seChallenge(exchangeId, {
-        seType:             'gripBreakFree',
-        attackerName:       gripperName,
-        defenderName:       grippedActor.name,
-        attackRoll:         gripperSkillTotal,
-        attackerSkillTotal: gripperSkillTotal,
-        lastCardId:         null,
-        defenderSkill:      chosenSkill.name,
-        defenderRaw:        chosenSkill.rawTotal,
-        defenderTotal:      chosenSkill.total,
-        skillOptions,
-        gripperName,
-        gripperSkillName,
-        gripperSkillTotal,
-        gripperSkillRaw:    entry.gripperSkillRaw ?? gripperSkillTotal
-      }, targetUserId);
-      if (response) {
-        chosenSkill  = { name: response.chosenSkillName, total: response.chosenSkillTotal, rawTotal: response.chosenSkillRaw ?? response.chosenSkillTotal };
-        defenderRoll = response.roll;
-        freeSucceeds = response.succeeds;
-      }
-    } else if (isSemi && isGMMode) {
-      const response = await CombatEngine._runSEDialog({
-        seType:             'gripBreakFree',
-        attackerName:       gripperName,
-        defenderName:       grippedActor.name,
-        attackRoll:         gripperSkillTotal,
-        attackerSkillTotal: gripperSkillTotal,
-        lastCardId:         null,
-        defenderSkill:      chosenSkill.name,
-        defenderRaw:        chosenSkill.rawTotal,
-        defenderTotal:      chosenSkill.total,
-        skillOptions,
-        gripperName,
-        gripperSkillName,
-        gripperSkillTotal,
-        gripperSkillRaw:    entry.gripperSkillRaw ?? gripperSkillTotal
-      });
-      if (response) {
-        chosenSkill  = { name: response.chosenSkillName, total: response.chosenSkillTotal, rawTotal: response.chosenSkillRaw ?? response.chosenSkillTotal };
-        defenderRoll = response.roll;
-        freeSucceeds = response.succeeds;
-      }
-    } else {
-      // Full Auto — pick best, roll silently
-      const roll = new Roll('1d100');
-      await roll.evaluate();
-      defenderRoll = roll.total;
-      freeSucceeds = CombatEngine._resolveOpposedRoll(
-        gripperSkillTotal, gripperSkillTotal,
-        defenderRoll, chosenSkill.total
-      );
-    }
-
-    if (freeSucceeds) {
-      // Clear grip state from the gripped actor
-      const grippedBy = grippedActor.getFlag('mythras-imperative', 'grippedBy') ?? {};
-      delete grippedBy[gripEntryId];
-      await grippedActor.setFlag('mythras-imperative', 'grippedBy', grippedBy);
-
-      await ChatMessage.create({
-        content: `
-          <div class="mi-chat-card">
-            <div class="mi-card-header mi-card-header--stacked">
-              <span class="mi-card-actor">${grippedActor.name} vs ${gripperName}</span>
-              <span class="mi-card-skill">Break Free — Success</span>
-            </div>
-            <div class="mi-card-body">
-              <div class="mi-outcome-row">
-                <span class="mi-outcome success">
-                  <i class="fas fa-check-circle"></i> ${grippedActor.name} breaks free from ${gripperName}'s grip
-                </span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${grippedActor.name} — ${chosenSkill.name}</span>
-                <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${chosenSkill.total}%</span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${gripperName} — ${gripperSkillName}</span>
-                <span class="mi-se-roll-val">${gripperSkillTotal}%</span>
-              </div>
-            </div>
-          </div>`,
-        speaker: ChatMessage.getSpeaker({ actor: grippedActor })
-      });
-    } else {
-      // Still gripped — re-queue for next turn
-      const pendingGrip = grippedActor.getFlag('mythras-imperative', 'pendingGripCheck') ?? {};
-      pendingGrip[gripEntryId] = entry;
-      await grippedActor.setFlag('mythras-imperative', 'pendingGripCheck', pendingGrip);
-
-      await ChatMessage.create({
-        content: `
-          <div class="mi-chat-card">
-            <div class="mi-card-header mi-card-header--stacked">
-              <span class="mi-card-actor">${grippedActor.name} vs ${gripperName}</span>
-              <span class="mi-card-skill">Break Free — Failed</span>
-            </div>
-            <div class="mi-card-body">
-              <div class="mi-outcome-row">
-                <span class="mi-outcome mi-wound-minor">
-                  <i class="fas fa-times-circle"></i> ${grippedActor.name} cannot break free — still gripped. May try again next turn.
-                </span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${grippedActor.name} — ${chosenSkill.name}</span>
-                <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${chosenSkill.total}%</span>
-              </div>
-              <div class="mi-se-roll-row">
-                <span class="mi-se-roll-label">${gripperName} — ${gripperSkillName}</span>
-                <span class="mi-se-roll-val">${gripperSkillTotal}%</span>
-              </div>
-            </div>
-          </div>`,
-        speaker: ChatMessage.getSpeaker({ actor: grippedActor })
-      });
-    }
-  }
+  static async _resolveGripBreakFree(grippedActor, entry, gripEntryId) { return resolveGripBreakFree(grippedActor, entry, gripEntryId); }
 
   // -------------------------------------------------------------------------
   // _postImpaleDecisionCard — builds and posts the lodge/yank card.
@@ -5661,17 +5078,7 @@ export class CombatEngine {
   // Don't Defend costs 0 AP; Surprised = 0 AP (cannot react).
   // -------------------------------------------------------------------------
 
-  static async _spendActionPoint(actor) {
-    const ap = actor.system.attributes?.actionPoints;
-    if (!ap) return null;
-    if (ap.value <= 0) {
-      ui.notifications.warn(`${actor.name} has no Action Points remaining.`);
-      return 0;
-    }
-    const newValue = ap.value - 1;
-    await actor.update({ 'system.attributes.actionPoints.value': newValue });
-    return newValue;
-  }
+  static async _spendActionPoint(actor) { return spendActionPoint(actor); }
 
   /**
    * Resolve the defender from Foundry's targeting system.

@@ -766,25 +766,27 @@ async function _onUpdateCombat(combat, changed) {
   }
 
   // ── Pending Entangle break-free — post Brawn roll at start of entangled actor's turn
+  // The resolver owns the flag: clears the entry on success, re-queues on failure.
+  // Clear first, then dispatch — so re-queued entries from the resolver accumulate
+  // cleanly and are not wiped by a post-loop clear.
   const pendingEntangleBreakFree = actor.getFlag('mythras-imperative', 'pendingEntangleBreakFree') ?? {};
   if (Object.keys(pendingEntangleBreakFree).length > 0) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+    await actor.setFlag('mythras-imperative', 'pendingEntangleBreakFree', {});
     for (const [entangleId, entry] of Object.entries(pendingEntangleBreakFree)) {
       await CombatEngine._resolveEntangleBreakFree(actor, entry, entangleId);
     }
-    // Clear pending — _resolveEntangleBreakFree re-queues on failure itself
-    await actor.setFlag('mythras-imperative', 'pendingEntangleBreakFree', {});
   }
 
   // ── Pending Grip break-free — post break-free dialog at start of gripped actor's turn
+  // Same pattern: clear first, then dispatch so re-queues accumulate cleanly.
   const pendingGripCheck = actor.getFlag('mythras-imperative', 'pendingGripCheck') ?? {};
   if (Object.keys(pendingGripCheck).length > 0) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+    await actor.setFlag('mythras-imperative', 'pendingGripCheck', {});
     for (const [gripEntryId, entry] of Object.entries(pendingGripCheck)) {
       await CombatEngine._resolveGripBreakFree(actor, entry, gripEntryId);
     }
-    // Clear pending — _resolveGripBreakFree re-queues on failure itself
-    await actor.setFlag('mythras-imperative', 'pendingGripCheck', {});
   }
 
   // ── Pending Impale decision — post lodge/yank card at start of attacker's turn

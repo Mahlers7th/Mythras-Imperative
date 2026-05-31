@@ -1034,3 +1034,18 @@ export async function runSEDialog(data) {
   return null;
 }
 
+// -------------------------------------------------------------------------
+// spendActionPoint — deduct 1 AP from actor; warns and returns 0 if already
+// at 0. Returns null if the actor has no actionPoints attribute.
+// -------------------------------------------------------------------------
+export async function spendActionPoint(actor) {
+  const ap = actor.system.attributes?.actionPoints;
+  if (!ap) return null;
+  if (ap.value <= 0) {
+    ui.notifications.warn(`${actor.name} has no Action Points remaining.`);
+    return 0;
+  }
+  const newValue = ap.value - 1;
+  await actor.update({ 'system.attributes.actionPoints.value': newValue });
+  return newValue;
+}
