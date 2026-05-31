@@ -1,0 +1,33 @@
+_id: f2c6151d6c0d99f3
+name: Drive
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: DEX+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Drive covers the control of wheeled or drawn vehicles, whether by beasts of
+    burden or powered by more esoteric means, such as chariots, sleds, sail
+    carts, or gasoline cars. A roll is also necessary if the vehicle is powered
+    by a means different than the driver is used to.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!f2c6151d6c0d99f3'

@@ -1,0 +1,41 @@
+_id: S3MU5kHgWm94GTWa
+name: Club
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: 1d6
+  size: M
+  reach: S
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 4
+  currentHP: 4
+  enc: 1
+  traits:
+    - bludgeoning
+  description: A simple bludgeoning weapon made of wood or bone.
+  equipped: false
+_key: '!items!S3MU5kHgWm94GTWa'

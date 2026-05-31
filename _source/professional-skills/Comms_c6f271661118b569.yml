@@ -1,0 +1,32 @@
+_id: c6f271661118b569
+name: Comms
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Comms grants the ability to use communications equipment to detect, conceal,
+    or block communications traffic. It also grants a chance of cracking
+    encrypted messages, providing the user has access to a code-cracker.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!c6f271661118b569'

@@ -1,0 +1,30 @@
+_id: kWMtH8OOGeqCESec
+name: Tough
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: tough
+  description: >-
+    A civilian vehicle draws hull from the Military column and has maximum
+    Structure. A military vehicle draws hull and Structure from the next row
+    down.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!kWMtH8OOGeqCESec'

@@ -1,0 +1,52 @@
+_id: HXHvPZrOBAiprAXY
+name: Laser / Plasma Cannon
+type: weapon
+img: icons/svg/cannon.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 4d6
+  size: H
+  reach: VL
+  force: H
+  rangeClose: 300
+  rangeEffective: 1000
+  rangeLong: 2000
+  rangeExtreme: 0
+  load: 5
+  impaleSize: H
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 0
+  traits:
+    - firearm
+    - burst-fire
+    - full-auto
+  description: 'Energy weapon — laser or plasma. Firing rates: -/5/25. Ammo/Load: 500/5.'
+  equipped: false
+  ammo: 500
+  ammoMax: 500
+  burstSize: 5
+  cyclicRate: 25
+  firingMode: single
+  price:
+    amount: 0
+    denominationAbbr: ''
+_key: '!items!HXHvPZrOBAiprAXY'

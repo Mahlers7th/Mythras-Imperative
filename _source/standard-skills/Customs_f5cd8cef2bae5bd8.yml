@@ -1,0 +1,33 @@
+_id: f5cd8cef2bae5bd8
+name: Customs
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: INT*2+40
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Customs represents the character's knowledge of their own community: its
+    social codes, rites, rituals, taboos, and so on. The skill is used when it
+    is essential to accurately interpret or perform any socially important
+    custom or to behave in a particular way. Includes a static +40% bonus.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!f5cd8cef2bae5bd8'

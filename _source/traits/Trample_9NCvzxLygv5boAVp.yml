@@ -1,0 +1,29 @@
+_id: 9NCvzxLygv5boAVp
+name: Trample
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: trample
+  description: >-
+    Tramples beings of half SIZ or less using Athletics. Damage equals twice the
+    base Damage Modifier, Size one step larger. Free Action if charging.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!9NCvzxLygv5boAVp'

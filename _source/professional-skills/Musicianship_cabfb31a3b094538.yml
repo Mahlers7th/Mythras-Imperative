@@ -1,0 +1,33 @@
+_id: cabfb31a3b094538
+name: Musicianship
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: DEX+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Musicianship covers the playing of musical instruments. Each iteration
+    applies to a group of similar instruments — a musician who can play a reed
+    pipe can also play a flute or panpipes, but not a harp. Musicianship is
+    advanced separately for each instrument family.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!cabfb31a3b094538'

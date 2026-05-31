@@ -1,0 +1,35 @@
+_id: 7f269ddfa37416c9
+name: Commerce
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Commerce is used to evaluate the worth of goods and commodities and to trade
+    them for the best possible price. It also covers the intricacies of business
+    transactions, securing a profit, and finding ways to dispose of stolen or
+    illicit goods. Commerce can be opposed by an opponent's Commerce skill or
+    Willpower, reflecting the opposing side's attempts to further the deal in
+    their favour.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!7f269ddfa37416c9'

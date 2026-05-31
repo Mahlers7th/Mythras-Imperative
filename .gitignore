@@ -16,3 +16,7 @@ node_modules/
 
 # Stray database files at wrong level
 *.db
+
+# Compendium packs — built from _source/ via `npm run pack`
+# Never commit LevelDB binaries; commit _source/ YAML instead
+packs/

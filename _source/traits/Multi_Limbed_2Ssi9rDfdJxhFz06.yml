@@ -1,0 +1,29 @@
+_id: 2Ssi9rDfdJxhFz06
+name: Multi-Limbed
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: multiLimbed
+  description: >-
+    Gains one extra Combat Action per extra pair of combat-capable limbs.
+    Locomotion-only limbs do not count.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!2Ssi9rDfdJxhFz06'

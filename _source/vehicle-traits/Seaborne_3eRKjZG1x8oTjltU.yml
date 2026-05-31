@@ -1,0 +1,27 @@
+_id: 3eRKjZG1x8oTjltU
+name: Seaborne
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: seaborne
+  description: The vehicle is buoyant on water.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!3eRKjZG1x8oTjltU'

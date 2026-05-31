@@ -1,0 +1,29 @@
+_id: If9KFZV1e3tEQr1H
+name: Bludgeoning
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: bludgeoning
+  description: >-
+    Delivers impact trauma rather than cuts. Enables the Bash and Stun Location
+    Special Effects.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!If9KFZV1e3tEQr1H'

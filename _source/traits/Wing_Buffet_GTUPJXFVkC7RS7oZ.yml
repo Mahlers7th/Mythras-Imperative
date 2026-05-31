@@ -1,0 +1,29 @@
+_id: GTUPJXFVkC7RS7oZ
+name: Wing Buffet
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: wingBuffet
+  description: >-
+    Damages opponents within 3 metres by beating wings. Costs an Attack Action.
+    Damage equals the creature's Damage Modifier.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!GTUPJXFVkC7RS7oZ'

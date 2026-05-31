@@ -1,0 +1,32 @@
+_id: 322c3978a670d51e
+name: Athletics
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: STR+DEX
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Athletics covers a range of physical activities, including climbing,
+    jumping, throwing, and running. Skill rolls for any of these activities are
+    handled by a single roll against the Athletics skill.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!322c3978a670d51e'

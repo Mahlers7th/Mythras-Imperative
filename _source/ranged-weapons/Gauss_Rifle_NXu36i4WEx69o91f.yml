@@ -1,0 +1,48 @@
+_id: NXu36i4WEx69o91f
+name: Gauss Rifle
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 2d8+2
+  size: M
+  reach: M
+  force: E
+  rangeClose: 150
+  rangeEffective: 500
+  rangeLong: 5000
+  load: 3
+  impaleSize: S
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 3
+  traits:
+    - firearm
+    - burst-fire
+    - full-auto
+  description: Electromagnetic mass-driver weapon. Extreme long range. Load 3 turns.
+  equipped: false
+  ammo: 20
+  ammoMax: 20
+  burstSize: 3
+  firingMode: single
+  cyclicRate: 20
+_key: '!items!NXu36i4WEx69o91f'

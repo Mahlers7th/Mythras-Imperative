@@ -1,0 +1,33 @@
+_id: 93f46bda6e310f90
+name: Culture
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Culture is the more specific form of the Standard Skill of Customs, relating
+    to societies foreign to the character's own. Each Culture skill must be
+    given a particular nation or society to which it applies. It works
+    mechanically in the same way as the Customs skill.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!93f46bda6e310f90'

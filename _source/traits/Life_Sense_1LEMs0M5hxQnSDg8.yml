@@ -1,0 +1,29 @@
+_id: 1LEMs0M5hxQnSDg8
+name: Life Sense
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: lifeSense
+  description: >-
+    Determines vitality by touch. Aware of living beings within Willpower skill
+    metres.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!1LEMs0M5hxQnSDg8'

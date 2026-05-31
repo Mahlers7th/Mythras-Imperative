@@ -1,0 +1,31 @@
+_id: 0900b147a8107297
+name: Demolitions
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Demolitions permits a character to safely handle and utilise explosive
+    materials, whether setting them up or disarming them.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!0900b147a8107297'

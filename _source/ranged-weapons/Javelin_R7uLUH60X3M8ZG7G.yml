@@ -1,0 +1,44 @@
+_id: R7uLUH60X3M8ZG7G
+name: Javelin
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 1d8+1
+  size: M
+  reach: M
+  force: H
+  rangeClose: 10
+  rangeEffective: 20
+  rangeLong: 50
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 3
+  hp: 8
+  currentHP: 8
+  enc: 1
+  traits:
+    - thrown
+    - impaling
+  description: A light throwing spear. Damage modifier applies.
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+_key: '!items!R7uLUH60X3M8ZG7G'

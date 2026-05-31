@@ -1,0 +1,52 @@
+_id: TlaKdoV4VGnCBWQp
+name: Medium Missile / Torpedo
+type: weapon
+img: icons/svg/cannon.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 6d10
+  size: H
+  reach: VL
+  force: H
+  rangeClose: 10000
+  rangeEffective: 100000
+  rangeLong: 200000
+  rangeExtreme: 0
+  load: 5
+  impaleSize: H
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 0
+  traits:
+    - firearm
+  description: >-
+    Guided medium missile or torpedo. Max range 200km. Firing rate: 1.
+    Ammo/Load: 1/5.
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+  burstSize: 0
+  cyclicRate: 0
+  firingMode: single
+  price:
+    amount: 0
+    denominationAbbr: ''
+_key: '!items!TlaKdoV4VGnCBWQp'

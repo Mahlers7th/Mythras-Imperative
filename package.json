@@ -1,9 +1,11 @@
 {
   "name": "mythras-imperative",
-  "version": "1.0.0",
+  "version": "1.4.199",
   "description": "Mythras Imperative Foundry VTT system",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/.bin/jest"
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "pack": "node scripts/pack-all.mjs",
+    "unpack": "node scripts/unpack-all.mjs"
   },
   "type": "module",
   "jest": {
@@ -11,6 +13,7 @@
     "transform": {}
   },
   "devDependencies": {
+    "@foundryvtt/foundryvtt-cli": "^3.0.3",
     "jest": "^29.7.0"
   }
 }

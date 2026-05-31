@@ -1,0 +1,27 @@
+_id: xXr9BcV9xAjpHfPY
+name: Mounted
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: mounted
+  description: Designed for use from horseback or another mount.
+  engineEffect: false
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!xXr9BcV9xAjpHfPY'

@@ -1,0 +1,29 @@
+_id: Z4rqjV3xiObkLIK5
+name: Diving Strike
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: divingStrike
+  description: >-
+    Charges from air or water. Increases attack Size and Damage Modifier by one
+    step each. Once per round.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!Z4rqjV3xiObkLIK5'

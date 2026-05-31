@@ -1,0 +1,35 @@
+_id: elQENypiV72aDRRf
+name: Mail
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 6
+  enc: 6
+  initiativePenalty: 6
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Interlocked iron rings covering all locations. Flexible but heavy.
+  equipped: false
+_key: '!items!elQENypiV72aDRRf'

@@ -1,0 +1,29 @@
+_id: m0TifXvAnwX3Erl8
+name: Blind Fighting
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: blindFighting
+  description: >-
+    Allows the user to ignore any penalties imposed due to poor lighting or
+    temporary blinding.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!m0TifXvAnwX3Erl8'

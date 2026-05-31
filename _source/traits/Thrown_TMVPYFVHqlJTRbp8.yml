@@ -1,0 +1,27 @@
+_id: TMVPYFVHqlJTRbp8
+name: Thrown
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: thrown
+  description: A melee weapon that can also be thrown, using ranged combat resolution.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!TMVPYFVHqlJTRbp8'

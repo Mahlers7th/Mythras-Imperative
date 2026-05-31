@@ -1,0 +1,35 @@
+_id: AQUYj73LVyYng5u8
+name: Liquid Body Armour
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 4
+  enc: 2
+  initiativePenalty: 2
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Non-Newtonian fluid armour that hardens on impact. Covers all.
+  equipped: false
+_key: '!items!AQUYj73LVyYng5u8'

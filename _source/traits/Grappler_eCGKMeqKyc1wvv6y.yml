@@ -1,0 +1,29 @@
+_id: eCGKMeqKyc1wvv6y
+name: Grappler
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: grappler
+  description: >-
+    On a successful strike, immediately seizes the opponent. If parried, gains
+    Grip or Pin Weapon instead. Uses Brawn to resist escape.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!eCGKMeqKyc1wvv6y'

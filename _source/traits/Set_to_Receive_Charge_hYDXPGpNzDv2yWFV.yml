@@ -1,0 +1,29 @@
+_id: hYDXPGpNzDv2yWFV
+name: Set to Receive Charge
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: set-to-receive-charge
+  description: >-
+    Can be braced to receive a charging opponent, using the charger's Damage
+    Modifier instead of the defender's.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!hYDXPGpNzDv2yWFV'

@@ -1,0 +1,32 @@
+_id: cfcaeda6ee0d7fca
+name: Linguistics
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Linguistics is the academic study of languages, allowing the character to
+    analyse unknown languages, decipher codes, and understand the structure and
+    evolution of speech and writing systems.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!cfcaeda6ee0d7fca'

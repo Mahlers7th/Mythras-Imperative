@@ -1,0 +1,27 @@
+_id: MPZDQgpBknhn9TH0
+name: Unarmed
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: unarmed
+  description: Represents a natural or unarmed attack. Enables the Grip Special Effect.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!MPZDQgpBknhn9TH0'

@@ -1,0 +1,29 @@
+_id: KVgKPyVthnxg2cPz
+name: Night Sight
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: nightSight
+  description: >-
+    Treats partial darkness as illuminated and total darkness as partial
+    darkness.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!KVgKPyVthnxg2cPz'

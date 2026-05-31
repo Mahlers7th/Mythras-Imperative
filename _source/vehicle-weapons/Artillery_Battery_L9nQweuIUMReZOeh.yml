@@ -1,0 +1,50 @@
+_id: L9nQweuIUMReZOeh
+name: Artillery Battery
+type: weapon
+img: icons/svg/cannon.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 5d6+6
+  size: H
+  reach: VL
+  force: H
+  rangeClose: 5000
+  rangeEffective: 25000
+  rangeLong: 50000
+  rangeExtreme: 0
+  load: 5
+  impaleSize: H
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 0
+  traits:
+    - firearm
+  description: 'Vehicle-mounted artillery. Max range 50km. Firing rate: 1. Ammo/Load: 1/5.'
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+  burstSize: 0
+  cyclicRate: 0
+  firingMode: single
+  price:
+    amount: 0
+    denominationAbbr: ''
+_key: '!items!L9nQweuIUMReZOeh'

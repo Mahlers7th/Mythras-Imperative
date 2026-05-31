@@ -1,0 +1,35 @@
+_id: l0LM6ZKRjMih5evx
+name: Light Assault Armour
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 8
+  enc: 5
+  initiativePenalty: 5
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Military-grade composite armour suit. Covers all locations.
+  equipped: false
+_key: '!items!l0LM6ZKRjMih5evx'

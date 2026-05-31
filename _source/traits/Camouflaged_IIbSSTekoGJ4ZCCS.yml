@@ -1,0 +1,29 @@
+_id: IIbSSTekoGJ4ZCCS
+name: Camouflaged
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: camouflaged
+  description: >-
+    Naturally camouflaged, granting a bonus to Stealth or making visual
+    detection harder.
+  engineEffect: false
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!IIbSSTekoGJ4ZCCS'

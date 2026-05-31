@@ -1,0 +1,36 @@
+_id: 543a2f178169243c
+name: Acrobatics
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: STR+DEX
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Acrobatics covers acts of balance, gymnastics, juggling, and tumbling. With
+    a successful roll a character can move at full speed across an unstable or
+    narrow surface. When mitigating damage from an unexpected fall a successful
+    roll halves damage sustained. If the character does not suffer a Serious or
+    Major Wound from the fall, they land safely and are not prone. Acrobatics
+    can substitute for Evade, with the benefit that the character automatically
+    regains their footing rather than being rendered prone.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!543a2f178169243c'

@@ -1,0 +1,33 @@
+_id: 9108f1010f75a999
+name: Conceal
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: DEX+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Conceal is the counterpoint to Stealth, being the concealment of large
+    objects rather than the character themselves. It is versatile in
+    application, from hiding a scroll in a library to disguising the presence of
+    a trap or secret passage.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!9108f1010f75a999'

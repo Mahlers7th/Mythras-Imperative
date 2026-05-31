@@ -1,0 +1,29 @@
+_id: sNKu8XIRvnr11kV0
+name: Intimidate
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: intimidate
+  description: >-
+    Opponents make a Willpower roll: success = hold ground, failure = retreat
+    for one round, fumble = flee, critical = immune for the encounter.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!sNKu8XIRvnr11kV0'

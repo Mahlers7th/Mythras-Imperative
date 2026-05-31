@@ -1,0 +1,29 @@
+_id: iGvMgQfsHFEeo38W
+name: Breathe Flame
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: breatheFlame
+  description: >-
+    Breathes flame in a cone stretching CON metres, width one quarter CON. Fire
+    damage to all hit locations; Evade halves.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!iGvMgQfsHFEeo38W'

@@ -1,0 +1,29 @@
+_id: 2bBXEbLn0fJdECKA
+name: Vampiric
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: vampiric
+  description: >-
+    Drains blood via bite, increasing the victim's Fatigue levels. Rate varies
+    by creature.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!2bBXEbLn0fJdECKA'

@@ -1,0 +1,27 @@
+_id: V8ymxKtrMfY3k40l
+name: Two-Handed
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: two-handed
+  description: Requires both hands to wield. Also enables the Sunder Special Effect.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!V8ymxKtrMfY3k40l'

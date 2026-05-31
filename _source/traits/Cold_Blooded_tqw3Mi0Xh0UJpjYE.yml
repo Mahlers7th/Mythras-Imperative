@@ -1,0 +1,29 @@
+_id: tqw3Mi0Xh0UJpjYE
+name: Cold-Blooded
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: coldBlooded
+  description: >-
+    Eats infrequently. Below 15°C: –6 Initiative, –1 Combat Action. Below 5°C:
+    catatonic.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!tqw3Mi0Xh0UJpjYE'

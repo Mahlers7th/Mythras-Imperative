@@ -1,0 +1,33 @@
+_id: d0d933facd58904b
+name: Swim
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: STR+CON
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Without development, the ability to swim is limited to keeping one's head
+    above water for a short time. Higher Swim percentages indicate being able to
+    negotiate deeper and stronger waters with less risk of drowning. Rough seas,
+    strong currents, and rip tides all reduce the grade of the skill.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!d0d933facd58904b'

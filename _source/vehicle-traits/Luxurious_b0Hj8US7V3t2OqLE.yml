@@ -1,0 +1,29 @@
+_id: b0Hj8US7V3t2OqLE
+name: Luxurious
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: luxurious
+  description: >-
+    Designed to carry passengers in comfort. Excess space is devoted to luxury
+    accommodations, pools, hot tubs, and extra crew.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!b0Hj8US7V3t2OqLE'

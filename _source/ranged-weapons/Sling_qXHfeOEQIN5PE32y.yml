@@ -1,0 +1,42 @@
+_id: qXHfeOEQIN5PE32y
+name: Sling
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 1d8
+  size: M
+  reach: M
+  force: L
+  rangeClose: 10
+  rangeEffective: 150
+  rangeLong: 300
+  load: 2
+  impaleSize: S
+  damageModApplies: false
+  ap: 1
+  hp: 2
+  currentHP: 2
+  enc: 0.5
+  traits: []
+  description: A simple ranged weapon hurling stones or lead shot. Load 2 turns.
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+_key: '!items!qXHfeOEQIN5PE32y'

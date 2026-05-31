@@ -1,0 +1,35 @@
+_id: 5af4a807f0c084b5
+name: Survival
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: CON+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Survival covers surviving in a rural or wilderness environment where the
+    benefits of civilisation are absent: foraging, building a fire, finding
+    shelter or a safe place to sleep. When properly equipped, rolls are usually
+    unnecessary. Only when separated from equipment or when conditions turn bad
+    does it become essential. A roll is usually made once per day in such
+    conditions.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!5af4a807f0c084b5'

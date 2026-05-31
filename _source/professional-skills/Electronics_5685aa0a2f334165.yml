@@ -1,0 +1,32 @@
+_id: 5685aa0a2f334165
+name: Electronics
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: DEX+INT
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Electronics allows the user to tinker with, bypass, or repair electronic
+    devices. It has many applications, most often to temporarily patch up
+    damaged equipment or replace broken circuits with spares.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!5685aa0a2f334165'

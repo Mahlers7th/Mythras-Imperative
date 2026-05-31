@@ -1,0 +1,29 @@
+_id: SRx3WiAApwtOa75f
+name: Gaze Attack
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: gazeAttack
+  description: >-
+    Active (costs an AP) or passive (affects anyone looking) gaze attack. Effect
+    varies by creature.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!SRx3WiAApwtOa75f'

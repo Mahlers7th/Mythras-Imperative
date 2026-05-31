@@ -1,0 +1,35 @@
+_id: TMeD19K2FL4YV79z
+name: Full Assault Armour
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 12
+  enc: 8
+  initiativePenalty: 8
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Heavy powered combat armour. Maximum protection. Covers all locations.
+  equipped: false
+_key: '!items!TMeD19K2FL4YV79z'

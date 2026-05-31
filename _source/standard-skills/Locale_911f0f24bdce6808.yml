@@ -1,0 +1,35 @@
+_id: 911f0f24bdce6808
+name: Locale
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: INT*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Locale measures a character's understanding of local flora, fauna, terrain,
+    and weather in the area where they have spent much of their life. The
+    character knows the common plants, trees, and animals, their properties and
+    behaviour, where to find shelter, the likely weather for the season, and the
+    most common regional dangers. In unfamiliar locations Locale should be made
+    one or more grades harder.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!911f0f24bdce6808'

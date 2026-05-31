@@ -1,0 +1,33 @@
+_id: 09935cea4ff64eae
+name: Lockpicking
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: DEX*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Lockpicking is the ability to open a mechanical locking system without the
+    aid of a key. It includes the techniques of levering open bolted or barred
+    doors and windows without causing damage. Lockpicking may also be used to
+    lock something when no key is available.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!09935cea4ff64eae'

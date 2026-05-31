@@ -1,0 +1,27 @@
+_id: FA1h2hyHKrzSbgld
+name: Adhering
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: adhering
+  description: Moves freely on vertical surfaces and ceilings at half Movement rate.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!FA1h2hyHKrzSbgld'

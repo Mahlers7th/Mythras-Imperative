@@ -1,0 +1,33 @@
+_id: a66f1b2eef8769d4
+name: Gambling
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Gambling measures competence in games of chance where money is staked on the
+    outcome. It is used to assess the odds of success or failure, or spot when
+    someone is cheating. Gambling can be used in an opposed or unopposed manner
+    depending on the situation.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!a66f1b2eef8769d4'

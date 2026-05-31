@@ -1,0 +1,29 @@
+_id: uOyQW0irH6KZ5ikf
+name: Terrifying
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: terrifying
+  description: >-
+    Viewers make a Willpower roll: critical = unhindered, success = shaken for
+    one round, failure = flee, fumble = unconscious.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!uOyQW0irH6KZ5ikf'

@@ -1,0 +1,27 @@
+_id: j5GM2C2dGaRt7d9O
+name: Dark Sight
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: darkSight
+  description: Sees normally in complete darkness.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!j5GM2C2dGaRt7d9O'

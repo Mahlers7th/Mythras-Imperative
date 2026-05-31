@@ -1,0 +1,29 @@
+_id: derzWLQwR3wKazDI
+name: Impaling
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: impaling
+  description: >-
+    Can lodge in a wound. Enables the Impale Special Effect — roll damage twice
+    and use the better result.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!derzWLQwR3wKazDI'

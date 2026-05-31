@@ -1,0 +1,29 @@
+_id: oekSeS95AjD40Qwk
+name: Tractor Beam
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: tractorBeam
+  description: >-
+    Spacecraft only. Can ensnare and draw vehicles with a hull rating of up to
+    two steps smaller than its own.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!oekSeS95AjD40Qwk'

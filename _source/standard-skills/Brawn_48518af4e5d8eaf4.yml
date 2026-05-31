@@ -1,0 +1,32 @@
+_id: 48518af4e5d8eaf4
+name: Brawn
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: STR+SIZ
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Brawn is the efficient application of technique when applying raw physical
+    force. The skill covers acts of applied might, including lifting, breaking
+    down doors and contests of strength.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!48518af4e5d8eaf4'

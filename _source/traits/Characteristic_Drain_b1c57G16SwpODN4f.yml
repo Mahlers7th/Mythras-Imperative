@@ -1,0 +1,29 @@
+_id: b1c57G16SwpODN4f
+name: Characteristic Drain
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: characteristicDrain
+  description: >-
+    Can drain temporary Characteristic points from attack targets. Details vary
+    by creature.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!b1c57G16SwpODN4f'

@@ -1,0 +1,29 @@
+_id: 7c4Ah9dHtTo7ntgU
+name: Immunity
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: immunity
+  description: >-
+    Immune to one damage type (cold, fire, iron, etc.). The specific immunity is
+    specified per creature instance.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!7c4Ah9dHtTo7ntgU'

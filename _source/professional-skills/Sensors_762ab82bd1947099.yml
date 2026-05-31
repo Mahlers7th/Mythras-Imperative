@@ -1,0 +1,31 @@
+_id: 762ab82bd1947099
+name: Sensors
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Sensors allows the accurate use and analysis of sensor devices, from
+    chemical sniffers up to military long-range scanners.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!762ab82bd1947099'

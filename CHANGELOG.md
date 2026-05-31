@@ -6,6 +6,16 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.199 — May 2026
+- **Compendium source format migration:** all 9 packs converted from LevelDB binary to YAML `_source/` directory. `packs/` added to `.gitignore` — binary packs are no longer committed to Git
+- Removed ghost null-ID entry from macros pack (LevelDB artifact from unclean shutdown)
+- Removed stray `packs/professional-skills.db` and `packs/standard-skills.db` files
+- Added `scripts/pack-all.mjs` and `scripts/unpack-all.mjs` for building/extracting packs
+- Added `npm run pack` and `npm run unpack` scripts to `package.json`; added `@foundryvtt/foundryvtt-cli` as devDependency
+- `package.json` version synced to `1.4.199` (was `1.0.0`)
+- `system.json` `compatibility.minimum` corrected from `"12"` to `"14"` (system uses v14-only APIs throughout)
+- `system.json` `authors` field cleaned up (was `"Christopher Herrell, vibe coded by Claude"`)
+
 ## v1.4.197 — May 2026
 - CSS fix: movement input on creature/NPC sheet was dark-on-dark (no text colour set). Added `.mi-move-track input[type="text"]` rule with `color: var(--mi-teal-dark)` and `background: transparent`
 

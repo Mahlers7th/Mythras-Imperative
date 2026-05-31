@@ -1,0 +1,29 @@
+_id: W7Ypr00Roy9USx4Y
+name: Submersible
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: submersible
+  description: >-
+    Can submerge to an operating depth of Hull Rating × 10 metres. Collapse
+    depth is 1.5× operating depth.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!W7Ypr00Roy9USx4Y'

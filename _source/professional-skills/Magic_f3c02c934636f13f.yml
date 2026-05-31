@@ -1,0 +1,32 @@
+_id: f3c02c934636f13f
+name: Magic
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: POW+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    The Magic skill is used for casting the spells described in the Powers
+    chapter. A successful roll is needed for a spell to work, although the spell
+    may still be resisted by an opposing skill such as Willpower.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!f3c02c934636f13f'

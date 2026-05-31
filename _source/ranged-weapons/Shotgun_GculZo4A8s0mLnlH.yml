@@ -1,0 +1,45 @@
+_id: GculZo4A8s0mLnlH
+name: Shotgun
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 3d6
+  size: M
+  reach: M
+  force: M
+  rangeClose: 20
+  rangeEffective: 50
+  rangeLong: 200
+  load: 3
+  impaleSize: S
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 2
+  traits:
+    - firearm
+  description: Devastating at close range. Load 3 turns.
+  equipped: false
+  ammo: 8
+  ammoMax: 8
+  burstSize: 3
+  firingMode: single
+_key: '!items!GculZo4A8s0mLnlH'

@@ -1,0 +1,48 @@
+_id: 6ML0spCUriaXQq25
+name: Rifle
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 2d6
+  size: M
+  reach: M
+  force: H
+  rangeClose: 100
+  rangeEffective: 300
+  rangeLong: 2000
+  load: 2
+  impaleSize: M
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 2
+  traits:
+    - firearm
+    - burst-fire
+    - full-auto
+  description: A standard rifle. Load 2 turns. No damage modifier.
+  equipped: false
+  ammo: 30
+  ammoMax: 30
+  burstSize: 3
+  firingMode: single
+  cyclicRate: 30
+_key: '!items!6ML0spCUriaXQq25'

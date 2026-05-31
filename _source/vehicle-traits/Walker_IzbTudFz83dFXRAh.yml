@@ -1,0 +1,30 @@
+_id: IzbTudFz83dFXRAh
+name: Walker
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: walker
+  description: >-
+    The vehicle propels itself on articulated legs. Capped at Gentle speed
+    regardless of size, but can achieve heights impossible for wheeled or
+    tracked vehicles.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!IzbTudFz83dFXRAh'

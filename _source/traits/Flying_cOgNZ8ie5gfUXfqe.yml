@@ -1,0 +1,29 @@
+_id: cOgNZ8ie5gfUXfqe
+name: Flying
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: flying
+  description: >-
+    Auto-succeeds at routine flight. May substitute Fly skill (STR+DEX base) for
+    Evade whilst aloft.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!cOgNZ8ie5gfUXfqe'

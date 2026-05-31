@@ -1,0 +1,35 @@
+_id: 66c0b91a51987fd6
+name: Language
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Language covers speaking and comprehension of a language other than the
+    character's own. It is treated as a static representation of overall
+    fluency: 1-25% a few basic words; 26-50% simple sentences; 51-75% fluent for
+    general conversation; 76+% able to converse eloquently. Language can act as
+    a cap for certain other skills such as Bureaucracy where fluency is a
+    limiting factor.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!66c0b91a51987fd6'

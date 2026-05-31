@@ -1,0 +1,33 @@
+_id: 0b1a54999d07d1c7
+name: Art
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: POW+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    There are many specific art forms: Painting, Poetry, Literature, Sculpture,
+    and more. A character chooses an Art specialisation when taking this skill.
+    Subsequent Art forms are advanced separately. A roll is made whenever a
+    character must impress or convince through their artistic medium.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!0b1a54999d07d1c7'

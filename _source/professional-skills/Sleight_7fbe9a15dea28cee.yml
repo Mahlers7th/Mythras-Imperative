@@ -1,0 +1,33 @@
+_id: 7fbe9a15dea28cee
+name: Sleight
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: DEX+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Sleight covers attempts to palm or conceal small objects (legerdemain and
+    prestidigitation) and includes attempts to pick pockets, cut purses, or
+    cause a visual distraction. It is an essential skill for thieves and stage
+    magicians alike.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!7fbe9a15dea28cee'

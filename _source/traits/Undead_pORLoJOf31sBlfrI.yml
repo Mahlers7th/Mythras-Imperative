@@ -1,0 +1,29 @@
+_id: pORLoJOf31sBlfrI
+name: Undead
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: undead
+  description: >-
+    Immune to Fatigue and Serious Wound effects. A Major Wound to a bound
+    location (head or chest) destroys the creature outright.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!pORLoJOf31sBlfrI'

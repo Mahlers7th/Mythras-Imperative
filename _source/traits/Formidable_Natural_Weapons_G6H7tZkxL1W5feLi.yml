@@ -1,0 +1,29 @@
+_id: G6H7tZkxL1W5feLi
+name: Formidable Natural Weapons
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: formidableNaturalWeapons
+  description: >-
+    Can actively parry with natural weapons such as horns, chitin, or bone.
+    Without this, creatures rely on armour or Evade.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!G6H7tZkxL1W5feLi'

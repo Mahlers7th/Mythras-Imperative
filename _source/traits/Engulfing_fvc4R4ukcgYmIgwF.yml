@@ -1,0 +1,29 @@
+_id: fvc4R4ukcgYmIgwF
+name: Engulfing
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: engulfing
+  description: >-
+    Can swallow targets up to half its SIZ whole. The victim suffers bite damage
+    then suffocation.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!fvc4R4ukcgYmIgwF'

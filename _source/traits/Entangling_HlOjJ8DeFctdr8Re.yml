@@ -1,0 +1,27 @@
+_id: HlOjJ8DeFctdr8Re
+name: Entangling
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: entangling
+  description: Can wrap around or snag an opponent. Enables the Entangle Special Effect.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!HlOjJ8DeFctdr8Re'

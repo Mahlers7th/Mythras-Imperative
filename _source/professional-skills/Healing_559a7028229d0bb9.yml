@@ -1,0 +1,35 @@
+_id: 559a7028229d0bb9
+name: Healing
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Healing is the in-depth knowledge of medical procedures based on cultural
+    practices. It is used to treat serious injuries (typically those where Hit
+    Points are at zero or less). It includes setting bones, suturing wounds, and
+    applying poultices or drugs as appropriate to the setting. Applying Healing
+    requires appropriate resources such as needles, thread, herbs, or a medical
+    kit.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!559a7028229d0bb9'

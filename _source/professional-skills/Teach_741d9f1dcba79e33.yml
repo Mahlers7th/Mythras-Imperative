@@ -1,0 +1,32 @@
+_id: 741d9f1dcba79e33
+name: Teach
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Teach allows the user to pass on their knowledge and techniques in an easy
+    to understand and constructive manner. Without this skill, even the most
+    capable of masters will have difficulty instructing others effectively.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!741d9f1dcba79e33'

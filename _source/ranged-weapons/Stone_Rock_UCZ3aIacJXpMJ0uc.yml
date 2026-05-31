@@ -1,0 +1,43 @@
+_id: UCZ3aIacJXpMJ0uc
+name: Stone/Rock
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 1d3
+  size: M
+  reach: M
+  force: S
+  rangeClose: 5
+  rangeEffective: 10
+  rangeLong: 20
+  load: 0
+  impaleSize: S
+  damageModApplies: true
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 0
+  traits:
+    - thrown
+  description: An improvised thrown weapon. Damage modifier applies.
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+_key: '!items!UCZ3aIacJXpMJ0uc'

@@ -1,0 +1,29 @@
+_id: 5vRKUxJ67ycbgISV
+name: High-Tech
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: hightech
+  description: >-
+    Advanced high-technology weapon. Enables the Circumvent Cover Special
+    Effect.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!5vRKUxJ67ycbgISV'

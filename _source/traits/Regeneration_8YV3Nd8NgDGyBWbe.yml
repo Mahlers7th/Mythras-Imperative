@@ -1,0 +1,29 @@
+_id: 8YV3Nd8NgDGyBWbe
+name: Regeneration
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: regeneration
+  description: >-
+    Regenerates lost Hit Points each round. Rate varies by creature. Does not
+    replace severed limbs. Severance of a vital location still kills.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!8YV3Nd8NgDGyBWbe'

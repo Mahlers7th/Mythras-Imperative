@@ -1,0 +1,33 @@
+_id: 5b388583a8c29ad0
+name: Willpower
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: POW*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Willpower is a measure of a character's ability to concentrate, channel
+    their force of will in a particular direction, or harden their psyche to
+    possible mental shock. It is used in all manner of situations where mental
+    resilience is required, and includes resisting magic.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!5b388583a8c29ad0'

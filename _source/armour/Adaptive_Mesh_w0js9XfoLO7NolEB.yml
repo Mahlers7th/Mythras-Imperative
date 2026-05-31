@@ -1,0 +1,35 @@
+_id: w0js9XfoLO7NolEB
+name: Adaptive Mesh
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 6
+  enc: 3
+  initiativePenalty: 3
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Smart material that stiffens under impact. Covers all locations.
+  equipped: false
+_key: '!items!w0js9XfoLO7NolEB'

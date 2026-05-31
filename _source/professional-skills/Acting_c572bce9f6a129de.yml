@@ -1,0 +1,34 @@
+_id: c572bce9f6a129de
+name: Acting
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: CHA*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Acting governs the ability to impersonate and convey a completely different
+    character, whether in a staged performance or a social situation. The actor
+    portrays a personality and mannerisms different to their own in a convincing
+    manner. Coupled with Disguise and Deceit, this is a powerful way of becoming
+    someone else entirely.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!c572bce9f6a129de'

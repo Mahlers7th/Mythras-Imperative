@@ -1,0 +1,29 @@
+_id: dryLzrIzb1WXLsSJ
+name: Unarmed Prowess
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: unarmedProwess
+  description: >-
+    Permits the user to treat Unarmed blocks and parries as Medium sized,
+    enabling better defence against armed opponents.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!dryLzrIzb1WXLsSJ'

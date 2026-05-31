@@ -1,0 +1,35 @@
+_id: OKefQc9L6HdtY3Vj
+name: Hoplite Plate
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 5
+  enc: 5
+  initiativePenalty: 5
+  locations:
+    head: false
+    chest: true
+    abdomen: true
+    rightArm: false
+    leftArm: false
+    rightLeg: false
+    leftLeg: false
+  description: Bronze breastplate and backplate. Covers chest and abdomen.
+  equipped: false
+_key: '!items!OKefQc9L6HdtY3Vj'

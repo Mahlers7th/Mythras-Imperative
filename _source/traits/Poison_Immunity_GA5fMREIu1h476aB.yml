@@ -1,0 +1,27 @@
+_id: GA5fMREIu1h476aB
+name: Poison Immunity
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: poisonImmunity
+  description: Immune to all poisons. Automatic for creatures without SIZ.
+  engineEffect: false
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!GA5fMREIu1h476aB'

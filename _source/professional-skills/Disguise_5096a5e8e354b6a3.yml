@@ -1,0 +1,35 @@
+_id: 5096a5e8e354b6a3
+name: Disguise
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Effecting a convincing disguise using appropriate materials (costumes,
+    cosmetics, wigs, or hairpieces) is covered by Disguise. Creating the
+    disguise requires time, attention to detail, and access to the right
+    materials. If some or all of these elements are absent, the Difficulty Grade
+    is increased. Disguise can be augmented with Acting to enhance the overall
+    effect of a deception.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!5096a5e8e354b6a3'

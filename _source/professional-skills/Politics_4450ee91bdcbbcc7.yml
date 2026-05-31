@@ -1,0 +1,31 @@
+_id: 4450ee91bdcbbcc7
+name: Politics
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Characters with the Politics skill understand how to navigate and negotiate
+    the corridors of government at local and national levels.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!4450ee91bdcbbcc7'

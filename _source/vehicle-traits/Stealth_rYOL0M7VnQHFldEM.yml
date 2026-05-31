@@ -1,0 +1,29 @@
+_id: rYOL0M7VnQHFldEM
+name: Stealth
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: stealth
+  description: >-
+    Aircraft only. Designed to avoid radar and long-range sensors. Attempts to
+    detect the vehicle electronically are one grade more difficult.
+  engineEffect: true
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!rYOL0M7VnQHFldEM'

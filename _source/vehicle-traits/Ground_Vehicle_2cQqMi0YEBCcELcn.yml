@@ -1,0 +1,29 @@
+_id: 2cQqMi0YEBCcELcn
+name: Ground Vehicle
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: groundVehicle
+  description: >-
+    The vehicle is capable of ground travel. This is the inherent trait for all
+    land-based vehicles.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!2cQqMi0YEBCcELcn'

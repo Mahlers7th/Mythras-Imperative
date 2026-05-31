@@ -2,15 +2,15 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.198",
+  "version": "1.4.199",
   "compatibility": {
-    "minimum": "12",
+    "minimum": "14",
     "verified": "14",
     "maximum": "14"
   },
   "authors": [
     {
-      "name": "Christopher Herrell, vibe coded by Claude"
+      "name": "Christopher Herrell"
     }
   ],
   "esmodules": [

@@ -1,0 +1,33 @@
+_id: 8dcc6f94845f1a13
+name: Streetwise
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: POW+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Streetwise represents knowledge of places and social contacts within a
+    settlement. It covers everything from identifying potentially dangerous
+    neighbourhoods to finding local services — legal or illegal. How long a
+    Streetwise attempt takes depends on what is being sought.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!8dcc6f94845f1a13'

@@ -1,0 +1,29 @@
+_id: ojaXVYlw1tgpagzR
+name: Hold Breath
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: holdBreath
+  description: >-
+    Holds breath for CON minutes (passive activity) or half CON minutes (active
+    combat).
+  engineEffect: false
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!ojaXVYlw1tgpagzR'

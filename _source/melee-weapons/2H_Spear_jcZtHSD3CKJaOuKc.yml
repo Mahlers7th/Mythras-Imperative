@@ -1,0 +1,42 @@
+_id: jcZtHSD3CKJaOuKc
+name: 2H Spear
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: 1d10+1
+  size: L
+  reach: VL
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 10
+  currentHP: 10
+  enc: 2
+  traits:
+    - impaling
+    - two-handed
+  description: A two-handed spear. Can be set to receive a charge.
+  equipped: false
+_key: '!items!jcZtHSD3CKJaOuKc'

@@ -1,0 +1,35 @@
+_id: OLQV3kWACWSpYgCq
+name: Type II Bulletproof Vest
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 7
+  enc: 5
+  initiativePenalty: 5
+  locations:
+    head: false
+    chest: true
+    abdomen: true
+    rightArm: false
+    leftArm: false
+    rightLeg: false
+    leftLeg: false
+  description: Level II soft body armour. Covers chest and abdomen.
+  equipped: false
+_key: '!items!OLQV3kWACWSpYgCq'

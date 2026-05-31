@@ -1,0 +1,29 @@
+_id: DOPc1AMGRkV0MAY6
+name: Aquatic
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: aquatic
+  description: >-
+    Breathes water. If removed from water and breathing organs dry out,
+    suffocates after CON minutes.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!DOPc1AMGRkV0MAY6'

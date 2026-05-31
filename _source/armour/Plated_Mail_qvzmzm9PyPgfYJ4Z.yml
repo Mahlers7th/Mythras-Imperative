@@ -1,0 +1,35 @@
+_id: qvzmzm9PyPgfYJ4Z
+name: Plated Mail
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 7
+  enc: 7
+  initiativePenalty: 7
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: Mail reinforced with solid plates at key locations. Covers all.
+  equipped: false
+_key: '!items!qvzmzm9PyPgfYJ4Z'

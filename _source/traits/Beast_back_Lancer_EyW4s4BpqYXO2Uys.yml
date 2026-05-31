@@ -1,0 +1,29 @@
+_id: EyW4s4BpqYXO2Uys
+name: Beast-back Lancer
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: beastBackLancer
+  description: >-
+    Performing a mounted charge with this style does not incur the one step
+    difficulty penalty to hit.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!EyW4s4BpqYXO2Uys'

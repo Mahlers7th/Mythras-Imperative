@@ -1,0 +1,33 @@
+_id: 1ca5972c6fbc5142
+name: Seamanship
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+CON
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Seamanship is used in the same way as Boating but applied to large
+    waterborne vessels powered by sail or banks of oars. It also covers the
+    maintenance and upkeep of a ship: assessing when repairs are needed, where
+    it is safe to anchor, and the dangers of violent weather.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!1ca5972c6fbc5142'

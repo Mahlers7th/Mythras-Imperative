@@ -1,0 +1,41 @@
+_id: RDG0Eoj8UWUMV0ni
+name: Chain
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: 1d4
+  size: M
+  reach: M
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 8
+  hp: 6
+  currentHP: 6
+  enc: 1
+  traits:
+    - entangling
+  description: An iron chain used as a flail-like weapon. Can entangle.
+  equipped: false
+_key: '!items!RDG0Eoj8UWUMV0ni'

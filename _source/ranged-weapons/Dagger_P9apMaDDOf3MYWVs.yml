@@ -1,0 +1,44 @@
+_id: P9apMaDDOf3MYWVs
+name: Dagger
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 1d4
+  size: M
+  reach: M
+  force: S
+  rangeClose: 5
+  rangeEffective: 10
+  rangeLong: 20
+  load: 0
+  impaleSize: S
+  damageModApplies: true
+  ap: 4
+  hp: 8
+  currentHP: 8
+  enc: 0.5
+  traits:
+    - thrown
+    - impaling
+  description: A thrown dagger. Damage modifier applies.
+  equipped: false
+  ammo: 1
+  ammoMax: 1
+_key: '!items!P9apMaDDOf3MYWVs'

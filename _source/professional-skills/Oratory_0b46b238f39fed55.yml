@@ -1,0 +1,33 @@
+_id: 0b46b238f39fed55
+name: Oratory
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: POW+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Oratory is the art of delivering a speech to a large group of people with
+    the aim of conveying or swaying a point of view. It is used by politicians
+    to drive home a policy and by commanders to inspire troops. Wherever mass
+    persuasion is needed, Oratory rather than Influence is used.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!0b46b238f39fed55'

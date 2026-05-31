@@ -1,0 +1,32 @@
+_id: 7ae5eb054903e957
+name: Dance
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: DEX+CHA
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Just about every culture uses dance in some way — either as recreation or as
+    part of important rituals. The Dance skill measures a character's ability to
+    move rhythmically and accurately when called upon to do so.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!7ae5eb054903e957'

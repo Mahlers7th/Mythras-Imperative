@@ -1,0 +1,33 @@
+_id: 3a6cc9e7bc2014e1
+name: Unarmed
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: STR+DEX
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Unarmed is a universal Combat Skill common to all characters, measuring the
+    ability to defend oneself without weapons. The Unarmed skill covers the
+    brawling and wrestling techniques known by that culture. As a Combat Skill,
+    its Critical and Fumble effects are covered by the rules for combat.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!3a6cc9e7bc2014e1'

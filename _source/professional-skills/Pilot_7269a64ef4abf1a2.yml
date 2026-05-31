@@ -1,0 +1,32 @@
+_id: 7269a64ef4abf1a2
+name: Pilot
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: DEX+INT
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    The Pilot skill permits the control of a specified class of flying vehicles
+    (such as gliders, prop-driven planes, jet engines, and so on). Each class of
+    vehicle may be a separate specialisation.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!7269a64ef4abf1a2'

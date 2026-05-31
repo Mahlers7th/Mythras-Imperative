@@ -1,0 +1,35 @@
+_id: 4rONUrv2jY94WMbk
+name: Ballistic Cloth
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 3
+  enc: 2
+  initiativePenalty: 2
+  locations:
+    head: false
+    chest: true
+    abdomen: true
+    rightArm: false
+    leftArm: false
+    rightLeg: false
+    leftLeg: false
+  description: Soft woven armour worn under clothing. Covers chest and abdomen.
+  equipped: false
+_key: '!items!4rONUrv2jY94WMbk'

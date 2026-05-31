@@ -1,0 +1,29 @@
+_id: 9zb51twFx4hdAMhp
+name: Formation Fighting
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: formationFighting
+  description: >-
+    Permits an unflanked group of three or more warriors to draw into close
+    formation, reducing each foe's Action Points by one if they engage.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!9zb51twFx4hdAMhp'

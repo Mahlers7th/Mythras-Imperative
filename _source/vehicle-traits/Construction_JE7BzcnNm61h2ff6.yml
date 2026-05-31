@@ -1,0 +1,30 @@
+_id: JE7BzcnNm61h2ff6
+name: Construction
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: construction
+  description: >-
+    The vehicle is equipped for heavy construction work. Has All Terrain
+    automatically; speed is two steps lower. Fitted with cranes, digger shovels,
+    dump carts, etc.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!JE7BzcnNm61h2ff6'

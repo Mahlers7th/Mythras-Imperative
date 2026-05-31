@@ -1,0 +1,40 @@
+_id: nOAp841WkeDMVzf4
+name: Shortsword
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: 1d6
+  size: M
+  reach: S
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 6
+  hp: 8
+  currentHP: 8
+  enc: 1
+  traits: []
+  description: A versatile short blade, easy to draw and use in confined spaces.
+  equipped: false
+_key: '!items!nOAp841WkeDMVzf4'

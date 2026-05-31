@@ -1,0 +1,31 @@
+_id: c0cf909a8e996be4
+name: Research
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: professional
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Research uses various resources — such as a library, newspaper archive, or
+    computer network — to discover desired pieces of information.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!c0cf909a8e996be4'

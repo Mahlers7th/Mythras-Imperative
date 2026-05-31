@@ -1,0 +1,34 @@
+_id: 899db408cba5858a
+name: Stealth
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: DEX+INT
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Hiding out of plain sight, or moving with minimal sound, are covered by the
+    Stealth skill. Cover and conditions such as darkness or loud background
+    noise improve the grade of the skill. A warrior wearing heavy armour can
+    conceal themselves behind a wall if they stand still, but moving quickly
+    might cause their armour to jingle.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!899db408cba5858a'

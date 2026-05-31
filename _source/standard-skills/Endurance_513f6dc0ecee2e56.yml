@@ -1,0 +1,33 @@
+_id: 513f6dc0ecee2e56
+name: Endurance
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: CON*2
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Endurance is a character's capacity to endure physical stress, pain, and
+    fatigue. It is a general gauge of resilience, stamina, and metabolism, and
+    is used most specifically to resist the possible effects of injuries,
+    including harmful poisons and disease.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!513f6dc0ecee2e56'

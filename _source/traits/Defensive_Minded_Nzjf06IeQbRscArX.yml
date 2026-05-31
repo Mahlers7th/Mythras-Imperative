@@ -1,0 +1,29 @@
+_id: Nzjf06IeQbRscArX
+name: Defensive Minded
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: defensiveMinded
+  description: >-
+    Increases the Size of your weapon when parrying by one step, provided no
+    offensive action is taken that round.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!Nzjf06IeQbRscArX'

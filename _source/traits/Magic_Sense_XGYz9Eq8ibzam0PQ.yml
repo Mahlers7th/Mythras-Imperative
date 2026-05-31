@@ -1,0 +1,29 @@
+_id: XGYz9Eq8ibzam0PQ
+name: Magic Sense
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: magicSense
+  description: >-
+    Detects magical emanations. Touch plus a Perception roll reveals magic
+    points, enchantments, and active spells.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!XGYz9Eq8ibzam0PQ'

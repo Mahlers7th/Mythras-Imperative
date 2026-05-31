@@ -1,0 +1,29 @@
+_id: 9Ae0N8unHP4vD4GN
+name: Leaper
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: creature
+  key: leaper
+  description: >-
+    Combines a leaping attack with a natural weapon. Winning the opposed roll
+    automatically inflicts damage (only Passive Blocking defends).
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!9Ae0N8unHP4vD4GN'

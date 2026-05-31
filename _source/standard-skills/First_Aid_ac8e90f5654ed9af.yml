@@ -1,0 +1,32 @@
+_id: ac8e90f5654ed9af
+name: First Aid
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: INT+DEX
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    The skill of First Aid measures a character's ability to treat minor
+    injuries and stabilise more severe ones. First Aid may be applied only once
+    per specific injury and heals 1d3 points of damage.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!ac8e90f5654ed9af'

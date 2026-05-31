@@ -1,0 +1,29 @@
+_id: AM21pOe4h1ll4Cda
+name: Burst Fire
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: burst-fire
+  description: >-
+    Can fire a short burst. Hard difficulty; 1d[burst size] rounds strike on a
+    hit.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!AM21pOe4h1ll4Cda'

@@ -1,0 +1,29 @@
+_id: DVFe9KgwEo1U3pNA
+name: Spacecraft
+type: trait
+img: icons/svg/sun.svg
+system:
+  category: vehicle
+  key: spacecraft
+  description: >-
+    Sealed against vacuum, shielded against cosmic radiation, and capable of
+    leaving and re-entering atmosphere where design permits.
+  engineEffect: false
+  graph: null
+effects: []
+flags: {}
+folder: null
+sort: 0
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+ownership:
+  default: 0
+_key: '!items!DVFe9KgwEo1U3pNA'

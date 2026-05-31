@@ -1,0 +1,32 @@
+_id: 283973714cfcfb1f
+name: Sing
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: CHA+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Carrying a tune is covered by Sing, anything from monotonous chants through
+    to complex arias. The skill reflects the user's ability to maintain rhythm,
+    keep in key, and remember the correct words.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!283973714cfcfb1f'

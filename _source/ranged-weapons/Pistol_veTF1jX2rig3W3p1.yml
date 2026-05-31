@@ -1,0 +1,45 @@
+_id: veTF1jX2rig3W3p1
+name: Pistol
+type: weapon
+img: icons/svg/bow.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: 1d6
+  size: M
+  reach: M
+  force: L
+  rangeClose: 50
+  rangeEffective: 100
+  rangeLong: 200
+  load: 2
+  impaleSize: S
+  damageModApplies: false
+  ap: 0
+  hp: 0
+  currentHP: 0
+  enc: 0.5
+  traits:
+    - firearm
+  description: A semi-automatic pistol. Load 2 turns. No damage modifier.
+  equipped: false
+  ammo: 15
+  ammoMax: 15
+  burstSize: 3
+  firingMode: single
+_key: '!items!veTF1jX2rig3W3p1'

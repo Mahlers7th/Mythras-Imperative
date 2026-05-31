@@ -1,0 +1,29 @@
+_id: XCNO7N8KJuWLDOKQ
+name: Throw Weapons
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: combatStyle
+  key: throwWeapons
+  description: >-
+    Any melee weapon in the style can also be thrown at no penalty to skill, but
+    damage roll is halved.
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!XCNO7N8KJuWLDOKQ'

@@ -1,0 +1,35 @@
+_id: h0xAxlHlZ4i5x3eg
+name: Type IV Bulletproof Vest
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 10
+  enc: 7
+  initiativePenalty: 7
+  locations:
+    head: false
+    chest: true
+    abdomen: true
+    rightArm: false
+    leftArm: false
+    rightLeg: false
+    leftLeg: false
+  description: Level IV ceramic plate armour. Covers chest and abdomen.
+  equipped: false
+_key: '!items!h0xAxlHlZ4i5x3eg'

@@ -1,0 +1,34 @@
+_id: da1691c28eb331e4
+name: Perception
+type: skill
+img: icons/svg/skill.svg
+system:
+  category: standard
+  baseFormula: INT+POW
+  baseValue: 0
+  bonusPoints: 0
+  total: 0
+  description: >-
+    Perception is used for both passive observation and focused detection;
+    whether hunting for something specific, a general scan of an area, or simple
+    awareness of surroundings. Specific conditions — such as darkness — may
+    affect the Difficulty Grade of the skill roll depending on the primary
+    senses being used.
+  fumbledLastSession: false
+effects: []
+folder: null
+flags: {}
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+sort: 0
+ownership:
+  default: 0
+_key: '!items!da1691c28eb331e4'

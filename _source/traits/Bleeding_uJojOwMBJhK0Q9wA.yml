@@ -1,0 +1,29 @@
+_id: uJojOwMBJhK0Q9wA
+name: Bleeding
+type: trait
+img: icons/svg/item-bag.svg
+system:
+  category: weapon
+  key: bleeding
+  description: >-
+    Pointed edges or blades cause profuse bleeding on contact. Enables the Bleed
+    Special Effect (Critical only for firearms).
+  engineEffect: true
+  graph: null
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!uJojOwMBJhK0Q9wA'
