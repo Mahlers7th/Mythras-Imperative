@@ -357,43 +357,65 @@ export const MYTHRAS = {
 
   // -----------------------------------------------------------------------
   // SPECIAL EFFECTS
-  // All 26 special effects from Mythras Imperative.
-  // Each has: id, label, who (attacker/defender/both), restrictions.
+  // All 32 special effects from Mythras Imperative.
+  //
+  // Fields: id, label, who (attacker/defender/both), restriction,
+  //   phase, requiresDamage, requiresFumble, resolver.
+  //
+  // phase values:
+  //   'opposed'        — dispatched through CombatEngine._resolveOpposedSEs
+  //   'attackerScored' — fires immediately in _afterDefenceResolved when the
+  //                      attacker scored (before damage), regardless of
+  //                      automation level
+  //   'damage'         — read inline during damage resolution; not dispatched
+  //   'none'           — no engine dispatch (narrative, or handled separately)
+  //
+  // requiresDamage: true  → resolver only called when damage > 0
+  // requiresFumble: true  → resolver only called when ctx.attackOutcome === 'fumble'
+  //
+  // resolver: CombatEngine static method name for 'opposed' and
+  //           'attackerScored' SEs; null for 'damage' and 'none'.
+  //
+  // Extension point: modules may push additional entries into this array.
+  // The engine iterates it at resolution time, so custom SEs added here
+  // are automatically included in dispatch and the hasOpposedSE gate.
   // -----------------------------------------------------------------------
 
   specialEffects: [
-    { id: 'accidentalInjury',  label: 'MYTHRAS.SEAccidentalInjury',  who: 'defender', restriction: 'attackerFumbles'    },
-    { id: 'dropFoe',           label: 'MYTHRAS.SEDropFoe',           who: 'attacker', restriction: 'firearmsOnly'       },
-    { id: 'duckBack',          label: 'MYTHRAS.SEDuckBack',          who: 'attacker', restriction: 'firearmsOnly'       },
-    { id: 'bash',              label: 'MYTHRAS.SEBash',              who: 'attacker', restriction: 'shieldOrBludgeon'   },
-    { id: 'bleed',             label: 'MYTHRAS.SEBleed',             who: 'attacker', restriction: 'cuttingOrFirearmCritical' },
-    { id: 'blindOpponent',     label: 'MYTHRAS.SEBlindOpponent',     who: 'defender', restriction: 'defenderCritical'   },
-    { id: 'bypassArmour',      label: 'MYTHRAS.SEBypassArmour',      who: 'attacker', restriction: 'attackerCritical'   },
-    { id: 'chooseLocation',    label: 'MYTHRAS.SEChooseLocation',    who: 'attacker', restriction: 'rangedNotClose'      },
-    { id: 'circumventParry',   label: 'MYTHRAS.SECircumventParry',   who: 'attacker', restriction: 'attackerCritical'   },
-    { id: 'damageWeapon',      label: 'MYTHRAS.SEDamageWeapon',      who: 'both',     restriction: null                 },
-    { id: 'disarmOpponent',    label: 'MYTHRAS.SEDisarmOpponent',    who: 'both',     restriction: null                 },
-    { id: 'enhanceParry',      label: 'MYTHRAS.SEEnhanceParry',      who: 'defender', restriction: 'defenderCritical'   },
-    { id: 'entangle',          label: 'MYTHRAS.SEEntangle',          who: 'attacker', restriction: 'entanglingWeapon'   },
-    { id: 'forceFailure',      label: 'MYTHRAS.SEForceFailure',      who: 'both',     restriction: 'opponentFumbles'    },
-    { id: 'grip',              label: 'MYTHRAS.SEGrip',              who: 'attacker', restriction: 'unarmed'            },
-    { id: 'impale',            label: 'MYTHRAS.SEImpale',            who: 'attacker', restriction: 'impalingWeapon'     },
-    { id: 'marksman',         label: 'MYTHRAS.SEMarksman',         who: 'attacker', restriction: 'rangedWeapon'       },
-    { id: 'maximiseDamage',    label: 'MYTHRAS.SEMaximiseDamage',    who: 'attacker', restriction: 'attackerCritical'   },
-    { id: 'overpenetrate',     label: 'MYTHRAS.SEOverpenetrate',     who: 'attacker', restriction: 'firearmsOnlyCritical'   },
-    { id: 'pinDown',           label: 'MYTHRAS.SEPinDown',           who: 'attacker', restriction: 'firearmsOnly'       },
-    { id: 'circumventCover',   label: 'MYTHRAS.SECircumventCover',   who: 'attacker', restriction: 'highTechFirearm'    },
-    { id: 'pinWeapon',         label: 'MYTHRAS.SEPinWeapon',         who: 'defender', restriction: null                 },
-    { id: 'prepareCounter',    label: 'MYTHRAS.SEPrepareCounter',    who: 'defender', restriction: null                 },
-    { id: 'rapidReload',       label: 'MYTHRAS.SERapidReload',       who: 'attacker', restriction: 'rangedWeapon'       },
-    { id: 'slipFree',          label: 'MYTHRAS.SESlipFree',          who: 'defender', restriction: 'defenderCritical'   },
-    { id: 'scarFoe',           label: 'MYTHRAS.SEScarFoe',           who: 'attacker', restriction: null                 },
-    { id: 'selectTarget',      label: 'MYTHRAS.SESelectTarget',      who: 'defender', restriction: 'attackerFumbles'   },
-    { id: 'stunLocation',      label: 'MYTHRAS.SEStunLocation',      who: 'attacker', restriction: 'bludgeoning'        },
-    { id: 'sunder',            label: 'MYTHRAS.SESunder',            who: 'attacker', restriction: 'sunderWeapon'       },
-    { id: 'tripOpponent',      label: 'MYTHRAS.SETripOpponent',      who: 'both',     restriction: null                 },
-    { id: 'weaponMalfunction', label: 'MYTHRAS.SEWeaponMalfunction', who: 'defender', restriction: 'attackerFumblesFirearm' },
-    { id: 'withdraw',          label: 'MYTHRAS.SEWithdraw',          who: 'defender', restriction: null                 }
+    // ── Attacker SEs ──────────────────────────────────────────────────────
+    { id: 'bash',             label: 'MYTHRAS.SEBash',             who: 'attacker', restriction: 'shieldOrBludgeon',       phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveBash'             },
+    { id: 'bleed',            label: 'MYTHRAS.SEBleed',            who: 'attacker', restriction: 'cuttingOrFirearmCritical',phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: '_resolveBleed'            },
+    { id: 'bypassArmour',     label: 'MYTHRAS.SEBypassArmour',     who: 'attacker', restriction: 'attackerCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'chooseLocation',   label: 'MYTHRAS.SEChooseLocation',   who: 'attacker', restriction: 'rangedNotClose',          phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'circumventCover',  label: 'MYTHRAS.SECircumventCover',  who: 'attacker', restriction: 'highTechFirearm',         phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: '_resolveCircumventCover'  },
+    { id: 'circumventParry',  label: 'MYTHRAS.SECircumventParry',  who: 'attacker', restriction: 'attackerCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'disarmOpponent',   label: 'MYTHRAS.SEDisarmOpponent',   who: 'both',     restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveDisarmOpponent'   },
+    { id: 'dropFoe',          label: 'MYTHRAS.SEDropFoe',          who: 'attacker', restriction: 'firearmsOnly',            phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveDropFoe'          },
+    { id: 'duckBack',         label: 'MYTHRAS.SEDuckBack',         who: 'attacker', restriction: 'firearmsOnly',            phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: '_resolveDuckBack'         },
+    { id: 'entangle',         label: 'MYTHRAS.SEEntangle',         who: 'attacker', restriction: 'entanglingWeapon',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveEntangle'         },
+    { id: 'forceFailure',     label: 'MYTHRAS.SEForceFailure',     who: 'both',     restriction: 'opponentFumbles',         phase: 'none',           requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'grip',             label: 'MYTHRAS.SEGrip',             who: 'attacker', restriction: 'unarmed',                 phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveGrip'             },
+    { id: 'impale',           label: 'MYTHRAS.SEImpale',           who: 'attacker', restriction: 'impalingWeapon',          phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: '_resolveImpale'           },
+    { id: 'marksman',         label: 'MYTHRAS.SEMarksman',         who: 'attacker', restriction: 'rangedWeapon',            phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'maximiseDamage',   label: 'MYTHRAS.SEMaximiseDamage',   who: 'attacker', restriction: 'attackerCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'overpenetrate',    label: 'MYTHRAS.SEOverpenetrate',    who: 'attacker', restriction: 'firearmsOnlyCritical',    phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: '_resolveOverpenetrate'    },
+    { id: 'pinDown',          label: 'MYTHRAS.SEPinDown',          who: 'attacker', restriction: 'firearmsOnly',            phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolvePinDown'          },
+    { id: 'rapidReload',      label: 'MYTHRAS.SERapidReload',      who: 'attacker', restriction: 'rangedWeapon',            phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: '_resolveRapidReload'      },
+    { id: 'scarFoe',          label: 'MYTHRAS.SEScarFoe',          who: 'attacker', restriction: null,                      phase: 'none',           requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'stunLocation',     label: 'MYTHRAS.SEStunLocation',     who: 'attacker', restriction: 'bludgeoning',             phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: '_resolveStunLocation'     },
+    { id: 'sunder',           label: 'MYTHRAS.SESunder',           who: 'attacker', restriction: 'sunderWeapon',            phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'tripOpponent',     label: 'MYTHRAS.SETripOpponent',     who: 'both',     restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveTripOpponent'     },
+    // ── Defender SEs ──────────────────────────────────────────────────────
+    { id: 'accidentalInjury', label: 'MYTHRAS.SEAccidentalInjury', who: 'defender', restriction: 'attackerFumbles',         phase: 'opposed',        requiresDamage: false, requiresFumble: true,  resolver: '_resolveAccidentalInjury' },
+    { id: 'blindOpponent',    label: 'MYTHRAS.SEBlindOpponent',    who: 'defender', restriction: 'defenderCritical',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveBlindOpponent'    },
+    { id: 'damageWeapon',     label: 'MYTHRAS.SEDamageWeapon',     who: 'both',     restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveDamageWeapon'     },
+    { id: 'enhanceParry',     label: 'MYTHRAS.SEEnhanceParry',     who: 'defender', restriction: 'defenderCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
+    { id: 'pinWeapon',        label: 'MYTHRAS.SEPinWeapon',        who: 'defender', restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolvePinWeapon'        },
+    { id: 'prepareCounter',   label: 'MYTHRAS.SEPrepareCounter',   who: 'defender', restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolvePrepareCounter'   },
+    { id: 'selectTarget',     label: 'MYTHRAS.SESelectTarget',     who: 'defender', restriction: 'attackerFumbles',         phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveSelectTarget'     },
+    { id: 'slipFree',         label: 'MYTHRAS.SESlipFree',         who: 'defender', restriction: 'defenderCritical',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveSlipFree'         },
+    { id: 'weaponMalfunction',label: 'MYTHRAS.SEWeaponMalfunction',who: 'defender', restriction: 'attackerFumblesFirearm',  phase: 'opposed',        requiresDamage: false, requiresFumble: true,  resolver: '_resolveWeaponMalfunction' },
+    { id: 'withdraw',         label: 'MYTHRAS.SEWithdraw',         who: 'defender', restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: '_resolveWithdraw'         },
   ],
 
   // -----------------------------------------------------------------------

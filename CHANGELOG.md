@@ -6,6 +6,32 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.205 — May 2026
+- Cleanup: removed redundant double-import of `CombatEngine` (`CE2`) in Apply Damage handler
+- Cleanup: replaced stale `_resolveOpposedSEs` block-comment (listed only Bleed/Trip/ForceFailure from the old if-wall era) with accurate description of all three call sites
+- Cleanup: replaced stale Trip-specific comments in `_applyDamage` with registry-accurate wording
+- No behaviour changes
+
+## v1.4.204 — May 2026
+- Fix: opposed SE dialogs (Trip, Disarm, etc.) still firing twice. Root cause: `_updateCardWithSEs` calls `chatMsg.update()` which causes Foundry to replace the card's HTML with a brand new DOM element. A root-element sentinel (`data-mi-listeners-bound`) does not survive this replacement, so `renderChatMessageHTML` re-ran in full on the new element, registering duplicate listeners on Roll Damage and Apply Damage. Fix: replaced root sentinel with a per-button `_bindOnce` helper that stamps `data-mi-bound` on each button element before adding its listener. Every `addEventListener` call in `_onRenderChatMessage` now goes through `_bindOnce`, making double-registration structurally impossible regardless of how many times a card is re-rendered
+
+## v1.4.203 — May 2026
+- Fix: opposed SE dialogs (Trip, etc.) firing twice per click. Root cause: `renderChatMessageHTML` fires on every render including re-renders (scroll, chat log update). Without a guard, every `addEventListener` call in `_onRenderChatMessage` accumulates an additional listener on each re-render. Added a `data-mi-listeners-bound` sentinel on the message root element — the function returns immediately on any render after the first, so all buttons receive exactly one listener
+
+## v1.4.202 — May 2026
+- Fix: opposed SE dialogs (Trip, Disarm, etc.) firing multiple times in semi-auto mode. Root cause: `mythras.mjs` contained two separate manual `hasOpposedSE` OR-lists — one in the Apply Damage button handler and one in the zero-damage path of `_onSemiAutoRollDamage` — that were not updated by the refactor. Both are now replaced with the same registry-driven `.some()` check used in `_afterDefenceResolved`
+- Fix: `_resolvePinDown` has signature `(ctx, forcesFail)` — the dispatch loop was calling it as `(ctx, damage, forcesFail)`, passing damage as forcesFail. Added an explicit branch for `pinDown` alongside the existing `impale` branch
+
+## v1.4.201 — May 2026
+- Fix: registry dispatch loop in `_resolveOpposedSEs` and the `attackerScored` loop both lacked deduplication — stackable SEs (e.g. `tripOpponent`, `pinDown`) could appear multiple times in `chosenSpecialEffects` and triggered a dialog for each occurrence. Added a `seen` Set to both loops; each resolver fires exactly once. Resolvers that need the stack count (e.g. `_resolveRapidReload`) already read it themselves from `ctx.chosenSpecialEffects`
+
+## v1.4.200 — May 2026
+- **SE registry (refactor 2a):** `CONFIG.MYTHRAS.specialEffects` entries extended with `phase`, `requiresDamage`, `requiresFumble`, and `resolver` fields
+- `_resolveOpposedSEs` if-wall (~100 lines, 21 branches) replaced with a 15-line data-driven loop
+- `_afterDefenceResolved` attacker-scored block (4 hardcoded SEs) replaced with registry loop over `phase:'attackerScored'` entries
+- `hasOpposedSE` OR-list (12 hand-maintained entries) replaced with a derived `.some()` check against the registry — can never drift out of sync
+- **Bug fix (latent):** `bash`, `entangle`, and `grip` were missing from the `hasOpposedSE` OR-list, so they silently never fired when the attacker failed/fumbled. Fixed automatically by the registry-driven gate
+
 ## v1.4.199 — May 2026
 - **Compendium source format migration:** all 9 packs converted from LevelDB binary to YAML `_source/` directory. `packs/` added to `.gitignore` — binary packs are no longer committed to Git
 - Removed ghost null-ID entry from macros pack (LevelDB artifact from unclean shutdown)

@@ -923,6 +923,17 @@ Hooks.on('updateCombat', _onUpdateCombat);
 // CHAT — Luck Point buttons + Manual combat buttons
 // ---------------------------------------------------------------------------
 function _onRenderChatMessage(message, html) {
+  // Guard against double-registration on re-renders (scroll, content update).
+  // renderChatMessageHTML fires every time the message HTML is (re)rendered.
+  // When _updateCardWithSEs rewrites the card content, Foundry creates a brand
+  // new DOM element — any root-level sentinel is gone. Instead we stamp each
+  // button individually: _bindOnce skips buttons that already have a listener.
+  const _bindOnce = (btn, handler) => {
+    if (btn.dataset.miBound) return;
+    btn.dataset.miBound = '1';
+    btn.addEventListener('click', handler);
+  };
+
   // ── Initiative card reskin ──────────────────────────────────────────────
   // Foundry posts a plain chat message for each initiative roll.
   // In v14 these carry flags.core.initiativeRoll = true.
@@ -953,7 +964,7 @@ function _onRenderChatMessage(message, html) {
 
   // ── Apply Damage button (Semi-Auto — appears after Roll Damage is clicked) ─
   html.querySelectorAll('.mi-btn-apply-dmg').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    _bindOnce(btn, async () => {
       if (!game.user.isGM) { ui.notifications.warn('Only the GM can apply damage.'); return; }
       const actorId    = btn.dataset.actorId;
       const locationId = btn.dataset.locationId;
@@ -992,38 +1003,22 @@ function _onRenderChatMessage(message, html) {
         ui.notifications.warn(`Hit location item not found on ${actor?.name}.`);
       }
 
-      // ── Resolve opposed SEs (Bleed, Trip) using flags from the outcome message ──
+      // ── Resolve opposed SEs (Bleed, Trip, etc.) using flags from the outcome message ──
       const outcomeMsg = game.messages.get(btn.dataset.messageId);
       const flags = outcomeMsg?.flags?.['mythras-imperative'] ?? {};
       const chosenSEs = flags.chosenSEs ?? [];
 
-      // Bleed requires damage > 0 (rules: "if the blow overcomes AP and injures").
-      // Trip has no damage requirement — it always fires.
-      // Stun Location requires damage > 0 (blow must overcome AP and injure).
-      const hasBleed      = chosenSEs.includes('bleed') && damage > 0;
-      const hasTrip       = chosenSEs.includes('tripOpponent');
-      const hasStunLoc    = chosenSEs.includes('stunLocation') && damage > 0;
-      const hasDisarm     = chosenSEs.includes('disarmOpponent');
-      const hasImpale     = chosenSEs.includes('impale') && damage > 0;
-      const hasGrip       = chosenSEs.includes('grip');
-      const hasEntangle   = chosenSEs.includes('entangle');
-      const hasSlipFree   = chosenSEs.includes('slipFree');
-      const hasWithdraw   = chosenSEs.includes('withdraw');
-      const hasBlind          = chosenSEs.includes('blindOpponent');
-      const hasBash           = chosenSEs.includes('bash');
-      const hasPinWeapon      = chosenSEs.includes('pinWeapon');
-      const hasSelectTarget   = chosenSEs.includes('selectTarget');
-      const hasPrepareCounter = chosenSEs.includes('prepareCounter');
-      const hasDropFoe        = chosenSEs.includes('dropFoe');   // damage > 0 gated inside resolver
-      const hasPinDown        = chosenSEs.includes('pinDown');   // fires even with no damage
-      const hasOpposedSE      = hasBleed || hasTrip || hasStunLoc || hasDisarm || hasImpale || hasGrip || hasEntangle || hasSlipFree || hasWithdraw || hasBlind || hasBash || hasPinWeapon || hasSelectTarget || hasPrepareCounter || hasDropFoe || hasPinDown;
+      // Registry-driven: any SE with phase:'opposed' fires through _resolveOpposedSEs.
+      // requiresDamage and requiresFumble gates are enforced inside the dispatcher.
+      const hasOpposedSE = chosenSEs.some(
+        id => CONFIG.MYTHRAS.specialEffects.find(e => e.id === id)?.phase === 'opposed'
+      );
 
       if (hasOpposedSE) {
         const attacker = game.actors.get(flags.attackerId);
         if (attacker && actor) {
           try {
             const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-            const { CombatEngine: CE2 } = await import('./module/combat/CombatEngine.js');
             const minimalCtx = {
               attacker,
               defender:           actor,
@@ -1037,7 +1032,7 @@ function _onRenderChatMessage(message, html) {
               seWinner:           flags.seWinner           ?? 'attacker',
               hitLocationId:      locationId ?? null,
               hitLocationLabel:   locLabel,
-              locationType:       CE2._classifyLocation(locLabel ?? ''),
+              locationType:       CombatEngine._classifyLocation(locLabel ?? ''),
               rawDamage:          rawDamage,   // pre-armour damage — used by Bash for knockback
               attackerStyle:      null,        // not available from card flags; Knockout Blow inactive in Semi-Auto
               chatMessageId:      btn.dataset.messageId ?? null   // outcome card — player has seen it
@@ -1084,8 +1079,7 @@ function _onRenderChatMessage(message, html) {
   }
 
   // Entangle trip — Yes (spend AP and trip)
-  html.querySelectorAll('.mi-btn-entangle-trip-yes').forEach(btn =>
-    btn.addEventListener('click', async ev => {
+  html.querySelectorAll('.mi-btn-entangle-trip-yes').forEach(btn => _bindOnce(btn, async ev => {
       ev.preventDefault();
       const target = btn;
       target.disabled = true;
@@ -1095,8 +1089,7 @@ function _onRenderChatMessage(message, html) {
     }));
 
   // Entangle trip — No (skip, act normally)
-  html.querySelectorAll('.mi-btn-entangle-trip-no').forEach(btn =>
-    btn.addEventListener('click', async ev => {
+  html.querySelectorAll('.mi-btn-entangle-trip-no').forEach(btn => _bindOnce(btn, async ev => {
       ev.preventDefault();
       const target = btn;
       target.disabled = true;
@@ -1111,8 +1104,7 @@ function _onRenderChatMessage(message, html) {
 
   // Impale — Leave In
   // Capture btn before any await — ev.currentTarget becomes null after async suspension.
-  html.querySelectorAll('.mi-btn-impale-leave').forEach(btn =>
-    btn.addEventListener('click', async ev => {
+  html.querySelectorAll('.mi-btn-impale-leave').forEach(btn => _bindOnce(btn, async ev => {
       ev.preventDefault();
       const target = btn; // capture before await
       target.disabled = true;
@@ -1122,8 +1114,7 @@ function _onRenderChatMessage(message, html) {
     }));
 
   // Impale — Yank Free
-  html.querySelectorAll('.mi-btn-impale-yank').forEach(btn =>
-    btn.addEventListener('click', async ev => {
+  html.querySelectorAll('.mi-btn-impale-yank').forEach(btn => _bindOnce(btn, async ev => {
       ev.preventDefault();
       const target = btn; // capture before await
       target.disabled = true;
@@ -1132,42 +1123,32 @@ function _onRenderChatMessage(message, html) {
       await CombatEngine._resolveImpaleYank(target);
     }));
 
-  html.querySelectorAll('.mi-luck-reroll').forEach(btn =>
-    btn.addEventListener('click', ev => _onLuckReroll(ev, message)));
-  html.querySelectorAll('.mi-luck-swap').forEach(btn =>
-    btn.addEventListener('click', ev => _onLuckSwap(ev, message)));
+  html.querySelectorAll('.mi-luck-reroll').forEach(btn => _bindOnce(btn, ev => _onLuckReroll(ev, message)));
+  html.querySelectorAll('.mi-luck-swap').forEach(btn => _bindOnce(btn, ev => _onLuckSwap(ev, message)));
 
   // Manual mode — Roll Hit Location
-  html.querySelectorAll('.mi-btn-loc[data-defender-name]').forEach(btn =>
-    btn.addEventListener('click', ev => _onManualRollLocation(ev, message)));
+  html.querySelectorAll('.mi-btn-loc[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollLocation(ev, message)));
 
   // Semi-Auto mode — Roll Hit Location (has data-defender-id and data-message-id)
-  html.querySelectorAll('.mi-btn-loc[data-defender-id]').forEach(btn =>
-    btn.addEventListener('click', ev => _onSemiAutoRollLocation(ev, message)));
+  html.querySelectorAll('.mi-btn-loc[data-defender-id]').forEach(btn => _bindOnce(btn, ev => _onSemiAutoRollLocation(ev, message)));
 
   // Manual mode — Roll Damage
-  html.querySelectorAll('.mi-btn-dmg[data-defender-name]').forEach(btn =>
-    btn.addEventListener('click', ev => _onManualRollDamage(ev, message)));
+  html.querySelectorAll('.mi-btn-dmg[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollDamage(ev, message)));
 
   // Semi-Auto mode — Roll Damage (has data-attacker-id)
-  html.querySelectorAll('.mi-btn-dmg[data-attacker-id]').forEach(btn =>
-    btn.addEventListener('click', ev => _onSemiAutoRollDamage(ev, message)));
+  html.querySelectorAll('.mi-btn-dmg[data-attacker-id]').forEach(btn => _bindOnce(btn, ev => _onSemiAutoRollDamage(ev, message)));
 
   // Semi-Auto mode — Roll Vehicle Damage
-  html.querySelectorAll('.mi-btn-veh-dmg').forEach(btn =>
-    btn.addEventListener('click', ev => _onSemiAutoVehicleDamage(ev, message)));
+  html.querySelectorAll('.mi-btn-veh-dmg').forEach(btn => _bindOnce(btn, ev => _onSemiAutoVehicleDamage(ev, message)));
 
   // Semi-Auto mode — Apply Vehicle Damage (step 2: 1d10 system roll + write to actor)
-  html.querySelectorAll('.mi-btn-veh-apply').forEach(btn =>
-    btn.addEventListener('click', () => _onApplyVehicleDamage(btn)));
+  html.querySelectorAll('.mi-btn-veh-apply').forEach(btn => _bindOnce(btn, () => _onApplyVehicleDamage(btn)));
 
   // Semi-Auto mode — Damage Weapon direct roll (bypasses hit location flow)
-  html.querySelectorAll('.mi-btn-dmg-weapon').forEach(btn =>
-    btn.addEventListener('click', ev => _onSemiAutoDamageWeapon(ev, message)));
+  html.querySelectorAll('.mi-btn-dmg-weapon').forEach(btn => _bindOnce(btn, ev => _onSemiAutoDamageWeapon(ev, message)));
 
   // Semi-Auto mode — Burst fire (rolls 1d3 rounds of location+damage)
-  html.querySelectorAll('.mi-btn-burst').forEach(btn =>
-    btn.addEventListener('click', ev => _onSemiAutoBurstDamage(ev, message)));
+  html.querySelectorAll('.mi-btn-burst').forEach(btn => _bindOnce(btn, ev => _onSemiAutoBurstDamage(ev, message)));
 }
 
 Hooks.on('renderChatMessageHTML', _onRenderChatMessage);
@@ -1515,45 +1496,39 @@ async function _onSemiAutoRollDamage(ev, message) {
   const outcomeMsg2    = (messageId && messageId !== 'PENDING') ? game.messages.get(messageId) : null;
   const outcomeFlags2  = outcomeMsg2?.flags?.['mythras-imperative'] ?? {};
   const chosenSEs2     = outcomeFlags2.chosenSEs ?? [];
-  const hasTrip2       = chosenSEs2.includes('tripOpponent');
-  const hasDisarm2     = chosenSEs2.includes('disarmOpponent');
-  const hasGrip2       = chosenSEs2.includes('grip');
-  const hasEntangle2   = chosenSEs2.includes('entangle');
-  const hasSlipFree2   = chosenSEs2.includes('slipFree');
-  const hasWithdraw2   = chosenSEs2.includes('withdraw');
-  const hasBlind2      = chosenSEs2.includes('blindOpponent');
-  const hasDamageWeapon2 = chosenSEs2.includes('damageWeapon');
-  const hasPinWeapon2    = chosenSEs2.includes('pinWeapon');
 
-  // If damage is fully blocked but these SEs were chosen, fire them immediately
-  // here — no Apply Damage button will appear, so we must resolve these now.
-  // Note: damageWeapon is NOT included here — it requires a real damage roll value.
-  const hasPinDown2       = chosenSEs2.includes('pinDown');   // fires even with no damage
-  const hasDropFoe2       = chosenSEs2.includes('dropFoe');   // resolver gates on damage internally
-  if (finalDamage === 0 && (hasTrip2 || hasDisarm2 || hasGrip2 || hasEntangle2 || hasSlipFree2 || hasWithdraw2 || hasBlind2 || hasPinWeapon2 || hasPinDown2 || hasDropFoe2)) {
-    try {
-      const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      const attackerWeapon2  = CombatEngine._getItem(attacker, outcomeFlags2.weaponId);
-      const defenceWeapon2   = CombatEngine._getItem(defender, outcomeFlags2.defenceWeaponId);
-      const minimalCtx = {
-        attacker,
-        defender,
-        weapon:               attackerWeapon2,
-        defenceWeapon:        defenceWeapon2,
-        attackResult:         outcomeFlags2.attackResult       ?? 0,
-        attackerSkillTotal:   outcomeFlags2.attackerSkillTotal ?? 0,
-        defenceResult:        outcomeFlags2.defenceResult      ?? 0,
-        defenderSkillTotal:   outcomeFlags2.defenderSkillTotal ?? 0,
-        chosenSpecialEffects: chosenSEs2,
-        seWinner:             outcomeFlags2.seWinner           ?? 'attacker',
-        hitLocationId:        locationId ?? null,
-        hitLocationLabel:     locationLabel,
-        chatMessageId:        messageId ?? null   // outcome card — last card the player saw
-      };
-      await CombatEngine._resolveOpposedSEs(minimalCtx, 0);
-    } catch (err) {
-      console.error('Mythras Imperative | Trip SE failed at zero damage:', err);
-      ui.notifications.error('Trip Opponent SE failed — check console for details.');
+  // If damage is fully blocked, the Apply Damage button never appears — fire
+  // any 'opposed'-phase SEs right here. Registry-driven: requiresDamage and
+  // requiresFumble gates are enforced inside _resolveOpposedSEs.
+  if (finalDamage === 0) {
+    const hasOpposedSE2 = chosenSEs2.some(
+      id => CONFIG.MYTHRAS.specialEffects.find(e => e.id === id)?.phase === 'opposed'
+    );
+    if (hasOpposedSE2) {
+      try {
+        const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+        const attackerWeapon2  = CombatEngine._getItem(attacker, outcomeFlags2.weaponId);
+        const defenceWeapon2   = CombatEngine._getItem(defender, outcomeFlags2.defenceWeaponId);
+        const minimalCtx = {
+          attacker,
+          defender,
+          weapon:               attackerWeapon2,
+          defenceWeapon:        defenceWeapon2,
+          attackResult:         outcomeFlags2.attackResult       ?? 0,
+          attackerSkillTotal:   outcomeFlags2.attackerSkillTotal ?? 0,
+          defenceResult:        outcomeFlags2.defenceResult      ?? 0,
+          defenderSkillTotal:   outcomeFlags2.defenderSkillTotal ?? 0,
+          chosenSpecialEffects: chosenSEs2,
+          seWinner:             outcomeFlags2.seWinner           ?? 'attacker',
+          hitLocationId:        locationId ?? null,
+          hitLocationLabel:     locationLabel,
+          chatMessageId:        messageId ?? null
+        };
+        await CombatEngine._resolveOpposedSEs(minimalCtx, 0);
+      } catch (err) {
+        console.error('Mythras Imperative | Opposed SE at zero damage failed:', err);
+        ui.notifications.error('Special Effect roll failed — check console for details.');
+      }
     }
   }
 

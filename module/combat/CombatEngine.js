@@ -1014,53 +1014,33 @@ export class CombatEngine {
         await CombatEngine._resolveFullAutoDamage(ctx, chatMsg);
       }
     }
-    // ── Narrative attacker SEs — fire immediately on attacker score ───────────
-    // These SEs don't depend on damage and must not wait for the Roll Damage
-    // button in semi-auto mode. Fire regardless of automation level.
+    // ── attackerScored immediate SEs ─────────────────────────────────────────
+    // 'attackerScored'-phase SEs don't depend on damage and must not wait for
+    // the Roll Damage button in semi-auto mode. Fire regardless of automation
+    // level. Registry-driven: adding a new SE with phase:'attackerScored' is
+    // automatically picked up here.
     if (attackerScored && ctx.chosenSpecialEffects.length > 0) {
-      if (ctx.chosenSpecialEffects.includes('rapidReload')) {
-        await CombatEngine._resolveRapidReload(ctx);
-      }
-      if (ctx.chosenSpecialEffects.includes('duckBack')) {
-        await CombatEngine._resolveDuckBack(ctx);
-      }
-      if (ctx.chosenSpecialEffects.includes('overpenetrate')) {
-        await CombatEngine._resolveOverpenetrate(ctx);
-      }
-      if (ctx.chosenSpecialEffects.includes('circumventCover')) {
-        await CombatEngine._resolveCircumventCover(ctx);
+      const registry = CONFIG.MYTHRAS.specialEffects;
+      const seen     = new Set();
+      for (const id of ctx.chosenSpecialEffects) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        const def = registry.find(e => e.id === id);
+        if (!def || def.phase !== 'attackerScored' || !def.resolver) continue;
+        await CombatEngine[def.resolver](ctx);
       }
     }
-    // Semi-Auto: Roll Hit Location / Roll Damage buttons handle damage SEs.
-    // But if the attacker did NOT score (failed/fumbled), the damage buttons
-    // never appear — so any defender-won SEs that need opposed rolls (Trip)
-    // must fire here immediately, regardless of automation mode.
+    // ── No-damage path: fire 'opposed'-phase SEs immediately ─────────────────
+    // When the attacker did NOT score, the Roll Damage button never appears, so
+    // any 'opposed'-phase SEs (defender-won or fumble SEs) must fire right here.
+    // hasOpposedSE is derived from the registry — it can never drift out of sync.
     if (!attackerScored && ctx.chosenSpecialEffects.length > 0) {
-      const hasOpposedSE = ctx.chosenSpecialEffects.includes('tripOpponent')
-                        || ctx.chosenSpecialEffects.includes('bleed')
-                        || ctx.chosenSpecialEffects.includes('disarmOpponent')
-                        || ctx.chosenSpecialEffects.includes('slipFree')
-                        || ctx.chosenSpecialEffects.includes('withdraw')
-                        || ctx.chosenSpecialEffects.includes('blindOpponent')
-                        || ctx.chosenSpecialEffects.includes('pinWeapon')
-                        || ctx.chosenSpecialEffects.includes('damageWeapon')
-                        || ctx.chosenSpecialEffects.includes('selectTarget')
-                        || ctx.chosenSpecialEffects.includes('prepareCounter')
-                        || ctx.chosenSpecialEffects.includes('dropFoe')
-                        || ctx.chosenSpecialEffects.includes('pinDown');
+      const registry    = CONFIG.MYTHRAS.specialEffects;
+      const hasOpposedSE = ctx.chosenSpecialEffects.some(
+        id => registry.find(e => e.id === id)?.phase === 'opposed'
+      );
       if (hasOpposedSE) {
         await CombatEngine._resolveOpposedSEs(ctx, 0);
-      }
-      // Accidental Injury fires when the attacker fumbles — the defender deflects
-      // the blow so it strikes the attacker instead. No opposed roll; just roll
-      // the attacker's own weapon damage against themselves.
-      if (ctx.chosenSpecialEffects.includes('accidentalInjury')
-          && ctx.attackOutcome === 'fumble') {
-        await CombatEngine._resolveAccidentalInjury(ctx);
-      }
-      if (ctx.chosenSpecialEffects.includes('weaponMalfunction')
-          && ctx.attackOutcome === 'fumble') {
-        await CombatEngine._resolveWeaponMalfunction(ctx);
       }
     }
   }
@@ -2621,9 +2601,9 @@ export class CombatEngine {
   // -------------------------------------------------------------------------
 
   static async _applyDamage(ctx, damage) {
-    // Trip Opponent has no damage requirement — it must fire even when damage is
-    // fully blocked (rules p.47). So we resolve opposed SEs regardless of damage,
-    // but only write HP / wound state when damage > 0.
+    // Opposed SEs fire unconditionally — some (e.g. Trip Opponent) have no damage
+    // requirement and must resolve even when damage is fully blocked. Each resolver
+    // gates itself via requiresDamage in the registry.
     const { defender } = ctx;
 
     if (damage > 0) {
@@ -2659,8 +2639,7 @@ export class CombatEngine {
       }
     }
 
-    // Resolve opposed SEs (Bleed, Trip). Always fires — Trip has no damage requirement.
-    // Bleed gates itself internally on damage > 0.
+    // Resolve opposed SEs. Always fires — requiresDamage gates are enforced inside the dispatcher.
     await CombatEngine._resolveOpposedSEs(ctx, damage);
 
     // Resolve wound consequences (Serious/Major Endurance roll) after SEs.
@@ -2671,24 +2650,18 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
-  // _resolveOpposedSEs — handle SEs that require an opposed resistance roll
+  // _resolveOpposedSEs — registry-driven dispatch for 'opposed'-phase SEs
   //
-  // Called after damage is confirmed > 0. Processes:
+  // Called from three sites:
+  //   1. _afterDefenceResolved (no-damage path) — attacker failed/fumbled
+  //   2. Apply Damage button handler (mythras.mjs) — semi-auto, damage > 0
+  //   3. _onSemiAutoRollDamage zero-damage path — semi-auto, damage fully blocked
   //
-  //   Bleed (p.43):
-  //     Defender rolls Endurance opposed against the attacker's original attack
-  //     roll (ctx.attackResult). If defender fails → apply Bleeding condition.
-  //     The per-round Fatigue drain is handled in the updateCombat hook.
-  //
-  //   Trip Opponent (p.47):
-  //     Defender chooses to resist with Brawn, Evade, or Acrobatics. That skill
-  //     is rolled opposed against the attacker's original attack roll. If defender
-  //     fails → apply Prone condition.
-  //
-  //   Force Failure (p.44):
-  //     When the opponent Fumbled, the winner can combine Force Failure with any
-  //     SE that uses an opposed roll — it auto-fails the opponent's resistance.
-  //     We check for it here and skip the defender's roll if present.
+  // Iterates ctx.chosenSpecialEffects, looks up each id in the registry, and
+  // calls the resolver for every 'opposed'-phase SE that passes its gate
+  // conditions (requiresDamage, requiresFumble). Each id is dispatched at most
+  // once regardless of how many times it appears (stackable SEs read their own
+  // stack count from ctx.chosenSpecialEffects internally).
   // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
@@ -2888,166 +2861,34 @@ export class CombatEngine {
     const ses        = ctx.chosenSpecialEffects;
     const forcesFail = ses.includes('forceFailure');
 
-    // ── Accidental Injury ──────────────────────────────────────────────────────
-    // Rules p.42: fires whenever the attacker fumbles and the defender chooses
-    // this SE. No opposed roll — automatic. Handled here so it fires from all
-    // code paths (full flow, macro, future paths), not just _afterDefenceResolved.
-    if (ses.includes('accidentalInjury') && ctx.attackOutcome === 'fumble') {
-      await CombatEngine._resolveAccidentalInjury(ctx);
-    }
-
-    // ── Bleed ─────────────────────────────────────────────────────────────────
-    // Rules p.43: "If the blow overcomes Armour Points and injures the target"
-    // — Bleed requires actual damage to have been dealt.
-    if (ses.includes('bleed') && damage > 0) {
-      await CombatEngine._resolveBleed(ctx, damage, forcesFail);
-    }
-
-    // ── Drop Foe ──────────────────────────────────────────────────────────────
-    // Rules p.44: Firearms only. Requires at least a minor wound (damage > 0).
-    // Defender rolls Endurance vs attacker's hit roll. Failure → Incapacitated.
-    // The resolver itself posts a narrative card when damage == 0.
-    if (ses.includes('dropFoe')) {
-      await CombatEngine._resolveDropFoe(ctx, damage, forcesFail);
-    }
-
-    // ── Pin Down ──────────────────────────────────────────────────────────────
-    // Rules p.45: Firearms only. Stackable. Works even with no damage.
-    // Defender rolls Willpower vs attacker's hit roll. Failure → pinnedDown flag
-    // set; cleared at the start of the defender's next Turn.
-    if (ses.includes('pinDown')) {
-      await CombatEngine._resolvePinDown(ctx, forcesFail);
-    }
-
-    // ── Trip Opponent ─────────────────────────────────────────────────────────
-    // Rules p.47: no damage requirement — the opposed roll fires unconditionally.
-    if (ses.includes('tripOpponent')) {
-      await CombatEngine._resolveTripOpponent(ctx, damage, forcesFail);
-    }
-
-    // ── Stun Location ────────────────────────────────────────────────────────
-    // Rules p.45: bludgeoning weapons only. Requires damage > 0.
-    if (ses.includes('stunLocation') && damage > 0) {
-      await CombatEngine._resolveStunLocation(ctx, damage, forcesFail);
-    }
-
-    // ── Disarm Opponent ───────────────────────────────────────────────────────
-    // Rules p.44: resists with Combat Style. Weapon size affects difficulty.
-    if (ses.includes('disarmOpponent')) {
-      await CombatEngine._resolveDisarmOpponent(ctx, damage, forcesFail);
-    }
-
-    // ── Entangle ──────────────────────────────────────────────────────────────
-    // Rules p.44: Offensive, Entangling weapons only. No opposed roll — immediate.
-    if (ses.includes('entangle')) {
-      await CombatEngine._resolveEntangle(ctx, damage, forcesFail);
-    }
-
-    // ── Grip ──────────────────────────────────────────────────────────────────
-    // Rules p.44: Offensive, Unarmed only. No opposed roll — gripper chooses skill.
-    if (ses.includes('grip')) {
-      await CombatEngine._resolveGrip(ctx, damage, forcesFail);
-    }
-
-    // ── Impale ─────────────────────────────────────────────────────────────────────────────────
-    // Rules p.44: requires actual damage > 0 AND armour penetrated (weapon causes a wound).
-    // The double-damage roll is handled upstream in the damage roll phase.
-    // This block fires when the weapon lodges: posts a lodge/yank decision card.
-    if (ses.includes('impale') && damage > 0) {
-      await CombatEngine._resolveImpale(ctx, damage);
-    }
-
-    // ── Slip Free ─────────────────────────────────────────────────────────────
-    // Rules p.45: Defender Critical only (gated in SpecialEffectDialog via
-    // 'defenderCritical' restriction). Automatic — no opposed roll.
-    // Clears all grippedBy and entangledBy entries on the defender, plus the
-    // corresponding pending flags on the attacker-side actors.
-    if (ses.includes('slipFree')) {
-      await CombatEngine._resolveSlipFree(ctx);
-    }
-
-    // ── Withdraw ──────────────────────────────────────────────────────────────
-    // Rules p.46: Defensive, no restriction. Automatic — no opposed roll.
-    // Purely narrative: the defender breaks engagement. No flags written.
-    if (ses.includes('withdraw')) {
-      await CombatEngine._resolveWithdraw(ctx);
-    }
-
-    // ── Duck Back ─────────────────────────────────────────────────────────────
-    // Rules p.44: Offensive, Firearms Only. Automatic — no opposed roll.
-    // The shooter immediately ducks back into cover without spending an action.
-    // Precondition: must already be adjacent to cover (GM adjudicates).
-    // Purely narrative — no flags written.
-    if (ses.includes('duckBack')) {
-      await CombatEngine._resolveDuckBack(ctx);
-    }
-
-    // ── Rapid Reload ──────────────────────────────────────────────────────────
-    // Rules p.45: Offensive, Ranged Weapons, Stackable.
-    // Reduces the reload time (system.load) for the attacker's weapon by 1 per
-    // instance selected, floored at 0. Applies to the NEXT reload, not any
-    // reload currently in progress. Stack count = number of times the SE was
-    // chosen this exchange.
-    if (ses.includes('rapidReload')) {
-      await CombatEngine._resolveRapidReload(ctx);
-    }
-
-    // ── Blind Opponent ────────────────────────────────────────────────────────
-    // Rules p.43: Defender Critical only. Opposed — attacker resists with
-    // Evade (or weapon skill if using a shield) vs defender's original Parry
-    // roll. On failure: Hard or Formidable difficulty for 1d3 Turns.
-    if (ses.includes('blindOpponent')) {
-      await CombatEngine._resolveBlindOpponent(ctx);
-    }
-
-    // ── Bash ──────────────────────────────────────────────────────────────────
-    // Rules p.43: Offensive, shield or bludgeoning. Knockback uses raw damage
-    // (pre-parry, pre-armour). _resolveBash gates on ctx.rawDamage internally.
-    if (ses.includes('bash')) {
-      await CombatEngine._resolveBash(ctx);
-    }
-
-    // ── Damage Weapon ─────────────────────────────────────────────────────────
-    // Rules p.43: Attacker or Defender. No opposed roll — automatic.
-    // Attacker wins → damage hits defender's parrying weapon (ctx.defenceWeapon)
-    // Defender wins → damage hits attacker's striking weapon (ctx.weapon)
-    // Weapon's own AP absorbs first; excess reduces currentHP.
-    // Broken if currentHP ≤ 0.
-    if (ses.includes('damageWeapon')) {
-      await CombatEngine._resolveDamageWeapon(ctx);
-    }
-
-    // ── Pin Weapon ────────────────────────────────────────────────────────────
-    // Rules p.45: Defender SE. The defender traps the attacker's weapon,
-    // preventing it from being used to parry until freed (end of round).
-    // No opposed roll — automatic. Writes pinnedWeapons flag on attacker.
-    if (ses.includes('pinWeapon')) {
-      await CombatEngine._resolvePinWeapon(ctx);
-    }
-
-    // ── Select Target ─────────────────────────────────────────────────────────
-    // Rules p.45: Defender SE, attacker fumbles only. The defender redirects
-    // the fumbled blow toward an adjacent bystander. Narrative only — GM
-    // determines the new target and resolves any damage.
-    if (ses.includes('selectTarget')) {
-      await CombatEngine._resolveSelectTarget(ctx);
-    }
-
-    // ── Weapon Malfunction ────────────────────────────────────────────────────
-    // Rules p.46: Defender SE, attacker fumbles with a firearm only.
-    // The firearm jams and cannot fire until field-stripped (costs 1 AP).
-    // No opposed roll — automatic. Writes jammedWeapons flag on attacker.
-    if (ses.includes('weaponMalfunction')) {
-      await CombatEngine._resolveWeaponMalfunction(ctx);
-    }
-
-    // ── Prepare Counter — Phase 1: Declaration ────────────────────────────────
-    // Rules p.45: Defender SE. The defender nominates an SE to watch for.
-    // The flag is written here and persists until triggered, the attacker is
-    // defeated, or combat ends. Phase 2 (trigger) is handled in
-    // _afterDefenceResolved before the dispatcher runs.
-    if (ses.includes('prepareCounter')) {
-      await CombatEngine._resolvePrepareCounter(ctx);
+    // Data-driven dispatch: iterate the SE registry and call the resolver for
+    // every 'opposed'-phase SE that was chosen and passes its gate conditions.
+    // Adding a new SE only requires a registry entry + a resolver method —
+    // no manual edits here, and hasOpposedSE can never drift out of sync.
+    //
+    // Deduplication: chosenSpecialEffects may contain the same id multiple times
+    // for stackable SEs (e.g. rapidReload, pinDown). Each resolver is called
+    // exactly once — resolvers that need the stack count read it themselves
+    // from ctx.chosenSpecialEffects (e.g. _resolveRapidReload reads stackCount).
+    const registry = CONFIG.MYTHRAS.specialEffects;
+    const seen     = new Set();
+    for (const id of ses) {
+      if (seen.has(id)) continue;
+      seen.add(id);
+      const def = registry.find(e => e.id === id);
+      if (!def || def.phase !== 'opposed') continue;
+      if (def.requiresDamage && damage <= 0)                    continue;
+      if (def.requiresFumble && ctx.attackOutcome !== 'fumble') continue;
+      if (!def.resolver) continue;
+      // impale has a different signature: no forcesFail parameter
+      if (id === 'impale') {
+        await CombatEngine._resolveImpale(ctx, damage);
+      // pinDown signature is (ctx, forcesFail) — no damage parameter
+      } else if (id === 'pinDown') {
+        await CombatEngine._resolvePinDown(ctx, forcesFail);
+      } else {
+        await CombatEngine[def.resolver](ctx, damage, forcesFail);
+      }
     }
   }
 
