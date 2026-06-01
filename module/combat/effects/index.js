@@ -10,9 +10,8 @@
  *   import { SE_RESOLVERS } from './module/combat/effects/index.js';
  *   await SE_RESOLVERS['withdraw'](ctx);
  *
- * The engine still dispatches via CombatEngine static wrapper stubs during
- * the extraction phase. Once all resolvers are extracted, the engine will
- * switch to calling SE_RESOLVERS[id](ctx) directly.
+ * All resolved SE_RESOLVERS entries are called directly by CombatEngine
+ * since refactor 2c; wrapper stubs have been removed.
  */
 
 // ── Batch 2: simple narrative resolvers ──────────────────────────────────────
@@ -38,8 +37,8 @@ import {
 } from './opposed.js';
 
 // ── Batch 4: entangle and grip families ──────────────────────────────────────
-import { resolveEntangle } from './entangle.js';
-import { resolveGrip } from './grip.js';
+import { resolveEntangle, resolveEntangleTripYes, resolveEntangleBreakFree } from './entangle.js';
+import { resolveGrip, resolveGripBreakFree } from './grip.js';
 
 // ── Batch 5: standalone resolvers ────────────────────────────────────────────
 import { resolveSlipFree }     from './slip-free.js';
@@ -55,9 +54,23 @@ import {
   resolveImpaleYank,
 } from './impale.js';
 
+// ── Re-export callback functions used by mythras.mjs ─────────────────────────
+// These are called from chat-card button handlers in mythras.mjs, not via the
+// SE dispatch loop. Exported here so mythras.mjs only needs one effects import.
+export {
+  resolveEntangleTripYes,
+  resolveEntangleBreakFree,
+  resolveGripBreakFree,
+  postImpaleDecisionCard,
+  applyImpaleLodge,
+  resolveImpaleYank,
+  resolveDamageWeapon,
+};
+
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
-// Grows as each batch of resolvers is extracted.
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
+// Used by _resolveOpposedSEs and the attackerScored dispatch in
+// _afterDefenceResolved. Also the node editor's SE entry point.
 
 export const SE_RESOLVERS = {
   withdraw:          resolveWithdraw,

@@ -41,44 +41,7 @@ import {
   spendActionPoint,
   getItem,
 } from './effects/helpers.js';
-import {
-  resolveWithdraw,
-  resolveDuckBack,
-  resolveRapidReload,
-  resolveOverpenetrate,
-  resolveCircumventCover,
-  resolveSelectTarget,
-  resolveWeaponMalfunction,
-} from './effects/simple.js';
-import {
-  resolveBleed,
-  resolveTripOpponent,
-  resolveStunLocation,
-  resolveDisarmOpponent,
-  resolveBlindOpponent,
-  resolveDropFoe,
-  resolvePinDown,
-} from './effects/opposed.js';
-import {
-  resolveEntangle,
-  postEntangleTripCard,
-  resolveEntangleTripYes,
-  resolveEntangleBreakFree,
-} from './effects/entangle.js';
-import {
-  resolveGrip,
-  resolveGripBreakFree,
-} from './effects/grip.js';
-import { resolveSlipFree }     from './effects/slip-free.js';
-import { resolveBash }         from './effects/bash.js';
-import { resolveDamageWeapon } from './effects/damage-weapon.js';
-import { resolvePinWeapon }    from './effects/pin-weapon.js';
-import {
-  resolveImpale,
-  postImpaleDecisionCard,
-  applyImpaleLodge,
-  resolveImpaleYank,
-} from './effects/impale.js';
+import { SE_RESOLVERS } from './effects/index.js';
 
 export class CombatEngine {
 
@@ -386,19 +349,6 @@ export class CombatEngine {
     await CombatEngine._runDialog(ctx);
   }
 
-  // -------------------------------------------------------------------------
-  // DIALOG FLOW — steps 5 + 6
-  //
-  // With GM Mode OFF (default multiplayer flow):
-  //   1. Attacker dialog → player confirms weapon/style/difficulty/charge
-  //   2. Socket emits combatChallenge to defender's client
-  //   3. Defender dialog opens on defender's client → response returns
-  //   4. Engine continues with merged ctx
-  //
-  // With GM Mode ON (prep/testing/NPC flow):
-  //   1. Attacker dialog with INLINE defender panel → GM confirms both sides
-  //   2. No socket. Engine continues immediately.
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // Full Auto multi-target loop
@@ -1076,7 +1026,8 @@ export class CombatEngine {
         seen.add(id);
         const def = registry.find(e => e.id === id);
         if (!def || def.phase !== 'attackerScored' || !def.resolver) continue;
-        await CombatEngine[def.resolver](ctx);
+        const seResolver = SE_RESOLVERS[id];
+        if (seResolver) await seResolver(ctx);
       }
     }
     // ── No-damage path: fire 'opposed'-phase SEs immediately ─────────────────
@@ -2049,25 +2000,6 @@ export class CombatEngine {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // _resolveMarksman — SE: Marksman (attacker, ranged weapons)
-  //
-  // Rules p.45: Permits the shooter to move the Hit Location struck by one
-  // step, to an immediately adjoining body area.
-  //
-  // Implementation: sorts the defender's hit-location items by rangeMin
-  // (same order as Choose Location), finds the rolled item by ID, then
-  // offers the items immediately adjacent by index (±1) as choices.
-  // This avoids fragile name-string matching entirely — works regardless
-  // of what the GM named the locations.
-  //
-  // Falls back to CONFIG.MYTHRAS.hitLocationAdjacency name-lookup if the
-  // actor has no hit-location items (rare — most placed actors have them).
-  //
-  // Called AFTER the hit location is rolled but BEFORE damage is applied.
-  // Returns { id, label } — same shape as _rollHitLocation so downstream
-  // code is unaffected. Original location returned unchanged on any failure.
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // _resolveMarksman — SE: Marksman (attacker, ranged weapons)
@@ -2698,20 +2630,6 @@ export class CombatEngine {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // _resolveOpposedSEs — registry-driven dispatch for 'opposed'-phase SEs
-  //
-  // Called from three sites:
-  //   1. _afterDefenceResolved (no-damage path) — attacker failed/fumbled
-  //   2. Apply Damage button handler (mythras.mjs) — semi-auto, damage > 0
-  //   3. _onSemiAutoRollDamage zero-damage path — semi-auto, damage fully blocked
-  //
-  // Iterates ctx.chosenSpecialEffects, looks up each id in the registry, and
-  // calls the resolver for every 'opposed'-phase SE that passes its gate
-  // conditions (requiresDamage, requiresFumble). Each id is dispatched at most
-  // once regardless of how many times it appears (stackable SEs read their own
-  // stack count from ctx.chosenSpecialEffects internally).
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // _resolveAccidentalInjury
@@ -2929,109 +2847,19 @@ export class CombatEngine {
       if (def.requiresDamage && damage <= 0)                    continue;
       if (def.requiresFumble && ctx.attackOutcome !== 'fumble') continue;
       if (!def.resolver) continue;
+      const resolver = SE_RESOLVERS[id];
+      if (!resolver) continue;
       // impale has a different signature: no forcesFail parameter
       if (id === 'impale') {
-        await CombatEngine._resolveImpale(ctx, damage);
+        await resolver(ctx, damage);
       // pinDown signature is (ctx, forcesFail) — no damage parameter
       } else if (id === 'pinDown') {
-        await CombatEngine._resolvePinDown(ctx, forcesFail);
+        await resolver(ctx, forcesFail);
       } else {
-        await CombatEngine[def.resolver](ctx, damage, forcesFail);
+        await resolver(ctx, damage, forcesFail);
       }
     }
   }
-
-  // -------------------------------------------------------------------------
-  // _resolveBleed — SE: Bleed
-  // Rules p.43: requires damage > 0. Defender rolls Endurance vs attacker's
-  // original roll. On fail: Bleeding condition applied.
-  // -------------------------------------------------------------------------
-  static async _resolveBleed(ctx, damage, forcesFail) { return resolveBleed(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveTripOpponent — SE: Trip Opponent
-  // Rules p.47: no damage requirement. Offensive or defensive — the resisting
-  // actor rolls Brawn/Evade/Acrobatics vs the SE winner's original roll.
-  // -------------------------------------------------------------------------
-  static async _resolveTripOpponent(ctx, damage, forcesFail) { return resolveTripOpponent(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveStunLocation — SE: Stun Location
-  // Rules p.45: bludgeoning, damage > 0. Endurance vs attack roll.
-  // On fail: location Incapacitated for damage-many Turns.
-  // Torso: additional Hard Endurance or fall Prone.
-  // -------------------------------------------------------------------------
-  static async _resolveStunLocation(ctx, damage, forcesFail) { return resolveStunLocation(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveDisarmOpponent — SE: Disarm Opponent
-  // Rules p.44: resists with Combat Style. Weapon size affects difficulty.
-  // Offensive or defensive — roles swap when defender wins the SE.
-  // -------------------------------------------------------------------------
-  static async _resolveDisarmOpponent(ctx, damage, forcesFail) { return resolveDisarmOpponent(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveEntangle — SE: Entangle
-  // Rules p.44: Offensive, Entangling weapons only. No opposed roll — the
-  // location is immediately entangled. Effects depend on location type.
-  // -------------------------------------------------------------------------
-  static async _resolveEntangle(ctx, damage, forcesFail) { return resolveEntangle(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveGrip — SE: Grip
-  // Rules p.44: Offensive, Unarmed only. No opposed roll at grip time.
-  // Gripper chooses holding skill (Brawn or Unarmed). Gripped actor may
-  // break free on their own turn.
-  // -------------------------------------------------------------------------
-  static async _resolveGrip(ctx, damage, forcesFail) { return resolveGrip(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveSlipFree — SE: Slip Free (defender, Defender Critical only).
-  // Rules p.45: "On a Critical the defender can automatically escape being
-  // Entangled, Gripped, or Pinned."
-  //
-  // Automatic — no opposed roll, no dialog.
-  //
-  // What we clear on the defender:
-  //   - All entries in 'grippedBy'
-  //   - All entries in 'entangledBy'
-  //   - All entries in 'pendingGripCheck'      (defender's own break-free queue)
-  //   - All entries in 'pendingEntangleBreakFree' (defender's own break-free queue)
-  //
-  // Cross-reference cleanup on attacker-side actors (for each cleared entry):
-  //   grippedBy entries: no attacker-side pending flag to clean (the attacker
-  //     does not hold a 'pendingGrip' queue — only the gripped actor does).
-  //   entangledBy entries: attacker holds 'pendingEntangleTrip' keyed by the
-  //     same entangleId — we must remove that entry so the trip prompt never
-  //     fires on a weapon that is no longer entangled.
-  //
-  // Posts a single narrative card. If the defender had no active holds at all,
-  // the card still posts (degenerate case — player chose SE when nothing was
-  // active; engine should not throw).
-  // -------------------------------------------------------------------------
-
-  // -------------------------------------------------------------------------
-  // _resolveBlindOpponent — Blind Opponent SE
-  //
-  // Rules p.43: Defender Critical only. The defender blinds the attacker by
-  // throwing sand, reflecting sunlight off a shield, or similar tactic.
-  //
-  // Opposed roll:
-  //   - Attacker resists with Evade (or their weapon skill if using a shield)
-  //   - vs defender's original Parry roll
-  //
-  // On failure: attacker suffers Hard or Formidable difficulty on all combat
-  // rolls for 1d3 Turns (Hard = 2, Formidable = 3 — grades escalate with
-  // severity; the rules leave the grade to the GM but we let the defender
-  // choose at dialog time in Semi-Auto or pick Hard by default in Full Auto).
-  //
-  // State stored as 'blindedBy' flag on the attacker:
-  //   { blindedByActorId, grade: 'hard'|'formidable', turnsRemaining }
-  // The grade floor flows into _getConditionFloorGrade and _buildConditionNotes.
-  // The countdown is handled in the updateCombat hook (same pattern as stunTurns).
-  // -------------------------------------------------------------------------
-
-  static async _resolveBlindOpponent(ctx) { return resolveBlindOpponent(ctx); }
 
   // -------------------------------------------------------------------------
   // _getActiveBlindGrade — returns the active blind grade ('hard'|'formidable')
@@ -3043,139 +2871,6 @@ export class CombatEngine {
     if (!blindedBy || !blindedBy.turnsRemaining || blindedBy.turnsRemaining <= 0) return null;
     return blindedBy.grade ?? 'hard';
   }
-
-  static async _resolveSlipFree(ctx) { return resolveSlipFree(ctx); }
-
-  static async _resolveWithdraw(ctx) { return resolveWithdraw(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveDuckBack — SE: Duck Back (attacker, firearms only)
-  //
-  // Rules p.44: The shooter immediately ducks back into nearby cover without
-  // spending an Action Point or waiting for their next turn. The character
-  // must already be standing or crouching adjacent to cover — the GM
-  // adjudicates whether cover is available.
-  //
-  // Narrative only — no flags, no rolls, no cross-turn state.
-  // The GM should narrate the cover move at the table.
-  // -------------------------------------------------------------------------
-
-  static async _resolveDuckBack(ctx) { return resolveDuckBack(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveRapidReload — SE: Rapid Reload (attacker, ranged, stackable)
-  //
-  // Rules p.45: Reduces the reload time of the attacker's ranged weapon by 1
-  // per instance selected, floored at 0. Applies to the NEXT reload — not any
-  // reload already in progress. Stack count is derived from the number of times
-  // 'rapidReload' appears in chosenSpecialEffects.
-  //
-  // Mechanically: decrements weapon.system.load directly. This is a persistent
-  // item update — the reduced load stays until another SE (or manual edit)
-  // changes it. This matches the rules intent: the attacker has learned a
-  // quicker technique and applies it going forward.
-  // -------------------------------------------------------------------------
-
-  static async _resolveRapidReload(ctx) { return resolveRapidReload(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveDropFoe — SE: Drop Foe (attacker, firearms only)
-  //
-  // Rules p.44: If the target suffers at least a minor wound, they must make
-  // an Opposed Test of Endurance vs the attacker's hit roll. On failure the
-  // target succumbs to shock and pain — they become Incapacitated and cannot
-  // continue fighting.
-  //
-  // Recovery: successful First Aid (narrative — not automated), or
-  // technological/narcotic booster. Without recovery, incapacitation lasts
-  // 1 hour ÷ target Healing Rate.
-  //
-  // Mechanically: applies the 'incapacitated' token status on failure.
-  // Full-Auto: if the target receives no damage (e.g. evaded), the SE cannot
-  // fire (requires minor wound). The resolver checks damage > 0 and bails
-  // gracefully with a narrative card if the precondition is not met.
-  // -------------------------------------------------------------------------
-
-  static async _resolveDropFoe(ctx, damage, forcesFail) { return resolveDropFoe(ctx, damage, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolvePinDown — SE: Pin Down (attacker, firearms only, stackable)
-  //
-  // Rules p.45: Forces the target to make an Opposed Test of Willpower vs the
-  // attacker's hit roll. On failure the target cannot return fire on their
-  // next Turn (other actions that don't expose them to fire are still allowed).
-  //
-  // Note: Pin Down fires even if no damage is inflicted (intimidation from
-  // nearby gunfire — explicitly stated in the rules).
-  //
-  // Mechanically: on failure writes a 'pinnedDown' actor flag. The updateCombat
-  // hook clears it at the start of the affected actor's next turn. The attack
-  // button in the dialog disables when the attacker is pinned (existing AP-gate
-  // already handles this via the hasFlag check before _runAttackerDialog).
-  // -------------------------------------------------------------------------
-
-  static async _resolvePinDown(ctx, forcesFail) { return resolvePinDown(ctx, forcesFail); }
-
-  // -------------------------------------------------------------------------
-  // _resolveOverpenetrate — SE: Over-penetration (attacker, firearms, Critical)
-  //
-  // Rules p.45: The shot travels completely through the first victim (assuming
-  // it overcomes their body armour) and strikes a second target behind them.
-  // The second victim suffers half damage. Special Effects from the first
-  // attack are NOT applied to the second.
-  //
-  // Narrative only — the GM must identify and resolve the second target.
-  // No cross-turn flags or opposed rolls needed.
-  // -------------------------------------------------------------------------
-
-  static async _resolveOverpenetrate(ctx) { return resolveOverpenetrate(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveCircumventCover — SE: Circumvent Cover (attacker, high-tech firearms)
-  //
-  // Rules p.43: Allows the shot to bypass cover protection — the target's
-  // cover provides no armour or protection for this shot (e.g. target-seeking
-  // rounds, phase-shifted projectiles, or similar high-tech ammunition).
-  //
-  // Narrative only — the GM confirms the weapon qualifies as high-tech.
-  // Mechanically this SE simply signals that cover AP should not be applied
-  // for this exchange. Damage calculation itself is unchanged by the system.
-  // -------------------------------------------------------------------------
-
-  static async _resolveCircumventCover(ctx) { return resolveCircumventCover(ctx); }
-
-
-  // -------------------------------------------------------------------------
-  // _resolveSelectTarget — SE: Select Target (defender, attacker fumbles)
-  //
-  // Rules p.45: When the attacker fumbles, the defender may manoeuvre or
-  // deflect the blow so it strikes an adjacent bystander instead. The new
-  // victim is taken by surprise, automatically hit, and suffers no SEs.
-  //
-  // Narrative only — no mechanical automation (requires canvas targeting and
-  // GM adjudication). Posts a chat card describing the outcome.
-  // No flags written, no status effects, no cross-turn state.
-  // -------------------------------------------------------------------------
-
-  static async _resolveSelectTarget(ctx) { return resolveSelectTarget(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveWeaponMalfunction — SE: Weapon Malfunction (defender, attacker fumbles, firearm only)
-  //
-  // Rules p.46: When the attacker fumbles with a firearm, the defender may
-  // select Weapon Malfunction. The firearm jams and cannot be fired until the
-  // attacker spends an Action Point to field-strip it (clear the jam).
-  //
-  // Implementation:
-  //   - Flag: 'jammedWeapons' on the base actor — a set of weapon IDs.
-  //     { [weaponId]: { weaponName: string } }
-  //   - Character sheet combat tab shows a jammed badge + clear-jam button.
-  //   - Clear-jam spends 1 AP if in combat; instant if out.
-  //   - AttackerDialog blocks Attack if weapon is jammed.
-  //   - Flag cleared on deleteToken (via own-flags list) and deleteItem (weapon).
-  // -------------------------------------------------------------------------
-
-  static async _resolveWeaponMalfunction(ctx) { return resolveWeaponMalfunction(ctx); }
 
   // -------------------------------------------------------------------------
   // _resolvePrepareCounter — Phase 1: Declaration
@@ -3352,73 +3047,6 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
-  // _resolveBash — SE: Bash (attacker, shield or bludgeoning weapons).
-  //
-  // Rules p.43:
-  //   Knockback distance uses RAW damage (pre-parry, pre-armour):
-  //     Shield:      ceil(rawDamage / 2) metres
-  //     Bludgeoning: ceil(rawDamage / 3) metres
-  //
-  //   Size restriction: only targets up to twice the attacker's SIZ.
-  //     If the defender's SIZ exceeds this, the bash still hits but has
-  //     no knockback (too massive to shift).
-  //
-  //   Obstacle check (optional): if the GM declares the target was forced
-  //   into an obstacle, they must roll Hard Athletics or Acrobatics.
-  //   Failure → Prone.
-  //
-  //   Full Auto: posts distance and a note that the GM resolves any
-  //   obstacle collision narratively (no dialog).
-  //
-  //   Semi-Auto (GM Mode): after the distance card, a dialog asks whether
-  //   an obstacle was hit. If yes, the defender rolls Athletics or
-  //   Acrobatics at Hard difficulty. Failure → Prone applied.
-  //
-  // No flags written — Bash is fully resolved within this exchange.
-  // No cross-turn state. rawDamage must be on ctx before this fires.
-  // -------------------------------------------------------------------------
-
-  static async _resolveBash(ctx) { return resolveBash(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolveDamageWeapon — SE: Damage Weapon (attacker or defender).
-  //
-  // Rules p.43:
-  //   Attacker wins SE → damage roll applied to defender's parrying weapon
-  //   Defender wins SE → damage roll applied to attacker's striking weapon
-  //
-  //   The target weapon's own AP absorbs first. Surplus reduces currentHP.
-  //   If currentHP reaches 0 or below the weapon breaks.
-  //
-  //   Damage value: ctx.rawDamage (pre-parry, pre-armour). Falls back to
-  //   ctx.damageAfterParry if rawDamage absent (Semi-Auto edge case).
-  //
-  //   No opposed roll. No dialog. Automatic in all automation modes.
-  // -------------------------------------------------------------------------
-
-  static async _resolveDamageWeapon(ctx) { return resolveDamageWeapon(ctx); }
-
-  // -------------------------------------------------------------------------
-  // _resolvePinWeapon — SE: Pin Weapon (defender only).
-  //
-  // Rules p.45: The defender traps the attacker's striking weapon between
-  // their own weapon or body, preventing it from being used to parry until
-  // the attacker frees it. Pin lasts until end of the current Mythras round.
-  //
-  // State: 'pinnedWeapons' flag on the attacker:
-  //   { [pinId]: { weaponId, weaponName, pinnedByActorId, pinnedByName } }
-  //
-  // Enforcement: _buildParryWeaponList in DefenderDialog filters out any
-  // weapon whose id appears in the owner's pinnedWeapons flag.
-  //
-  // Cleared: in the allSpent block (end of Mythras round) and deleteToken.
-  //
-  // No opposed roll. No dialog. Automatic.
-  // -------------------------------------------------------------------------
-
-  static async _resolvePinWeapon(ctx) { return resolvePinWeapon(ctx); }
-
-  // -------------------------------------------------------------------------
   // _applySunder — core Sunder arithmetic and armour AP write.
   // Rules p.46:
   //   1. All incoming damage (after parry) is absorbed by the armour — it does
@@ -3549,15 +3177,6 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
-  // _resolveImpale — posts the lodge/yank decision card.
-  // Called from _resolveOpposedSEs when impale is chosen and damage > 0.
-  // Both Semi-Auto and Full Auto reach this path — the decision card is always
-  // presented because the attacker must choose (rules p.44).
-  // -------------------------------------------------------------------------
-
-  static async _resolveImpale(ctx, damage) { return resolveImpale(ctx, damage); }
-
-  // -------------------------------------------------------------------------
   // _resolveEntangleTrip — called from updateCombat at the start of the
   // attacker's (wielder's) turn. Posts a card offering to spend 1 AP for
   // an automatic Trip attempt. The entangled victim gets an opposed Brawn roll.
@@ -3568,51 +3187,6 @@ export class CombatEngine {
   static async _postEntangleTripCard(attackerActor, entry) { return postEntangleTripCard(attackerActor, entry); }
 
   // Called when attacker clicks "Spend 1 AP — Trip"
-  static async _resolveEntangleTripYes(btn) { return resolveEntangleTripYes(btn); }
-
-  // -------------------------------------------------------------------------
-  // _resolveEntangleBreakFree — called from updateCombat at the start of the
-  // entangled victim's turn. Posts a Brawn roll dialog.
-  // entry: one entry from flags['mythras-imperative'].pendingEntangleBreakFree
-  // -------------------------------------------------------------------------
-
-  static async _resolveEntangleBreakFree(entangledActor, entry, entangleId) { return resolveEntangleBreakFree(entangledActor, entry, entangleId); }
-
-  // -------------------------------------------------------------------------
-  // _resolveGripBreakFree — called from updateCombat at the start of the
-  // gripped actor's turn. Posts the break-free dialog (Semi-Auto) or rolls
-  // silently (Full Auto). Clears flags on success; re-queues on failure.
-  // grippedActor: the actor who is currently gripped.
-  // entry: one entry from flags['mythras-imperative'].pendingGripCheck
-  // -------------------------------------------------------------------------
-
-  static async _resolveGripBreakFree(grippedActor, entry, gripEntryId) { return resolveGripBreakFree(grippedActor, entry, gripEntryId); }
-
-  // -------------------------------------------------------------------------
-  // _postImpaleDecisionCard — builds and posts the lodge/yank card.
-  // Called from updateCombat at the start of the attacker's next turn.
-  // entry: a pending impale entry from flags['mythras-imperative'].pendingImpales
-  // -------------------------------------------------------------------------
-
-  static async _postImpaleDecisionCard(attacker, entry) { return postImpaleDecisionCard(attacker, entry); }
-
-  // -------------------------------------------------------------------------
-  // _applyImpaleLodge — called when attacker clicks "Leave In".
-  // Writes the impaledBy flag to the defender, applies the condition.
-  // -------------------------------------------------------------------------
-
-  static async _applyImpaleLodge(btn) { return applyImpaleLodge(btn); }
-
-  // -------------------------------------------------------------------------
-  // _resolveImpaleYank — called when attacker clicks "Yank Free".
-  // Semi-Auto: posts a Brawn dialog on the defender's client via socket.
-  // Full Auto: rolls silently.
-  // On success: rolls half weapon damage (no DM, ignores armour), applies to location.
-  // On failure: card says weapon stays, attacker may retry next turn.
-  // Barbed weapons (trait: 'barbed'): deal full normal damage on yank.
-  // -------------------------------------------------------------------------
-
-  static async _resolveImpaleYank(btn) { return resolveImpaleYank(btn); }
 
   // -------------------------------------------------------------------------
   // -------------------------------------------------------------------------
@@ -4309,9 +3883,6 @@ export class CombatEngine {
     return           { multiplier: 1,   label: 'none' };        // no reduction
   }
 
-  // -------------------------------------------------------------------------
-  // Helpers
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // Action Point management
@@ -4364,23 +3935,6 @@ export class CombatEngine {
     return CombatEngine._applyFatigueToSkill(raw, actor);
   }
 
-  // -------------------------------------------------------------------------
-  // _applyFatigueToSkill — apply all active condition penalties to a skill
-  //
-  // Returns the effective skill total after applying the WORST of:
-  //   1. Fatigue grade (from actor.system.fatigue)
-  //   2. Prone condition (Formidable on all combat skill rolls, p.47)
-  //
-  // Both sources are compared by position in gradeOrder; the hardest
-  // (highest index) wins. Standard (index 2) is the minimum — never easier.
-  //
-  // NOTE: Wound penalties (p.31) are GM discretion only — "at the Games
-  // Master's discretion" — and are not applied automatically by the system.
-  //
-  // This is the single source of truth for condition-adjusted skill totals.
-  // AttackerDialog and MythrasRoll.rollDialog both read the floor grade from
-  // this same logic to pre-select and disable dropdown options.
-  // -------------------------------------------------------------------------
 
   // -------------------------------------------------------------------------
   // _applyFatigueToSkill — apply fatigue penalty to a raw skill total

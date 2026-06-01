@@ -19,6 +19,15 @@ import { WeaponSheet }                from './module/sheets/WeaponSheet.js';
 import { ArmourSheet }                from './module/sheets/ArmourSheet.js';
 import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
+import {
+  resolveEntangleBreakFree,
+  resolveGripBreakFree,
+  postImpaleDecisionCard,
+  resolveEntangleTripYes,
+  applyImpaleLodge,
+  resolveImpaleYank,
+  resolveDamageWeapon,
+} from './module/combat/effects/index.js';
 import { CombatSocket }               from './module/combat/CombatSocket.js';
 
 // ---------------------------------------------------------------------------
@@ -774,7 +783,7 @@ async function _onUpdateCombat(combat, changed) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
     await actor.setFlag('mythras-imperative', 'pendingEntangleBreakFree', {});
     for (const [entangleId, entry] of Object.entries(pendingEntangleBreakFree)) {
-      await CombatEngine._resolveEntangleBreakFree(actor, entry, entangleId);
+      await resolveEntangleBreakFree(actor, entry, entangleId);
     }
   }
 
@@ -785,7 +794,7 @@ async function _onUpdateCombat(combat, changed) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
     await actor.setFlag('mythras-imperative', 'pendingGripCheck', {});
     for (const [gripEntryId, entry] of Object.entries(pendingGripCheck)) {
-      await CombatEngine._resolveGripBreakFree(actor, entry, gripEntryId);
+      await resolveGripBreakFree(actor, entry, gripEntryId);
     }
   }
 
@@ -794,7 +803,7 @@ async function _onUpdateCombat(combat, changed) {
   if (Object.keys(pendingImpales).length > 0) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
     for (const entry of Object.values(pendingImpales)) {
-      await CombatEngine._postImpaleDecisionCard(actor, entry);
+      await postImpaleDecisionCard(actor, entry);
     }
     // Clear all pending entries — cards are now posted
     await actor.setFlag('mythras-imperative', 'pendingImpales', {});
@@ -1087,7 +1096,7 @@ function _onRenderChatMessage(message, html) {
       target.disabled = true;
       _disableSiblingButtons(target);
       const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await CombatEngine._resolveEntangleTripYes(target);
+      await resolveEntangleTripYes(target);
     }));
 
   // Entangle trip — No (skip, act normally)
@@ -1112,7 +1121,7 @@ function _onRenderChatMessage(message, html) {
       target.disabled = true;
       _disableSiblingButtons(target);
       const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await CombatEngine._applyImpaleLodge(target);
+      await applyImpaleLodge(target);
     }));
 
   // Impale — Yank Free
@@ -1122,7 +1131,7 @@ function _onRenderChatMessage(message, html) {
       target.disabled = true;
       _disableSiblingButtons(target);
       const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await CombatEngine._resolveImpaleYank(target);
+      await resolveImpaleYank(target);
     }));
 
   html.querySelectorAll('.mi-luck-reroll').forEach(btn => _bindOnce(btn, ev => _onLuckReroll(ev, message)));
@@ -1870,7 +1879,7 @@ async function _onSemiAutoDamageWeapon(ev, message) {
     chosenSpecialEffects: ['damageWeapon']
   };
 
-  await CombatEngine._resolveDamageWeapon(minimalCtx);
+  await resolveDamageWeapon(minimalCtx);
 }
 
 // ---------------------------------------------------------------------------
