@@ -130,6 +130,10 @@ Hooks.once('init', () => {
     types: ['gear'], makeDefault: true,
     label: 'Mythras Imperative Gear Sheet'
   });
+  DocumentSheetConfig.registerSheet(Item, 'mythras-imperative', AmmoSheet, {
+    types: ['ammo'], makeDefault: true,
+    label: 'Mythras Imperative Ammo Sheet'
+  });
 
   CONFIG.Combat.initiative = { formula: '1d10 + @attributes.initiativeBonus', decimals: 0 };
 

@@ -2,7 +2,7 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.219",
+  "version": "1.4.220",
   "compatibility": {
     "minimum": "14",
     "verified": "14",
@@ -71,6 +71,14 @@
       "name": "traits",
       "label": "Traits",
       "path": "packs/traits",
+      "type": "Item",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "ammo",
+      "label": "Ammo",
+      "path": "packs/ammo",
       "type": "Item",
       "packageType": "system",
       "system": "mythras-imperative"

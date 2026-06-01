@@ -1,0 +1,30 @@
+_id: H0ybQ3R1GLwHYSuc
+name: Arrow
+type: ammo
+img: icons/weapons/arrows/arrow-head-war-flight.webp
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: arrow
+  traits: []
+  quantity: 20
+  enc: 0.1
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Standard fletched arrow for use with bows.
+_key: '!items!H0ybQ3R1GLwHYSuc'

@@ -13,7 +13,8 @@ import {
   woundLevel,
   stepUpDamageModifier,
   getImpaleGrade,
-  DM_TABLE
+  DM_TABLE,
+  weaponBaseMax
 } from '../module/utils/combat-math.js';
 
 // =============================================================================
@@ -301,4 +302,29 @@ describe('getImpaleGrade', () => {
   test('defaults to M size when size omitted', () => {
     expect(getImpaleGrade(null, 13)).toBe('formidable');
   });
+});
+
+// ---------------------------------------------------------------------------
+// weaponBaseMax
+// ---------------------------------------------------------------------------
+
+describe('weaponBaseMax', () => {
+  test('1d6 → 6',        () => expect(weaponBaseMax('1d6')).toBe(6));
+  test('1d8 → 8',        () => expect(weaponBaseMax('1d8')).toBe(8));
+  test('1d6+1 → 7',      () => expect(weaponBaseMax('1d6+1')).toBe(7));
+  test('1d8+1 → 9',      () => expect(weaponBaseMax('1d8+1')).toBe(9));
+  test('2d4+2 → 10',     () => expect(weaponBaseMax('2d4+2')).toBe(10));
+  test('1d10 → 10',      () => expect(weaponBaseMax('1d10')).toBe(10));
+  test('1d4-1 → 3',      () => expect(weaponBaseMax('1d4-1')).toBe(3));
+  test('spaces trimmed', () => expect(weaponBaseMax('1d6 + 1')).toBe(7));
+  test('empty string → 0', () => expect(weaponBaseMax('')).toBe(0));
+  test('null → 0',         () => expect(weaponBaseMax(null)).toBe(0));
+  test('invalid → 0',      () => expect(weaponBaseMax('big')).toBe(0));
+
+  // Bodkin reduction: Math.ceil(weaponBaseMax / 2)
+  test('Bodkin 1d6+1: ceil(7/2) = 4', () => expect(Math.ceil(weaponBaseMax('1d6+1') / 2)).toBe(4));
+  test('Bodkin 1d8:   ceil(8/2) = 4', () => expect(Math.ceil(weaponBaseMax('1d8')   / 2)).toBe(4));
+  test('Bodkin 1d10:  ceil(10/2) = 5',() => expect(Math.ceil(weaponBaseMax('1d10')  / 2)).toBe(5));
+  test('Bodkin 1d6:   ceil(6/2) = 3', () => expect(Math.ceil(weaponBaseMax('1d6')   / 2)).toBe(3));
+  test('Bodkin 2d6:   ceil(12/2) = 6',() => expect(Math.ceil(weaponBaseMax('2d6')   / 2)).toBe(6));
 });

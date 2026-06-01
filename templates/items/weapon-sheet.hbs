@@ -209,6 +209,24 @@
 
   </div>
 
+  {{! ── ROW 4b — Ranged-only: Loaded Ammo pill ─────────────────────────── }}
+  <div class="mi-item-stats mi-item-stats--ranged">
+    <div class="mi-stat-cell mi-stat-cell--full">
+      <div class="mi-stat-label">Loaded Ammo <span class="mi-section-hint">— drag an ammo item here to load</span></div>
+      {{#if loadedAmmo}}
+        <div class="mi-loaded-ammo-pill">
+          <i class="fas fa-arrow-alt-circle-right"></i>
+          <span class="mi-loaded-ammo-name">{{loadedAmmo.name}}</span>
+          <button class="mi-clear-ammo-btn" type="button" title="Unload ammo">×</button>
+        </div>
+      {{else}}
+        <div class="mi-drop-hint mi-drop-hint--inline">
+          <i class="fas fa-arrow-down"></i> No ammo loaded — drag an ammo item here
+        </div>
+      {{/if}}
+    </div>
+  </div>
+
   {{! ── ROW 5 — Firearms only: Firing Mode, Burst Size, Cyclic Rate ──────── }}
   {{#if isFirearm}}
   <div class="mi-item-stats mi-item-stats--ranged">

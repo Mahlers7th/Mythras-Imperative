@@ -1,0 +1,30 @@
+_id: RpPLBK9FBGmRy0zM
+name: Bolt
+type: ammo
+img: icons/weapons/arrows/bolt-head-war-flight.webp
+effects: []
+folder: null
+sort: 1
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: bolt
+  traits: []
+  quantity: 20
+  enc: 0.1
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Standard crossbow bolt.
+_key: '!items!RpPLBK9FBGmRy0zM'

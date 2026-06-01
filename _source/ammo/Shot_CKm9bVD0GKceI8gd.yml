@@ -1,0 +1,30 @@
+_id: CKm9bVD0GKceI8gd
+name: Shot
+type: ammo
+img: icons/weapons/thrown/dart-flight-red.webp
+effects: []
+folder: null
+sort: 3
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: shot
+  traits: []
+  quantity: 25
+  enc: 0.1
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Shotgun shell — fires a spread of pellets.
+_key: '!items!CKm9bVD0GKceI8gd'

@@ -1,0 +1,30 @@
+_id: vCkKfNp4uhxMoie4
+name: Broadhead
+type: trait
+img: icons/weapons/arrows/arrow-head-war-flight.webp
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ammo
+  key: broadhead
+  description: >-
+    On any hit that penetrates armour, automatically triggers Bleed. The
+    defender rolls Endurance to resist as normal. No Special Effect slot is
+    required — this effect fires regardless of success level.
+  engineEffect: true
+  graph: null
+_key: '!items!vCkKfNp4uhxMoie4'

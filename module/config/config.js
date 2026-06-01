@@ -507,6 +507,28 @@ export const MYTHRAS = {
   },
 
   // -----------------------------------------------------------------------
+  // AMMO TRAITS
+  // Traits on ammo items (category: 'ammo' in TraitData).
+  // Engine-automatic: no SE slot consumed, no attacker choice required.
+  //
+  // EXTENSION: downstream modules add entries during setup:
+  //   CONFIG.MYTHRAS.ammoTraits.explosiveRound = { key: 'explosiveRound', ... };
+  ammoTraits: {
+    broadhead: {
+      key:          'broadhead',
+      label:        'Broadhead',
+      description:  'On any hit that penetrates armour, automatically triggers Bleed. Defender rolls Endurance to resist as normal. No Special Effect slot required.',
+      engineEffect: true
+    },
+    bodkin: {
+      key:          'bodkin',
+      label:        'Bodkin',
+      description:  'Reduces effective armour AP at the hit location by ceil(weaponBaseMax / 2) before damage is applied. AP cannot be reduced below 0. No Special Effect slot required.',
+      engineEffect: true
+    }
+  },
+
+  // -----------------------------------------------------------------------
   // CREATURE TRAITS
   // The 37 canonical creature traits from Mythras Imperative pp.76-79.
   //

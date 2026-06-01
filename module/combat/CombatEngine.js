@@ -26,7 +26,7 @@
  */
 
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
-import { classifyLocation, getImpaleGrade } from '../utils/combat-math.js';
+import { classifyLocation, getImpaleGrade, weaponBaseMax } from '../utils/combat-math.js';
 import {
   waitForCard,
   runSEDialog,
@@ -1437,7 +1437,16 @@ export class CombatEngine {
     // Armour
     const bypassArmour    = ctx.chosenSpecialEffects.includes('bypassArmour');
     const sunderChosen    = ctx.chosenSpecialEffects.includes('sunder');
-    const armourPoints    = bypassArmour ? 0 : CombatEngine._getArmourAt(defender, ctx.hitLocationId);
+    // ── Bodkin ammo trait — AP reduction ─────────────────────────────────────
+    // Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
+    // Only applies when Bypass Armour is not already in effect.
+    const hasBodkin = (ctx.ammoTraits ?? []).includes('bodkin');
+    let effectiveAP = bypassArmour ? 0 : CombatEngine._getArmourAt(defender, ctx.hitLocationId);
+    if (hasBodkin && !bypassArmour && effectiveAP > 0) {
+      const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
+      effectiveAP     = Math.max(0, effectiveAP - reduction);
+    }
+    const armourPoints = effectiveAP;
 
     if (sunderChosen && !bypassArmour && armourPoints > 0) {
       // ── Sunder (rules p.46) ──────────────────────────────────────────────
@@ -1453,6 +1462,14 @@ export class CombatEngine {
       const finalDamage     = Math.max(0, damageAfterParry - armourPoints);
       ctx.damageAfterArmour = finalDamage;
       await CombatEngine._applyDamage(ctx, finalDamage);
+
+      // ── Broadhead ammo trait — automatic Bleed ────────────────────────────
+      // If damage penetrated armour, apply Bleed automatically (no SE slot).
+      // Defender still gets the normal opposed Endurance roll to resist.
+      const hasBroadhead = (ctx.ammoTraits ?? []).includes('broadhead');
+      if (hasBroadhead && finalDamage > 0) {
+        await SE_RESOLVERS['bleed'](ctx, finalDamage, false);
+      }
     }
 
     if (chatMsg) await CombatEngine._updateCardWithDamage(chatMsg, ctx);
@@ -3543,6 +3560,19 @@ export class CombatEngine {
       attackerTraits: attackerStyles[0]
         ? Array.from(attackerStyles[0].system.traits ?? [])
         : [],
+
+      // Ammo traits — populated from the ammo item loaded into this weapon.
+      // Each entry is { id, name } referencing a trait item with category 'ammo'.
+      // The engine reads these during damage resolution for Bodkin, Broadhead, etc.
+      // Resolved at exchange start so the loaded ammo can't change mid-exchange.
+      ammoTraits: (() => {
+        const loadedId = weapon?.system?.loadedAmmoId;
+        if (!loadedId) return [];
+        // Ammo may live on the attacker or in the world items
+        const ammoItem = attacker.items?.get(loadedId) ?? game.items.get(loadedId) ?? null;
+        if (!ammoItem || ammoItem.type !== 'ammo') return [];
+        return Array.from(ammoItem.system.traits ?? []).map(t => t.name?.toLowerCase?.() ?? '');
+      })(),
 
       // ── Difficulty & modifiers ──────────────────────────────────────────
       // Standard by default. Charge sets 'hard'. Modules may override.

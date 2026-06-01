@@ -58,7 +58,15 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       isRanged:  system.category === 'ranged',
       isFirearm: Array.isArray(system.traits) && system.traits.includes('firearm'),
       isThrown:  Array.isArray(system.traits) && system.traits.includes('thrown'),
-      isJammed
+      isJammed,
+
+      // Loaded ammo — resolved from loadedAmmoId for display
+      loadedAmmo: (() => {
+        const id = system.loadedAmmoId;
+        if (!id) return null;
+        const ammoItem = item.parent?.items.get(id) ?? game.items.get(id) ?? null;
+        return ammoItem ? { id: ammoItem.id, name: ammoItem.name } : null;
+      })()
     };
   }
 
@@ -72,6 +80,48 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       btn.addEventListener('click', ev => this._onReload(ev)));
     html.querySelectorAll('.mi-clear-jam-btn').forEach(btn =>
       btn.addEventListener('click', ev => this._onClearJam(ev)));
+    html.querySelectorAll('.mi-clear-ammo-btn').forEach(btn =>
+      btn.addEventListener('click', ev => this._onClearAmmo(ev)));
+    if (html) {
+      html.addEventListener('dragover', ev => ev.preventDefault());
+      html.addEventListener('drop',     ev => this._onDrop(ev));
+    }
+  }
+
+  // ── Ammo drag-drop ────────────────────────────────────────────────────────
+
+  async _onDrop(ev) {
+    ev.preventDefault();
+    let dragData;
+    try { dragData = JSON.parse(ev.dataTransfer.getData('text/plain')); }
+    catch(e) { return; }
+
+    if (dragData?.type !== 'Item') return;
+
+    let srcItem;
+    try { srcItem = await fromUuid(dragData.uuid); }
+    catch(e) { return; }
+    if (!srcItem || srcItem.type !== 'ammo') return;
+
+    // Ensure the ammo item is on the same actor if possible
+    const actor = this.document.parent ?? null;
+    let ammoId  = srcItem.id;
+
+    if (actor && srcItem.parent?.id !== actor.id) {
+      // Copy ammo onto the actor so it appears in their inventory
+      const data = srcItem.toObject();
+      delete data._id;
+      const [created] = await actor.createEmbeddedDocuments('Item', [data]);
+      ammoId = created.id;
+    }
+
+    await this.document.update({ 'system.loadedAmmoId': ammoId });
+    ui.notifications.info(`${srcItem.name} loaded into ${this.document.name}.`);
+  }
+
+  async _onClearAmmo(ev) {
+    ev.preventDefault();
+    await this.document.update({ 'system.loadedAmmoId': '' });
   }
 
   async _onReload(ev) {

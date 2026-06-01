@@ -39,7 +39,8 @@ export class TraitSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       weapon:       'Weapon Trait',
       combatStyle:  'Combat Style Trait',
       creature:     'Creature Trait',
-      vehicle:      'Vehicle Trait'
+      vehicle:      'Vehicle Trait',
+      ammo:         'Ammo Trait'
     }[system.category] ?? 'Trait';
 
     return {

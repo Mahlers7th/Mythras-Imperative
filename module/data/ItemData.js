@@ -143,6 +143,13 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       // Whether this weapon appears on the Combat tab as active.
       equipped: new fields.BooleanField({ initial: false }),
 
+      // --- Loaded ammo -----------------------------------------------------
+      // Id of the ammo item currently loaded into this weapon. Empty string
+      // means no ammo is loaded. Set by dragging an ammo item onto the
+      // weapon sheet; cleared by the × button on the loaded-ammo pill.
+      // The engine reads traits from this item at _buildContext time.
+      loadedAmmoId: new fields.StringField({ initial: '' }),
+
       // --- Price -----------------------------------------------------------
       // The listed price in a merchant's inventory. amount is the numeric cost;
       // denominationAbbr is the abbreviation of the currency item (e.g. 'GP').
@@ -482,7 +489,7 @@ export class TraitData extends foundry.abstract.TypeDataModel {
       // Family of trait
       category: new fields.StringField({
         initial: 'weapon',
-        choices: ['weapon', 'combatStyle', 'creature', 'vehicle']
+        choices: ['weapon', 'combatStyle', 'creature', 'vehicle', 'ammo']
       }),
 
       // Canonical key — the string the engine matches against.
@@ -498,5 +505,53 @@ export class TraitData extends foundry.abstract.TypeDataModel {
       // Node editor hook — null until Phase 11
       graph: new fields.ObjectField({ initial: null, nullable: true, required: false })
     };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// AMMO
+// ---------------------------------------------------------------------------
+
+export class AmmoData extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    return {
+      // Projectile family — drives icon and label in the UI
+      type: new fields.StringField({
+        initial: 'arrow',
+        choices: ['arrow', 'bolt', 'bullet', 'shot', 'thrown']
+      }),
+
+      // Trait items dragged onto this ammo item (category: 'ammo').
+      // Each entry is { id, name } referencing a trait item in the world/compendium.
+      // The engine reads these via ctx.ammoTraits at _buildContext time.
+      traits: new fields.ArrayField(
+        new fields.SchemaField({
+          id:   new fields.StringField({ initial: '' }),
+          name: new fields.StringField({ initial: '' })
+        }),
+        { initial: [] }
+      ),
+
+      // How many of this ammo item the character is carrying
+      quantity: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
+
+      // Encumbrance per item
+      enc: new fields.NumberField({ initial: 0, min: 0 }),
+
+      // Price
+      price: new fields.SchemaField({
+        amount:           new fields.NumberField({ initial: 0, min: 0 }),
+        denominationAbbr: new fields.StringField({ initial: '' })
+      }),
+
+      // Notes / flavour text
+      description: new fields.StringField({ initial: '' })
+    };
+  }
+
+  /** Total encumbrance for this ammo stack */
+  get totalEnc() {
+    return (this.enc ?? 0) * (this.quantity ?? 1);
   }
 }

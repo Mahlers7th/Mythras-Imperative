@@ -1,0 +1,92 @@
+{{! systems/mythras-imperative/templates/items/ammo-sheet.hbs }}
+<div class="mi-item-sheet-body">
+
+  {{! ── HEADER ─────────────────────────────────────────────────────────── }}
+  <header class="mi-item-header">
+    <img class="mi-item-img" src="{{item.img}}" data-edit="img" title="{{item.name}}"/>
+    <div class="mi-item-title-block">
+      <input class="mi-item-name" type="text" name="name" value="{{item.name}}"
+             placeholder="Ammo name"/>
+      <div class="mi-item-subtitle">
+        <span class="mi-item-type-pill">{{typeLabel}}</span>
+      </div>
+    </div>
+  </header>
+
+  {{! ── STATS ROW ───────────────────────────────────────────────────────── }}
+  <div class="mi-item-stats">
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Type</div>
+      <select name="system.type" class="mi-stat-select">
+        {{#select system.type}}
+          <option value="arrow">Arrow</option>
+          <option value="bolt">Bolt</option>
+          <option value="bullet">Bullet</option>
+          <option value="shot">Shot</option>
+          <option value="thrown">Thrown</option>
+        {{/select}}
+      </select>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Quantity</div>
+      <input class="mi-stat-input" type="number" name="system.quantity"
+             value="{{system.quantity}}" min="0" step="1"/>
+    </div>
+
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">ENC</div>
+      <input class="mi-stat-input" type="number" name="system.enc"
+             value="{{system.enc}}" min="0" step="0.5"
+             title="Encumbrance per item"/>
+    </div>
+
+  </div>
+
+  {{! ── PRICE ─────────────────────────────────────────────────────────────── }}
+  <div class="mi-item-price-row">
+    <div class="mi-section-label">Price</div>
+    <div class="mi-price-inputs">
+      <input class="mi-price-amount" type="number" name="system.price.amount"
+             value="{{system.price.amount}}" min="0" step="1"
+             placeholder="0" title="Cost in the listed denomination"/>
+      <input class="mi-price-denom" type="text" name="system.price.denominationAbbr"
+             value="{{system.price.denominationAbbr}}"
+             placeholder="GP" title="Currency abbreviation (e.g. GP, SP, Cr)"/>
+    </div>
+  </div>
+
+  {{! ── AMMO TRAITS ─────────────────────────────────────────────────────── }}
+  <div class="mi-section-label">
+    Ammo Traits
+    <span class="mi-section-hint">— drag ammo trait items here</span>
+  </div>
+  <div class="mi-trait-drop-zone" data-drop-type="trait">
+    {{#if resolvedTraits.length}}
+      <ul class="mi-trait-list">
+        {{#each resolvedTraits}}
+          <li class="mi-trait-pill" title="{{this.description}}">
+            <span class="mi-trait-name">{{this.name}}</span>
+            <button class="mi-trait-remove" type="button"
+                    data-action="removeTrait"
+                    data-trait-id="{{this.id}}"
+                    title="Remove {{this.name}}">×</button>
+          </li>
+        {{/each}}
+      </ul>
+    {{else}}
+      <div class="mi-drop-hint">
+        <i class="fas fa-arrow-down"></i> Drop ammo traits here
+      </div>
+    {{/if}}
+  </div>
+
+  {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}
+  <div class="mi-item-desc-block">
+    <div class="mi-section-label">Description</div>
+    <textarea name="system.description" class="mi-item-desc"
+              placeholder="Ammo type, availability, notes…">{{system.description}}</textarea>
+  </div>
+
+</div>

@@ -208,6 +208,37 @@ export function getImpaleGrade(weaponSize, defenderSIZ) {
   return table[4][shifted] ?? 'none';
 }
 
+
+// ---------------------------------------------------------------------------
+// Weapon base max damage  (used by Bodkin ammo trait)
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the maximum value of a weapon's base damage formula, excluding the
+ * actor's damage modifier (which is a separate ctx field appended at roll time).
+ *
+ * Parses a dice expression string such as '1d6', '1d8+1', '2d4+2'.
+ * For Bodkin AP reduction: Math.ceil(weaponBaseMax(formula) / 2).
+ *
+ * Only NdX+K notation is supported (N dice of X faces, optional flat bonus K).
+ * If the formula cannot be parsed, returns 0.
+ *
+ * @param {string} formula  e.g. '1d6', '1d8+1', '2d4+2'
+ * @returns {number}
+ */
+export function weaponBaseMax(formula) {
+  if (!formula || typeof formula !== 'string') return 0;
+  // Strip spaces, lowercase
+  const f = formula.replace(/\s/g, '').toLowerCase();
+  // Match NdX, NdX+K, NdX-K
+  const match = f.match(/^(\d+)d(\d+)([+-]\d+)?$/);
+  if (!match) return 0;
+  const numDice = parseInt(match[1], 10);
+  const faces   = parseInt(match[2], 10);
+  const flat    = match[3] ? parseInt(match[3], 10) : 0;
+  return numDice * faces + flat;
+}
+
 // ---------------------------------------------------------------------------
 // Location classification  (used by wound consequence logic)
 // ---------------------------------------------------------------------------

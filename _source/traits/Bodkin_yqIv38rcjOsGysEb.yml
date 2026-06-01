@@ -1,0 +1,31 @@
+_id: yqIv38rcjOsGysEb
+name: Bodkin
+type: trait
+img: icons/weapons/arrows/arrow-head-triple.webp
+effects: []
+folder: null
+sort: 1
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ammo
+  key: bodkin
+  description: >-
+    Reduces effective armour AP at the hit location by ceil(weaponBaseMax / 2)
+    before damage is applied, where weaponBaseMax is the maximum value of the
+    weapon's base damage formula (excluding the damage modifier). AP cannot be
+    reduced below 0. No Special Effect slot required.
+  engineEffect: true
+  graph: null
+_key: '!items!yqIv38rcjOsGysEb'
