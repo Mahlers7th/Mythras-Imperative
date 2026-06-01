@@ -1099,26 +1099,8 @@ export class CombatEngine {
         </button>
       </div>` : `
       <div class="mi-manual-actions">
-        <button class="mi-btn mi-btn-loc"
-          data-defender-id="${defender.id}"
-          data-message-id="PENDING"
-          data-choose-location="${ctx.chosenSpecialEffects.includes('chooseLocation')}">
-          <i class="fas ${ctx.chosenSpecialEffects.includes('chooseLocation') ? 'fa-bullseye' : ctx.chosenSpecialEffects.includes('marksman') ? 'fa-location-arrow' : 'fa-crosshairs'}"></i> ${ctx.chosenSpecialEffects.includes('chooseLocation') ? 'Choose Location' : ctx.chosenSpecialEffects.includes('marksman') ? 'Roll + Marksman' : 'Roll Hit Location'}
-        </button>
-        <button class="mi-btn mi-btn-dmg"
-          data-formula="${dmgFormula}"
-          data-defender-id="${defender.id}"
-          data-is-charge="${ctx.isCharge}"
-          data-bypass-armour="${ctx.chosenSpecialEffects.includes('bypassArmour')}"
-          data-parry-weapon-id="${ctx.defenceWeapon?.id ?? ''}"
-          data-parry-style-id="${ctx.defenceStyle?.id ?? ''}"
-          data-attacker-id="${attacker.id}"
-          data-weapon-id="${weapon.id}"
-          data-defence-type="${ctx.defenceType ?? 'none'}"
-          data-defence-weapon-name="${ctx.defenceWeapon?.name ?? ''}"
-          data-message-id="PENDING">
-          <i class="fas fa-dice"></i> Roll Damage
-        </button>
+        ${CombatEngine._buildLocButton(ctx, 'PENDING')}
+        ${CombatEngine._buildDmgButton(ctx, 'PENDING', dmgFormula)}
       </div>`) : '';
 
     const content = CombatEngine._buildOutcomeCardContent({
@@ -1228,12 +1210,7 @@ export class CombatEngine {
     // hook picks up. The rawDamage is stamped on the button for the handler to read.
     const locButton = hasDamageWeapon
       ? '' // no location button — replaced by the weapon damage button below
-      : `<button class="mi-btn mi-btn-loc"
-          data-defender-id="${ctx.defender.id}"
-          data-message-id="${chatMsg.id}"
-          data-choose-location="${ctx.chosenSpecialEffects.includes('chooseLocation')}">
-          <i class="fas ${ctx.chosenSpecialEffects.includes('chooseLocation') ? 'fa-bullseye' : ctx.chosenSpecialEffects.includes('marksman') ? 'fa-location-arrow' : 'fa-crosshairs'}"></i> ${ctx.chosenSpecialEffects.includes('chooseLocation') ? 'Choose Location' : ctx.chosenSpecialEffects.includes('marksman') ? 'Roll + Marksman' : 'Roll Hit Location'}
-        </button>`;
+      : CombatEngine._buildLocButton(ctx, chatMsg.id);
 
     const dmgButton = hasDamageWeapon
       ? `<button class="mi-btn mi-btn-dmg-weapon"
@@ -1246,20 +1223,7 @@ export class CombatEngine {
           data-message-id="${chatMsg.id}">
           <i class="fas fa-hammer"></i> Roll Weapon Damage — ${damageWeaponTarget?.name ?? 'Weapon'}
         </button>`
-      : `<button class="mi-btn mi-btn-dmg"
-          data-formula="${dmgFormula}"
-          data-defender-id="${ctx.defender.id}"
-          data-is-charge="${ctx.isCharge}"
-          data-bypass-armour="${ctx.chosenSpecialEffects.includes('bypassArmour')}"
-          data-parry-weapon-id="${ctx.defenceWeapon?.id ?? ''}"
-          data-parry-style-id="${ctx.defenceStyle?.id ?? ''}"
-          data-attacker-id="${ctx.attacker.id}"
-          data-weapon-id="${ctx.weapon.id}"
-          data-defence-type="${ctx.defenceType ?? 'none'}"
-          data-defence-weapon-name="${ctx.defenceWeapon?.name ?? ''}"
-          data-message-id="${chatMsg.id}">
-          <i class="fas fa-dice"></i> Roll Damage
-        </button>`;
+      : CombatEngine._buildDmgButton(ctx, chatMsg.id, dmgFormula);
 
     // Burst fire overrides the loc+dmg pair with a single burst button
     const damageButtons = (attackerScored && isSemi) ? (ctx.isBurstFire ? `
@@ -1324,6 +1288,51 @@ export class CombatEngine {
           ${damageButtons}
         </div>
       </div>`;
+  }
+
+  // -------------------------------------------------------------------------
+  // _buildLocButton — shared hit-location button HTML for semi-auto cards.
+  //
+  // Encapsulates the three-way icon/label logic driven by chooseLocation and
+  // marksman SEs so _postOutcomeCard and _updateCardWithSEs stay in sync.
+  // msgId should be 'PENDING' in _postOutcomeCard (updated after creation)
+  // and chatMsg.id in _updateCardWithSEs.
+  // -------------------------------------------------------------------------
+  static _buildLocButton(ctx, msgId) {
+    const ses            = ctx.chosenSpecialEffects;
+    const chooseLocation = ses.includes('chooseLocation');
+    const marksman       = ses.includes('marksman');
+    const icon  = chooseLocation ? 'fa-bullseye' : marksman ? 'fa-location-arrow' : 'fa-crosshairs';
+    const label = chooseLocation ? 'Choose Location' : marksman ? 'Roll + Marksman' : 'Roll Hit Location';
+    return `<button class="mi-btn mi-btn-loc"
+          data-defender-id="${ctx.defender.id}"
+          data-message-id="${msgId}"
+          data-choose-location="${chooseLocation}">
+          <i class="fas ${icon}"></i> ${label}
+        </button>`;
+  }
+
+  // -------------------------------------------------------------------------
+  // _buildDmgButton — shared Roll Damage button HTML for semi-auto cards.
+  //
+  // Encapsulates bypassArmour and all the data attributes that the Apply
+  // Damage handler reads. dmgFormula is already charge-stepped by the caller.
+  // -------------------------------------------------------------------------
+  static _buildDmgButton(ctx, msgId, dmgFormula) {
+    return `<button class="mi-btn mi-btn-dmg"
+          data-formula="${dmgFormula}"
+          data-defender-id="${ctx.defender.id}"
+          data-is-charge="${ctx.isCharge}"
+          data-bypass-armour="${ctx.chosenSpecialEffects.includes('bypassArmour')}"
+          data-parry-weapon-id="${ctx.defenceWeapon?.id ?? ''}"
+          data-parry-style-id="${ctx.defenceStyle?.id ?? ''}"
+          data-attacker-id="${ctx.attacker.id}"
+          data-weapon-id="${ctx.weapon.id}"
+          data-defence-type="${ctx.defenceType ?? 'none'}"
+          data-defence-weapon-name="${ctx.defenceWeapon?.name ?? ''}"
+          data-message-id="${msgId}">
+          <i class="fas fa-dice"></i> Roll Damage
+        </button>`;
   }
 
   // -------------------------------------------------------------------------
