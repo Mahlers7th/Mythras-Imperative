@@ -6,6 +6,12 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.219 — June 2026
+- **Refactor 2d:** extracted `_buildLocButton(ctx, msgId)` and `_buildDmgButton(ctx, msgId, dmgFormula)` static helpers from `CombatEngine`. The hit-location button icon/label/`data-choose-location` logic (three-way `chooseLocation` / `marksman` / plain branch) and the Roll Damage button's `data-bypass-armour` + data-attribute block were copy-pasted between `_postOutcomeCard` and `_updateCardWithSEs`. Both now call the shared helpers — one place to change if button rendering ever needs updating. No behaviour changes
+
+## v1.4.218 — June 2026
+- **Refactor 2c:** deleted all ~25 thin `static async _resolveX(...) { return resolveX(...); }` wrapper stubs from `CombatEngine`. `_resolveOpposedSEs` and the `attackerScored` dispatch in `_afterDefenceResolved` now call `SE_RESOLVERS[id](ctx, ...)` directly (imported from `effects/index.js`). `mythras.mjs` now imports callback functions (`resolveEntangleBreakFree`, `resolveGripBreakFree`, `postImpaleDecisionCard`, `resolveEntangleTripYes`, `applyImpaleLodge`, `resolveImpaleYank`, `resolveDamageWeapon`) directly from `effects/index.js` rather than routing through `CombatEngine` wrappers. `config.js` `resolver` fields updated from `'_resolveX'` method names to SE id keys. `CombatEngine.js` reduced from 4,539 to 4,093 lines. No behaviour changes
+
 ## v1.4.211 — May 2026
 - Fix: `opposed.js` dynamic `import('./CombatSocket.js')` used a path relative to `effects/` — should be `'../CombatSocket.js'`. Affected all 7 opposed-roll resolvers in semi-auto non-GM mode (Trip, Bleed, Stun, Disarm, Blind, DropFoe, PinDown would silently fail to show their dialog)
 - Fix: Creature actor skill rolls showing 0% in the roll dialog. `CharacterSheet._onRoll` and `_onRollResistance` recompute skill total from `baseFormula + bonusPoints` for character/NPC actors, but creature actors (including MEG imports) store skills with a flat `system.total` — no formula. Added `actor.type !== 'creature'` guard to use `system.total` directly for creature actors

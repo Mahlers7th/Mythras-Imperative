@@ -121,7 +121,6 @@ A community Mythras system exists and is maintained by the broader Foundry commu
 
 ## Documentation
 
-- [COMBAT.md](COMBAT.md) — full guide to the combat system (automation levels, GM Mode, ranged combat, full auto, vehicle combat, Special Effects)
 - [CHANGELOG.md](CHANGELOG.md) — version history
 - [LEGAL.md](LEGAL.md) — ORC licence acknowledgement
 
