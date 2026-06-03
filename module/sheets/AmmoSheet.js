@@ -71,12 +71,13 @@ export class AmmoSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     const html = this.element;
-    if (html) {
+    if (html && !html.dataset.miDropBound) {
+      html.dataset.miDropBound = '1';
       html.addEventListener('dragover', ev => ev.preventDefault());
       html.addEventListener('drop',     ev => this._onDrop(ev));
-      html.querySelectorAll('.mi-trait-remove').forEach(btn =>
-        btn.addEventListener('click', ev => this._onTraitRemove(ev)));
     }
+    html.querySelectorAll('.mi-trait-remove').forEach(btn =>
+      btn.addEventListener('click', ev => this._onTraitRemove(ev)));
   }
 
   async _onDrop(ev) {
