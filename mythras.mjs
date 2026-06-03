@@ -7,7 +7,7 @@ import { MYTHRAS }                    from './module/config/config.js';
 import { openMegImportDialog }          from './module/utils/meg-import.js';
 import { CharacterData }              from './module/data/CharacterData.js';
 import { NPCData, CreatureData, MerchantData, VehicleData } from './module/data/ActorData.js';
-import { SkillData, WeaponData, ArmourData, GearData, CombatStyleData, PassionData, AbilityData, HitLocationData, TraitData, CurrencyData, redistributeHitLocationRanges } from './module/data/ItemData.js';
+import { SkillData, WeaponData, ArmourData, GearData, CombatStyleData, PassionData, AbilityData, HitLocationData, TraitData, CurrencyData, AmmoData, redistributeHitLocationRanges } from './module/data/ItemData.js';
 import { CharacterSheet }             from './module/sheets/CharacterSheet.js';
 import { TraitSheet }                 from './module/sheets/TraitSheet.js';
 import { CurrencySheet }              from './module/sheets/CurrencySheet.js';
@@ -18,6 +18,7 @@ import { SkillSheet }                 from './module/sheets/SkillSheet.js';
 import { WeaponSheet }                from './module/sheets/WeaponSheet.js';
 import { ArmourSheet }                from './module/sheets/ArmourSheet.js';
 import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js';
+import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import {
   resolveEntangleBreakFree,
@@ -83,6 +84,7 @@ Hooks.once('init', () => {
     skill: SkillData, weapon: WeaponData, armour: ArmourData,
     gear: GearData, 'combat-style': CombatStyleData, passion: PassionData,
     ability: AbilityData, 'hit-location': HitLocationData, trait: TraitData, currency: CurrencyData,
+    ammo: AmmoData,
     ...MYTHRAS.dataModels.items
   };
 

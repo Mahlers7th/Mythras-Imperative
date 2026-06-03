@@ -1368,6 +1368,22 @@ export class CombatEngine {
       }
     }
 
+    // Ammo quantity — decrement when a ranged weapon fires a loaded ammo item.
+    // Fires once per attack regardless of hit/miss (shot is spent on release).
+    if (ctx.isRanged && weapon?.system?.loadedAmmoId) {
+      const ammoItem = attacker.items?.get(weapon.system.loadedAmmoId)
+                    ?? game.items.get(weapon.system.loadedAmmoId)
+                    ?? null;
+      if (ammoItem?.type === 'ammo') {
+        const current = ammoItem.system.quantity ?? 0;
+        const updated = Math.max(0, current - 1);
+        await ammoItem.update({ 'system.quantity': updated });
+        if (updated === 0) {
+          ui.notifications.warn(`${ammoItem.name} is now empty.`);
+        }
+      }
+    }
+
     // Damage formula
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';
     const applyMod   = weapon.system.damageModApplies ?? true;

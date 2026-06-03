@@ -523,12 +523,13 @@ export class AmmoData extends foundry.abstract.TypeDataModel {
       }),
 
       // Trait items dragged onto this ammo item (category: 'ammo').
-      // Each entry is { id, name } referencing a trait item in the world/compendium.
+      // Each entry is { id, name, key } referencing a trait item in the world/compendium.
       // The engine reads these via ctx.ammoTraits at _buildContext time.
       traits: new fields.ArrayField(
         new fields.SchemaField({
           id:   new fields.StringField({ initial: '' }),
-          name: new fields.StringField({ initial: '' })
+          name: new fields.StringField({ initial: '' }),
+          key:  new fields.StringField({ initial: '' })
         }),
         { initial: [] }
       ),
