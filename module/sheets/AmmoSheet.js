@@ -16,9 +16,7 @@ export class AmmoSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     position: { width: 480, height: 460 },
     window: { resizable: true },
     form: { submitOnChange: true, closeOnSubmit: false },
-    actions: {
-      removeTrait: AmmoSheet._onTraitRemove,
-    }
+    actions: {}
   };
 
   static PARTS = {
@@ -76,6 +74,8 @@ export class AmmoSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (html) {
       html.addEventListener('dragover', ev => ev.preventDefault());
       html.addEventListener('drop',     ev => this._onDrop(ev));
+      html.querySelectorAll('.mi-trait-remove').forEach(btn =>
+        btn.addEventListener('click', ev => this._onTraitRemove(ev)));
     }
   }
 
@@ -112,7 +112,7 @@ export class AmmoSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     await this.document.update({ 'system.traits': current });
   }
 
-  static async _onTraitRemove(ev) {
+  async _onTraitRemove(ev) {
     ev.preventDefault();
     const traitId = ev.currentTarget.dataset.traitId;
     const current = Array.from(this.document.system.traits ?? []);

@@ -475,6 +475,16 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-reload-btn--sheet:hover { color: var(--mi-teal); border-color: var(--mi-teal); }
 .mi-clear-jam-btn--sheet { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 2px 8px; border: 1px solid var(--mi-fumble-c); border-radius: 3px; cursor: pointer; color: var(--mi-fumble-c); margin-left: 4px; }
 .mi-clear-jam-btn--sheet:hover { color: var(--mi-teal); border-color: var(--mi-teal); }
+/* ── Loaded Ammo pill (weapon sheet) ──────────────────────────────────────── */
+.mi-stat-cell--full         { flex: 1 1 100%; }
+.mi-section-hint            { font-size: 10px; color: var(--mi-ink-4); font-weight: 400; margin-left: 4px; }
+.mi-loaded-ammo-pill        { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--mi-bg-3); border: 1px solid var(--mi-teal); border-radius: 4px; font-size: 12px; color: var(--mi-ink-1); }
+.mi-loaded-ammo-pill i      { color: var(--mi-teal); font-size: 11px; }
+.mi-loaded-ammo-name        { font-weight: 600; }
+.mi-clear-ammo-btn          { background: none; border: none; color: var(--mi-ink-4); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; margin-left: 2px; }
+.mi-clear-ammo-btn:hover    { color: var(--mi-fumble-c); }
+.mi-drop-hint--inline       { font-size: 11px; color: var(--mi-ink-4); font-style: italic; padding: 4px 0; }
+.mi-drop-hint--inline i     { margin-right: 4px; color: var(--mi-ink-4); }
 .mi-stat-cell--reload { display: flex; flex-direction: column; justify-content: flex-end; }
 .mi-weapon-attack {
   display: flex; align-items: center; justify-content: center;

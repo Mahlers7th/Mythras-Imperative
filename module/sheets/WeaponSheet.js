@@ -82,7 +82,8 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       btn.addEventListener('click', ev => this._onClearJam(ev)));
     html.querySelectorAll('.mi-clear-ammo-btn').forEach(btn =>
       btn.addEventListener('click', ev => this._onClearAmmo(ev)));
-    if (html) {
+    if (html && !html.dataset.miDropBound) {
+      html.dataset.miDropBound = '1';
       html.addEventListener('dragover', ev => ev.preventDefault());
       html.addEventListener('drop',     ev => this._onDrop(ev));
     }
