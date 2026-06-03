@@ -20,6 +20,7 @@ import { ArmourSheet }                from './module/sheets/ArmourSheet.js';
 import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js';
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
+import { weaponBaseMax }              from './module/utils/combat-math.js';
 import {
   resolveEntangleBreakFree,
   resolveGripBreakFree,
@@ -1032,7 +1033,7 @@ function _onRenderChatMessage(message, html) {
       );
 
       if (hasOpposedSE) {
-        const attacker = game.actors.get(flags.attackerId);
+        const attacker = _resolveActor(flags.attackerId);
         if (attacker && actor) {
           try {
             const { CombatEngine } = await import('./module/combat/CombatEngine.js');
@@ -1064,7 +1065,7 @@ function _onRenderChatMessage(message, html) {
 
       // ── Resolve wound consequences (Endurance roll for Serious/Major) ─────────
       if (semiCtxForWound?.enduranceRequired) {
-        const attacker = game.actors.get(flags.attackerId);
+        const attacker = _resolveActor(flags.attackerId);
         try {
           const { CombatEngine } = await import('./module/combat/CombatEngine.js');
           const woundCtx = {
@@ -1220,13 +1221,28 @@ async function _onManualRollDamage(ev, message) {
   await ChatMessage.create({ content, speaker: message.speaker, rolls: [roll] });
 }
 
+// ---------------------------------------------------------------------------
+// _resolveActor — resolve an actor by ID via canvas token first.
+// ctx.attacker / ctx.defender are always token actors (synthetic). The IDs
+// stamped on card buttons come from ctx, so we must resolve via the canvas
+// token to get the same synthetic actor and its items. Falling back to
+// game.actors.get() handles the case where the token is no longer on canvas.
+// ---------------------------------------------------------------------------
+function _resolveActor(actorId) {
+  if (!actorId) return null;
+  const token = canvas?.tokens?.placeables?.find(t =>
+    t.actor?.id === actorId || t.document?.actorId === actorId
+  ) ?? null;
+  return token?.actor ?? game.actors.get(actorId) ?? null;
+}
+
 // Semi-Auto: Roll Hit Location
 async function _onSemiAutoRollLocation(ev, message) {
   ev.preventDefault();
   const btn        = ev.currentTarget;
   const defenderId = btn.dataset.defenderId;
   const messageId  = btn.dataset.messageId;
-  const defender   = game.actors.get(defenderId);
+  const defender   = _resolveActor(defenderId);
   if (!defender) return;
 
   const chooseLocation = btn.dataset.chooseLocation === 'true'
@@ -1355,8 +1371,12 @@ async function _onSemiAutoRollDamage(ev, message) {
 
   if (!formula || !defenderId || !attackerId) return;
 
-  const defender  = game.actors.get(defenderId);
-  const attacker  = game.actors.get(attackerId);
+  const defender  = _resolveActor(defenderId);
+  // Resolve attacker via canvas token so we get the synthetic token actor.
+  // game.actors.get() returns the base actor; for linked tokens the items
+  // match, but the weapon item on the button came from ctx.attacker which
+  // is always the token actor. Using the canvas token avoids the mismatch.
+  const attacker  = _resolveActor(attackerId);
   const weapon    = CombatEngine._getItem(attacker, weaponId);
   if (!defender || !attacker) return;
 
@@ -1394,6 +1414,22 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Bypass Armour SE: read from outcome flags, not btn.dataset, because CombatEngine cannot
   // stamp this on the button at card-build time (the SE choice is stored in flags, not HTML).
   // This is the same pattern used by circumventParry and enhanceParry below.
+  // ── Ammo quantity decrement (semi-auto) ──────────────────────────────────
+  // Decrement loaded ammo item quantity when a ranged weapon fires.
+  // Fires once per Roll Damage click regardless of hit outcome.
+  const isRangedShot = (outcomeFlags0.isRanged ?? false) && weapon?.system?.loadedAmmoId;
+  if (isRangedShot) {
+    const ammoItem = attacker.items?.get(weapon.system.loadedAmmoId)
+                  ?? game.items.get(weapon.system.loadedAmmoId)
+                  ?? null;
+    if (ammoItem?.type === 'ammo') {
+      const qCurrent = ammoItem.system.quantity ?? 0;
+      const qUpdated = Math.max(0, qCurrent - 1);
+      await ammoItem.update({ 'system.quantity': qUpdated });
+      if (qUpdated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+    }
+  }
+
   const bypassArmour = chosenSEs0.includes('bypassArmour');
 
   // Maximise Damage SE — substitute each chosen die with its maximum face value.
@@ -1481,6 +1517,19 @@ async function _onSemiAutoRollDamage(ev, message) {
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
+  // ── Bodkin ammo trait (semi-auto) ────────────────────────────────────────
+  // Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
+  if (isRangedShot && !bypassArmour && armourAP > 0) {
+    const ammoItem2 = attacker.items?.get(weapon.system.loadedAmmoId)
+                   ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
+    const ammoTraits2 = Array.from(ammoItem2?.system?.traits ?? [])
+      .map(t => (t.key ?? t.name ?? '').toLowerCase());
+    if (ammoTraits2.includes('bodkin')) {
+      const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
+      armourAP = Math.max(0, armourAP - reduction);
+    }
+  }
+
   let finalDamage    = Math.max(0, damageAfterParry - armourAP);
   let sunderResult   = null;
   const sunderChosen = chosenSEs0.includes('sunder');
@@ -1517,6 +1566,38 @@ async function _onSemiAutoRollDamage(ev, message) {
   // If damage is fully blocked, the Apply Damage button never appears — fire
   // any 'opposed'-phase SEs right here. Registry-driven: requiresDamage and
   // requiresFumble gates are enforced inside _resolveOpposedSEs.
+  // ── Broadhead ammo trait (semi-auto) ─────────────────────────────────────
+  // If damage penetrated armour, automatically trigger Bleed. No SE slot used.
+  if (isRangedShot && finalDamage > 0) {
+    const ammoItem3 = attacker.items?.get(weapon.system.loadedAmmoId)
+                   ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
+    const ammoTraits3 = Array.from(ammoItem3?.system?.traits ?? [])
+      .map(t => (t.key ?? t.name ?? '').toLowerCase());
+    if (ammoTraits3.includes('broadhead')) {
+      try {
+        const { SE_RESOLVERS } = await import('./module/combat/effects/index.js');
+        const broadCtx = {
+          attacker,
+          defender,
+          weapon,
+          defenceWeapon:        CombatEngine._getItem(defender, outcomeFlags2.defenceWeaponId ?? ''),
+          attackResult:         outcomeFlags2.attackResult       ?? 0,
+          attackerSkillTotal:   outcomeFlags2.attackerSkillTotal ?? 0,
+          defenceResult:        outcomeFlags2.defenceResult      ?? 0,
+          defenderSkillTotal:   outcomeFlags2.defenderSkillTotal ?? 0,
+          chosenSpecialEffects: ['bleed'],
+          seWinner:             'attacker',
+          hitLocationId:        locationId ?? null,
+          hitLocationLabel:     locationLabel,
+          chatMessageId:        messageId ?? null
+        };
+        await SE_RESOLVERS['bleed'](broadCtx, finalDamage, false);
+      } catch (err) {
+        console.error('MI | Broadhead bleed failed:', err);
+      }
+    }
+  }
+
   if (finalDamage === 0) {
     const hasOpposedSE2 = chosenSEs2.some(
       id => CONFIG.MYTHRAS.specialEffects.find(e => e.id === id)?.phase === 'opposed'
@@ -1862,8 +1943,8 @@ async function _onSemiAutoDamageWeapon(ev, message) {
   // Import first — _getItem is called below before any await
   const { CombatEngine } = await import('./module/combat/CombatEngine.js');
 
-  const attacker    = game.actors.get(attackerId);
-  const defender    = game.actors.get(defenderId);
+  const attacker    = _resolveActor(attackerId);
+  const defender    = _resolveActor(defenderId);
   const weapon      = CombatEngine._getItem(attacker, weaponId);
   const defWeapon   = CombatEngine._getItem(defender, defWeaponId) ?? null;
 
@@ -1907,8 +1988,8 @@ async function _onSemiAutoBurstDamage(ev, message) {
 
   const { CombatEngine } = await import('./module/combat/CombatEngine.js');
 
-  const attacker = game.actors.get(attackerId);
-  const defender = game.actors.get(defenderId);
+  const attacker = _resolveActor(attackerId);
+  const defender = _resolveActor(defenderId);
   const weapon   = CombatEngine._getItem(attacker, weaponId);
   if (!attacker || !defender || !weapon) return;
 

@@ -82,6 +82,8 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       btn.addEventListener('click', ev => this._onClearJam(ev)));
     html.querySelectorAll('.mi-clear-ammo-btn').forEach(btn =>
       btn.addEventListener('click', ev => this._onClearAmmo(ev)));
+    html.querySelectorAll('.mi-loaded-ammo-open').forEach(span =>
+      span.addEventListener('click', ev => this._onOpenAmmo(ev)));
     if (html && !html.dataset.miDropBound) {
       html.dataset.miDropBound = '1';
       html.addEventListener('dragover', ev => ev.preventDefault());
@@ -123,6 +125,15 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   async _onClearAmmo(ev) {
     ev.preventDefault();
     await this.document.update({ 'system.loadedAmmoId': '' });
+  }
+
+  async _onOpenAmmo(ev) {
+    ev.preventDefault();
+    const id       = ev.currentTarget.closest('[data-ammo-id]')?.dataset.ammoId;
+    if (!id) return;
+    const item     = this.document;
+    const ammoItem = item.parent?.items.get(id) ?? game.items.get(id) ?? null;
+    if (ammoItem) ammoItem.sheet.render(true);
   }
 
   async _onReload(ev) {
