@@ -3571,7 +3571,7 @@ export class CombatEngine {
         // Ammo may live on the attacker or in the world items
         const ammoItem = attacker.items?.get(loadedId) ?? game.items.get(loadedId) ?? null;
         if (!ammoItem || ammoItem.type !== 'ammo') return [];
-        return Array.from(ammoItem.system.traits ?? []).map(t => t.name?.toLowerCase?.() ?? '');
+        return Array.from(ammoItem.system.traits ?? []).map(t => t.key?.toLowerCase?.() ?? t.name?.toLowerCase?.() ?? '');
       })(),
 
       // ── Difficulty & modifiers ──────────────────────────────────────────
