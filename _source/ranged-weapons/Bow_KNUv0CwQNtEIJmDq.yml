@@ -38,6 +38,6 @@ system:
     - impaling
   description: A self-drawn bow. Damage modifier applies. Impaling.
   equipped: false
-  ammo: 1
-  ammoMax: 1
+  ammo: 0
+  ammoMax: 0
 _key: '!items!KNUv0CwQNtEIJmDq'

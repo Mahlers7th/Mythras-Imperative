@@ -109,7 +109,7 @@ export class AmmoSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const current = Array.from(this.document.system.traits ?? []);
     if (current.some(t => t.id === srcItem.id)) return; // already present
 
-    current.push({ id: srcItem.id, name: srcItem.name });
+    current.push({ id: srcItem.id, name: srcItem.name, key });
     await this.document.update({ 'system.traits': current });
   }
 

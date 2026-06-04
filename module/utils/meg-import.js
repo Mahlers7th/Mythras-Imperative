@@ -280,6 +280,7 @@ export function megToFoundryActor(meg) {
         description += (description ? '\n' : '') + `Effects: ${w.effects}`;
       }
 
+      const isShield = /shield/i.test(w.name);
       items.push({
         name: w.name,
         type: 'weapon',
@@ -305,7 +306,7 @@ export function megToFoundryActor(meg) {
           hp:               w.hp ?? 0,
           currentHP:        w.hp ?? 0,
           enc:              0,
-          traits:           [],
+          traits:           isShield ? ['shield'] : [],
           description,
           equipped:         true,
           price: { amount: 0, denominationAbbr: '' }

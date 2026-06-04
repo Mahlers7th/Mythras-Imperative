@@ -989,7 +989,7 @@ function _onRenderChatMessage(message, html) {
       const damage     = parseInt(btn.dataset.damage, 10);
       const rawDamage  = parseInt(btn.dataset.rawDamage, 10) || damage; // pre-armour damage for Bash
       const locLabel   = btn.dataset.locationLabel ?? '';
-      const actor      = game.actors.get(actorId);
+      const actor      = _resolveActor(actorId);
       if (!actor || isNaN(damage)) return;
 
       const locItem = CombatEngine._getItem(actor, locationId);
@@ -1024,7 +1024,14 @@ function _onRenderChatMessage(message, html) {
       // ── Resolve opposed SEs (Bleed, Trip, etc.) using flags from the outcome message ──
       const outcomeMsg = game.messages.get(btn.dataset.messageId);
       const flags = outcomeMsg?.flags?.['mythras-imperative'] ?? {};
-      const chosenSEs = flags.chosenSEs ?? [];
+      const chosenSEs = [...(flags.chosenSEs ?? [])];
+
+      // Broadhead ammo trait: auto-adds Bleed when damage penetrates (flag stamped at
+      // Roll Damage time). Fires through the identical opposed-SE path as a chosen Bleed,
+      // so the Endurance resistance dialog and result card behave exactly the same.
+      if (flags.broadhead && damage > 0 && !chosenSEs.includes('bleed')) {
+        chosenSEs.push('bleed');
+      }
 
       // Registry-driven: any SE with phase:'opposed' fires through _resolveOpposedSEs.
       // requiresDamage and requiresFumble gates are enforced inside the dispatcher.
@@ -1414,19 +1421,16 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Bypass Armour SE: read from outcome flags, not btn.dataset, because CombatEngine cannot
   // stamp this on the button at card-build time (the SE choice is stored in flags, not HTML).
   // This is the same pattern used by circumventParry and enhanceParry below.
-  // ── Ammo quantity decrement (semi-auto) ──────────────────────────────────
-  // Decrement loaded ammo item quantity when a ranged weapon fires.
-  // Fires once per Roll Damage click regardless of hit outcome.
+  // ── Ammo decrement (semi-auto) ───────────────────────────────────────────
+  // For bow/sling (loadedAmmoId set): fire clears the nocked state (system.ammo 1 -> 0).
+  // The quiver (ammoItem.quantity) is only decremented by the Reload button (nocking).
+  // For firearms (no loadedAmmoId): system.ammo is decremented in CombatEngine at
+  // initiation time (before _postOutcomeCard), so no action needed here.
   const isRangedShot = (outcomeFlags0.isRanged ?? false) && weapon?.system?.loadedAmmoId;
   if (isRangedShot) {
-    const ammoItem = attacker.items?.get(weapon.system.loadedAmmoId)
-                  ?? game.items.get(weapon.system.loadedAmmoId)
-                  ?? null;
-    if (ammoItem?.type === 'ammo') {
-      const qCurrent = ammoItem.system.quantity ?? 0;
-      const qUpdated = Math.max(0, qCurrent - 1);
-      await ammoItem.update({ 'system.quantity': qUpdated });
-      if (qUpdated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+    const currentNocked = weapon.system.ammo ?? 0;
+    if (currentNocked > 0) {
+      await weapon.update({ 'system.ammo': 0 });
     }
   }
 
@@ -1563,38 +1567,19 @@ async function _onSemiAutoRollDamage(ev, message) {
   const outcomeFlags2  = outcomeMsg2?.flags?.['mythras-imperative'] ?? {};
   const chosenSEs2     = outcomeFlags2.chosenSEs ?? [];
 
-  // If damage is fully blocked, the Apply Damage button never appears — fire
-  // any 'opposed'-phase SEs right here. Registry-driven: requiresDamage and
-  // requiresFumble gates are enforced inside _resolveOpposedSEs.
   // ── Broadhead ammo trait (semi-auto) ─────────────────────────────────────
-  // If damage penetrated armour, automatically trigger Bleed. No SE slot used.
-  if (isRangedShot && finalDamage > 0) {
-    const ammoItem3 = attacker.items?.get(weapon.system.loadedAmmoId)
-                   ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
-    const ammoTraits3 = Array.from(ammoItem3?.system?.traits ?? [])
+  // Broadhead auto-triggers Bleed when damage penetrates. Rather than firing Bleed
+  // here (a divergent, early-firing path), we stamp 'broadhead' onto the outcome card
+  // flags so the Apply Damage handler injects 'bleed' into the opposed-SE dispatch —
+  // the exact same proven path used when Bleed is chosen as a normal SE. This keeps
+  // a single code path for Bleed and fixes broadhead never resolving in semi-auto.
+  if (isRangedShot) {
+    const ammoItemBH = attacker.items?.get(weapon.system.loadedAmmoId)
+                    ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
+    const ammoTraitsBH = Array.from(ammoItemBH?.system?.traits ?? [])
       .map(t => (t.key ?? t.name ?? '').toLowerCase());
-    if (ammoTraits3.includes('broadhead')) {
-      try {
-        const { SE_RESOLVERS } = await import('./module/combat/effects/index.js');
-        const broadCtx = {
-          attacker,
-          defender,
-          weapon,
-          defenceWeapon:        CombatEngine._getItem(defender, outcomeFlags2.defenceWeaponId ?? ''),
-          attackResult:         outcomeFlags2.attackResult       ?? 0,
-          attackerSkillTotal:   outcomeFlags2.attackerSkillTotal ?? 0,
-          defenceResult:        outcomeFlags2.defenceResult      ?? 0,
-          defenderSkillTotal:   outcomeFlags2.defenderSkillTotal ?? 0,
-          chosenSpecialEffects: ['bleed'],
-          seWinner:             'attacker',
-          hitLocationId:        locationId ?? null,
-          hitLocationLabel:     locationLabel,
-          chatMessageId:        messageId ?? null
-        };
-        await SE_RESOLVERS['bleed'](broadCtx, finalDamage, false);
-      } catch (err) {
-        console.error('MI | Broadhead bleed failed:', err);
-      }
+    if (ammoTraitsBH.includes('broadhead') && outcomeMsg2) {
+      await outcomeMsg2.setFlag('mythras-imperative', 'broadhead', true);
     }
   }
 

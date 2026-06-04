@@ -481,6 +481,8 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-loaded-ammo-pill        { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; background: var(--mi-paper-2); border: 1px solid var(--mi-teal); border-radius: 4px; font-size: 12px; color: var(--mi-ink-2); }
 .mi-loaded-ammo-pill i      { color: var(--mi-teal); font-size: 11px; }
 .mi-loaded-ammo-name        { font-weight: 600; color: var(--mi-ink-2); }
+.mi-loaded-ammo-open        { cursor: pointer; }
+.mi-loaded-ammo-open:hover  { color: var(--mi-teal); text-decoration: underline; }
 .mi-clear-ammo-btn          { background: none; border: none; color: var(--mi-ink-3); cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; margin-left: 2px; }
 .mi-clear-ammo-btn:hover    { color: var(--mi-fumble-c); }
 .mi-drop-hint--inline       { font-size: 11px; color: var(--mi-ink-3); font-style: italic; padding: 4px 0; }

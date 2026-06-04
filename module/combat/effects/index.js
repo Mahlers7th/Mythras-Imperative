@@ -58,6 +58,7 @@ import {
 // These are called from chat-card button handlers in mythras.mjs, not via the
 // SE dispatch loop. Exported here so mythras.mjs only needs one effects import.
 export {
+  resolveBleed,
   resolveEntangleTripYes,
   resolveEntangleBreakFree,
   resolveGripBreakFree,

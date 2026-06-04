@@ -139,13 +139,47 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   async _onReload(ev) {
     ev.preventDefault();
     const item    = this.document;
-    const ammoMax = item.system.ammoMax ?? 0;
-    if (ammoMax <= 0) {
-      ui.notifications.info(`Set Ammo (max) first — nothing to reload to.`);
+    const system  = item.system;
+
+    // Firearm reload — refill magazine from system.ammoMax
+    if (system.category === 'ranged' && system.traits?.includes('firearm')) {
+      const ammoMax = system.ammoMax ?? 0;
+      if (ammoMax <= 0) {
+        ui.notifications.info(`Set Ammo (max) first — nothing to reload to.`);
+        return;
+      }
+      await item.update({ 'system.ammo': ammoMax });
+      ui.notifications.info(`${item.name} reloaded — ${ammoMax} rounds ready.`);
       return;
     }
-    await item.update({ 'system.ammo': ammoMax });
-    ui.notifications.info(`${item.name} reloaded — ${ammoMax} rounds ready.`);
+
+    // Ranged non-firearm (bow, crossbow, sling) — nocking costs one ammo item.
+    // Sets system.ammo = 1 (nocked) so "Ammo (loaded)" shows readiness.
+    // Firing clears system.ammo back to 0. system.ammoMax = 1 (capacity is always 1 nocked arrow).
+    if (system.category === 'ranged' && system.loadedAmmoId) {
+      const actor    = item.parent ?? null;
+      const ammoItem = actor?.items?.get(system.loadedAmmoId)
+                    ?? game.items.get(system.loadedAmmoId)
+                    ?? null;
+      if (!ammoItem) {
+        ui.notifications.warn(`No ammo loaded — drag an ammo item onto the weapon first.`);
+        return;
+      }
+      const current = ammoItem.system.quantity ?? 0;
+      if (current <= 0) {
+        ui.notifications.warn(`${ammoItem.name} is empty — no ammunition remaining.`);
+        return;
+      }
+      const updated = current - 1;
+      await ammoItem.update({ 'system.quantity': updated });
+      await item.update({ 'system.ammo': 1, 'system.ammoMax': 1 });
+      ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
+      if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+      return;
+    }
+
+    // Fallback for generic ranged weapons with no ammo loaded
+    ui.notifications.info(`No ammo loaded — drag an ammo item onto ${item.name} first.`);
   }
 
   async _onClearJam(ev) {

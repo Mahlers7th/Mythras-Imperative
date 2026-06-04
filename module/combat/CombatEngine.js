@@ -725,6 +725,12 @@ export class CombatEngine {
     // ── Ammo decrement (ranged weapons only) ─────────────────────────────────
     // Burst fire costs burstSize rounds (always 3). Single shot costs 1.
     // The dialog blocks 0-ammo attacks but we guard here for macro/GM use.
+    //
+    // Two tracking models, both use system.ammo as the "ready to fire" counter:
+    //   Firearms  — internal counter filled on Reload (system.ammoMax → system.ammo).
+    //   Bow/Sling — nocked state: Reload draws 1 from ammoItem.quantity and sets
+    //               system.ammo = 1 (system.ammoMax = 1). Fire decrements to 0.
+    //               The ammo item's quantity tracks the quiver; only Reload depletes it.
     if (confirmedCtx.isRanged) {
       const atkWeapon   = confirmedCtx.weapon;
       const currentAmmo = atkWeapon?.system?.ammo ?? null;
@@ -1368,21 +1374,6 @@ export class CombatEngine {
       }
     }
 
-    // Ammo quantity — decrement when a ranged weapon fires a loaded ammo item.
-    // Fires once per attack regardless of hit/miss (shot is spent on release).
-    if (ctx.isRanged && weapon?.system?.loadedAmmoId) {
-      const ammoItem = attacker.items?.get(weapon.system.loadedAmmoId)
-                    ?? game.items.get(weapon.system.loadedAmmoId)
-                    ?? null;
-      if (ammoItem?.type === 'ammo') {
-        const current = ammoItem.system.quantity ?? 0;
-        const updated = Math.max(0, current - 1);
-        await ammoItem.update({ 'system.quantity': updated });
-        if (updated === 0) {
-          ui.notifications.warn(`${ammoItem.name} is now empty.`);
-        }
-      }
-    }
 
     // Damage formula
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';

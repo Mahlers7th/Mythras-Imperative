@@ -37,6 +37,6 @@ system:
   traits: []
   description: A simple ranged weapon hurling stones or lead shot. Load 2 turns.
   equipped: false
-  ammo: 1
-  ammoMax: 1
+  ammo: 0
+  ammoMax: 0
 _key: '!items!qXHfeOEQIN5PE32y'

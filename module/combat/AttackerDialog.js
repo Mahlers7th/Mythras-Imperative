@@ -117,8 +117,11 @@ export class AttackerDialog {
     const isRangedWeapon = (weapon?.system?.category ?? 'melee') === 'ranged';
 
     // ── Ammo display (ranged weapons only) ───────────────────────────────────
-    const initAmmo    = isRangedWeapon ? (weapon?.system?.ammo    ?? null) : null;
-    const initAmmoMax = isRangedWeapon ? (weapon?.system?.ammoMax ?? null) : null;
+    // system.ammo is the source of truth for both models:
+    //   Firearms  — rounds loaded in magazine (0..ammoMax)
+    //   Bow/Sling — nocked state: 0 = not nocked (must Reload first), 1 = ready to fire
+    const initAmmo      = isRangedWeapon ? (weapon?.system?.ammo    ?? null) : null;
+    const initAmmoMax   = isRangedWeapon ? (weapon?.system?.ammoMax ?? null) : null;
     const initOutOfAmmo = isRangedWeapon && initAmmo !== null && initAmmo <= 0;
 
     // ── Burst fire (firearm only) ─────────────────────────────────────────────

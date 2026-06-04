@@ -214,9 +214,9 @@
     <div class="mi-stat-cell mi-stat-cell--full">
       <div class="mi-stat-label">Loaded Ammo <span class="mi-section-hint">— drag an ammo item here to load</span></div>
       {{#if loadedAmmo}}
-        <div class="mi-loaded-ammo-pill">
+        <div class="mi-loaded-ammo-pill" data-ammo-id="{{loadedAmmo.id}}">
           <i class="fas fa-arrow-alt-circle-right"></i>
-          <span class="mi-loaded-ammo-name">{{loadedAmmo.name}}</span>
+          <span class="mi-loaded-ammo-name mi-loaded-ammo-open" title="Open ammo sheet">{{loadedAmmo.name}}</span>
           <button class="mi-clear-ammo-btn" type="button" title="Unload ammo">×</button>
         </div>
       {{else}}

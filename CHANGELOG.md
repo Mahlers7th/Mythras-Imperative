@@ -6,6 +6,27 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.234 — June 2026
+- **Fix: broadhead bleed in semi-auto — root cause found**. The broadhead block in `_onSemiAutoRollDamage` was firing Bleed at *Roll Damage* time via a hand-built `broadCtx` and a direct `resolveBleed` call. But when `finalDamage > 0`, every other opposed SE (including a normally-chosen Bleed) fires later — at *Apply Damage* time — through the `.mi-btn-apply-dmg` handler calling `_resolveOpposedSEs`. The broadhead path was the only opposed effect not using that shared, proven dispatch, which is why it silently produced no dialog and no result card while normal Bleed worked
+- **Fix approach (as suggested): reuse the existing Bleed SE end-to-end**. Broadhead now stamps a `broadhead: true` flag on the outcome card at Roll Damage time. The Apply Damage handler reads that flag and, when damage penetrates, injects `'bleed'` into the chosen-SE list it already dispatches through `_resolveOpposedSEs`. Broadhead is now mechanically identical to manually choosing Bleed: same Endurance resistance dialog, same result card, same single code path
+- Removed the divergent early-firing broadhead block and the now-unused `resolveBleed` import from `mythras.mjs`. Full-auto broadhead (CombatEngine, live `ctx.ammoTraits`) is unchanged and unaffected
+- Guards verified: no Bleed at zero damage (`requiresDamage` plus an explicit `damage > 0` check); no duplicate Bleed if the player also chose it; normal SE flow for non-broadhead ammo untouched
+
+## v1.4.233 — June 2026
+- **Fix: broadhead bleed — root cause was dynamic import**. `_onSemiAutoRollDamage` was using `await import('./module/combat/effects/index.js')` at runtime to get `SE_RESOLVERS`, then calling `SE_RESOLVERS['bleed']`. This dynamic import is fragile at call-time inside an async handler. Fixed by importing `resolveBleed` as a named static import at the top of `mythras.mjs` (alongside the other effects callbacks already imported there) and calling it directly. `resolveBleed` added to the re-export block in `effects/index.js`
+- **Fix: bow/sling ammo model redesigned — nocked state**. Previous model (fire decrements quiver) was incorrect and caused double-decrement. New model: `system.ammo` is the "nocked/chambered" state for all ranged weapons (bows: 0 = not nocked, 1 = nocked; firearms: rounds in magazine). `Reload` on a bow decrements `ammoItem.quantity` by 1 (drawing from quiver) AND sets `system.ammo = 1 / ammoMax = 1` — the "Ammo (loaded)" field now shows 1 after nocking. Firing clears `system.ammo` back to 0 (semi-auto: `_onSemiAutoRollDamage`; full/manual: existing CE decrement). The quiver (`ammoItem.quantity`) is only ever decremented by the Reload button
+- Removed the `_applyDamage` `loadedAmmoId → ammoItem.quantity` decrement block (was double-decrementing the quiver on fire)
+- Reverted the `!loadedAmmoId` guard added to the CE single/burst decrement block in v1.4.232 — `system.ammo` decrement now fires for all ranged weapons as before
+- Reverted `AttackerDialog` ammo display changes from v1.4.232 — `system.ammo` is the correct value for all ranged weapons and no special-casing is needed
+
+## v1.4.232 — June 2026
+- **Fix: bow/sling ammo tracking — three-part fix for the loadedAmmoId model**
+- Bow and Sling compendium entries corrected: `ammo: 0` / `ammoMax: 0` (was `1/1`). The internal counter is unused for these weapons; tracking runs through the loaded ammo item's `quantity` field. Thrown weapons (Bolas, Dagger, Javelin, Stone) left at `1/1` — they are self-consuming
+- `CombatEngine` single/burst ammo decrement block: now skips the `system.ammo` path when `weapon.system.loadedAmmoId` is set. Prevents the 0-ammo abort that would have blocked bow attacks after the compendium fix, and eliminates the double-decrement that occurred when both fields were non-zero
+- `AttackerDialog` ammo display: when the selected weapon has `loadedAmmoId` set, reads `ammoItem.system.quantity` for both the display value and the 0-ammo disable gate, rather than `system.ammo / ammoMax`. Updates correctly when the player switches weapons mid-dialog
+- **Diagnostic: broadhead bleed** — added targeted `console.log` checkpoints through the broadhead block in `_onSemiAutoRollDamage` and at the top of `_onReload` in WeaponSheet. Shows exact failure point in browser console (F12). To be removed once root cause is confirmed
+
+
 ## v1.4.219 — June 2026
 - **Refactor 2d:** extracted `_buildLocButton(ctx, msgId)` and `_buildDmgButton(ctx, msgId, dmgFormula)` static helpers from `CombatEngine`. The hit-location button icon/label/`data-choose-location` logic (three-way `chooseLocation` / `marksman` / plain branch) and the Roll Damage button's `data-bypass-armour` + data-attribute block were copy-pasted between `_postOutcomeCard` and `_updateCardWithSEs`. Both now call the shared helpers — one place to change if button rendering ever needs updating. No behaviour changes
 
