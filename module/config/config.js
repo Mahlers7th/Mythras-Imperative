@@ -525,6 +525,12 @@ export const MYTHRAS = {
       label:        'Bodkin',
       description:  'Reduces effective armour AP at the hit location by ceil(weaponBaseMax / 2) before damage is applied. AP cannot be reduced below 0. No Special Effect slot required.',
       engineEffect: true
+    },
+    armourPiercing: {
+      key:          'armourPiercing',
+      label:        'Armour Piercing',
+      description:  'Reduces effective armour AP at the hit location by ceil(weaponBaseMax / 2) before damage is applied. AP cannot be reduced below 0. No Special Effect slot required.',
+      engineEffect: true
     }
   },
 

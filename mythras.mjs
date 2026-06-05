@@ -1528,7 +1528,7 @@ async function _onSemiAutoRollDamage(ev, message) {
                    ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
     const ammoTraits2 = Array.from(ammoItem2?.system?.traits ?? [])
       .map(t => (t.key ?? t.name ?? '').toLowerCase());
-    if (ammoTraits2.includes('bodkin')) {
+    if (ammoTraits2.includes('bodkin') || ammoTraits2.includes('armourpiercing')) {
       const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
       armourAP = Math.max(0, armourAP - reduction);
     }

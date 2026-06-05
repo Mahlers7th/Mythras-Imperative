@@ -1448,8 +1448,9 @@ export class CombatEngine {
     // Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
     // Only applies when Bypass Armour is not already in effect.
     const hasBodkin = (ctx.ammoTraits ?? []).includes('bodkin');
+    const hasArmourPiercing = (ctx.ammoTraits ?? []).includes('armourpiercing');
     let effectiveAP = bypassArmour ? 0 : CombatEngine._getArmourAt(defender, ctx.hitLocationId);
-    if (hasBodkin && !bypassArmour && effectiveAP > 0) {
+    if ((hasBodkin || hasArmourPiercing) && !bypassArmour && effectiveAP > 0) {
       const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
       effectiveAP     = Math.max(0, effectiveAP - reduction);
     }
