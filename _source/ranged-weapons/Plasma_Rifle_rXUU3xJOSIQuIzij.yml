@@ -41,7 +41,7 @@ system:
   ammoType: bullet
   description: High-energy plasma weapon. Load 3 turns.
   equipped: false
-  ammo: 10
+  ammo: 0
   ammoMax: 10
   burstSize: 3
   firingMode: single

@@ -39,7 +39,7 @@ system:
   ammoType: bullet
   description: Devastating at close range. Load 3 turns.
   equipped: false
-  ammo: 8
+  ammo: 0
   ammoMax: 8
   burstSize: 3
   firingMode: single

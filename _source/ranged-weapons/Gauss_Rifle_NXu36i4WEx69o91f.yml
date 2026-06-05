@@ -41,7 +41,7 @@ system:
   ammoType: bullet
   description: Electromagnetic mass-driver weapon. Extreme long range. Load 3 turns.
   equipped: false
-  ammo: 20
+  ammo: 0
   ammoMax: 20
   burstSize: 3
   firingMode: single

@@ -39,7 +39,7 @@ system:
   ammoType: bullet
   description: A semi-automatic pistol. Load 2 turns. No damage modifier.
   equipped: false
-  ammo: 15
+  ammo: 0
   ammoMax: 15
   burstSize: 3
   firingMode: single

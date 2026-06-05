@@ -75,6 +75,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const rangedWeapons      = allItems.filter(i => i.type === 'weapon' && i.system.category === 'ranged');
     const armourItems        = allItems.filter(i => i.type === 'armour');
     const gearItems          = allItems.filter(i => i.type === 'gear');
+    const ammoItems          = allItems.filter(i => i.type === 'ammo');
     const abilities          = allItems.filter(i => i.type === 'ability').sort((a, b) => a.name.localeCompare(b.name));
     const locationItems      = allItems.filter(i => i.type === 'hit-location')
                                        .sort((a, b) => (a.system.sort ?? 0) - (b.system.sort ?? 0));
@@ -195,6 +196,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }),
       armour,
       gear,
+      ammoItems,
       abilities,
       currencyItems,
       totalWealth,
@@ -335,7 +337,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     let t = 0;
     for (const i of items) {
       if ((i.type === 'weapon' || i.type === 'armour') && i.system.equipped) t += i.system.enc ?? 0;
-      else if (i.type === 'gear') t += (i.system.enc ?? 0) * (i.system.quantity ?? 1);
+      else if (i.type === 'gear' || i.type === 'ammo') t += (i.system.enc ?? 0) * (i.system.quantity ?? 1);
     }
     return Math.round(t * 10) / 10;
   }
@@ -498,10 +500,73 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const weapon = actor.items.get(ev.currentTarget.dataset.itemId);
     if (!weapon) return;
 
-    const NS      = 'mythras-imperative';
-    const ammoMax = weapon.system.ammoMax ?? 0;
-    const ammo    = weapon.system.ammo ?? 0;
+    const NS     = 'mythras-imperative';
+    const system = weapon.system;
+    const ammo   = system.ammo ?? 0;
+    const ammoMax = system.ammoMax ?? 0;
 
+    // ── Non-firearm ranged (bow, sling, crossbow) — nock from inventory ────
+    // Uses ammoType to find compatible ammo items. Shows a picker when
+    // multiple compatible items are available.
+    if (system.category === 'ranged' && !system.traits?.includes('firearm')) {
+      let candidates = [];
+      if (system.ammoType) {
+        candidates = actor.items.filter(
+          i => i.type === 'ammo' && i.system.type === system.ammoType && (i.system.quantity ?? 0) > 0
+        );
+      }
+
+      // Helper to nock a chosen ammo item
+      const nock = async (ammoItem) => {
+        const updated = (ammoItem.system.quantity ?? 0) - 1;
+        await ammoItem.update({ 'system.quantity': updated });
+        await weapon.update({ 'system.loadedAmmoId': ammoItem.id, 'system.ammo': 1, 'system.ammoMax': 1 });
+        ui.notifications.info(`${weapon.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
+        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+      };
+
+      if (candidates.length > 1) {
+        const chosen = await new Promise(resolve => {
+          const buttons = {};
+          for (const ammoItem of candidates) {
+            buttons[ammoItem.id] = {
+              label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
+              callback: () => resolve(ammoItem)
+            };
+          }
+          buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
+          new Dialog({
+            title: `Nock — ${weapon.name}`,
+            content: `<p>Choose which ammo to nock:</p>`,
+            buttons,
+            default: candidates[0].id
+          }).render(true);
+        });
+        if (!chosen) return;
+        await nock(chosen);
+        return;
+      }
+
+      if (candidates.length === 1) {
+        await nock(candidates[0]);
+        return;
+      }
+
+      // Fall back to loadedAmmoId if no ammoType filter or no candidates
+      if (system.loadedAmmoId) {
+        const ammoItem = actor.items.get(system.loadedAmmoId) ?? null;
+        if (!ammoItem) { ui.notifications.warn(`Loaded ammo item not found on ${actor.name}.`); return; }
+        const current = ammoItem.system.quantity ?? 0;
+        if (current <= 0) { ui.notifications.warn(`${ammoItem.name} is empty.`); return; }
+        await nock(ammoItem);
+        return;
+      }
+
+      ui.notifications.warn(`No ammo in inventory — drag ammo items onto ${actor.name} first.`);
+      return;
+    }
+
+    // ── Firearm reload ──────────────────────────────────────────────────────
     // If ammoMax is not configured, just set ammo to 0 (no-op reset)
     // and notify — don't block the button
     if (ammoMax <= 0) {
@@ -515,7 +580,6 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.info(`${weapon.name} is already fully loaded.`);
       return;
     }
-
     // Guard: another weapon is already reloading
     const existing = actor.getFlag(NS, 'pendingReload') ?? null;
     if (existing) {

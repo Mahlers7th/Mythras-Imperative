@@ -562,6 +562,29 @@
         {{/each}}
       </div>
 
+      {{#if ammoItems}}
+      <div class="mi-section-label">Ammunition</div>
+      <div class="mi-gear-table">
+        <div class="mi-gear-header">Name</div>
+        <div class="mi-gear-header">Type</div>
+        <div class="mi-gear-header">Qty</div>
+        <div class="mi-gear-header">ENC</div>
+        <div class="mi-gear-header"></div>
+        {{#each ammoItems as |item|}}
+        <div class="mi-gear-name"><a class="mi-item-edit" data-item-id="{{item.id}}">{{item.name}}</a></div>
+        <div class="mi-gear-qty mi-muted">{{item.system.type}}</div>
+        <div class="mi-gear-qty">
+          <input type="number" class="mi-qty-input mi-item-field" value="{{item.system.quantity}}" min="0"
+                 data-item-id="{{item.id}}" data-field="system.quantity"/>
+        </div>
+        <div class="mi-gear-enc mi-muted">{{item.system.enc}}</div>
+        <div class="mi-gear-ctrl">
+          <a class="mi-item-delete mi-faint" data-item-id="{{item.id}}"><i class="fas fa-times"></i></a>
+        </div>
+        {{/each}}
+      </div>
+      {{/if}}
+
       <div class="mi-section-label">Wealth &amp; Currency</div>
       {{#if currencyItems}}
       <div class="mi-char-currency-table">
