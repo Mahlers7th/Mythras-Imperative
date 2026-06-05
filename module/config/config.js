@@ -531,6 +531,12 @@ export const MYTHRAS = {
       label:        'Armour Piercing',
       description:  'Reduces effective armour AP at the hit location by ceil(weaponBaseMax / 2) before damage is applied. AP cannot be reduced below 0. No Special Effect slot required.',
       engineEffect: true
+    },
+    stunRound: {
+      key:          'stunRound',
+      label:        'Stun Round',
+      description:  'On any hit, automatically triggers Stun Location. The defender rolls Endurance to resist as normal. The round deals no Hit Point damage — the stun duration equals the damage roll. No Special Effect slot required.',
+      engineEffect: true
     }
   },
 

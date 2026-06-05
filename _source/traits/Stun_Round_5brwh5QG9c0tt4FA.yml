@@ -1,0 +1,31 @@
+_id: 5brwh5QG9c0tt4FA
+name: Stun Round
+type: trait
+img: icons/weapons/ammunition/bullet-cartridge.webp
+effects: []
+folder: null
+sort: 1
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ammo
+  key: stunRound
+  description: >-
+    On any hit, automatically triggers Stun Location. The defender rolls
+    Endurance to resist as normal. The round deals no Hit Point damage —
+    the stun duration in Turns equals the damage roll (before armour reduction).
+    No Special Effect slot required.
+  engineEffect: true
+  graph: null
+_key: '!items!5brwh5QG9c0tt4FA'

@@ -1033,6 +1033,14 @@ function _onRenderChatMessage(message, html) {
         chosenSEs.push('bleed');
       }
 
+      // Stun Round ammo trait: auto-adds Stun Location on any hit (flag stamped at
+      // Roll Damage time). Passes rawDamage as the stun duration so the Endurance
+      // roll fires even when finalDamage is 0 after armour reduction.
+      const stunRoundActive = flags.stunRound && !chosenSEs.includes('stunLocation');
+      if (stunRoundActive) {
+        chosenSEs.push('stunLocation');
+      }
+
       // Registry-driven: any SE with phase:'opposed' fires through _resolveOpposedSEs.
       // requiresDamage and requiresFumble gates are enforced inside the dispatcher.
       const hasOpposedSE = chosenSEs.some(
@@ -1062,7 +1070,7 @@ function _onRenderChatMessage(message, html) {
               attackerStyle:      null,        // not available from card flags; Knockout Blow inactive in Semi-Auto
               chatMessageId:      btn.dataset.messageId ?? null   // outcome card — player has seen it
             };
-            await CombatEngine._resolveOpposedSEs(minimalCtx, damage);
+            await CombatEngine._resolveOpposedSEs(minimalCtx, stunRoundActive ? rawDamage : damage);
           } catch (err) {
             console.error('Mythras Imperative | Opposed SE failed:', err);
             ui.notifications.error('Special Effect roll failed — check console for details.');
@@ -1581,6 +1589,13 @@ async function _onSemiAutoRollDamage(ev, message) {
     if (ammoTraitsBH.includes('broadhead') && outcomeMsg2) {
       await outcomeMsg2.setFlag('mythras-imperative', 'broadhead', true);
     }
+    // ── Stun Round ammo trait ─────────────────────────────────────────────
+    // Triggers Stun Location on any hit regardless of HP damage. Stamp flag so
+    // the Apply Damage handler injects 'stunLocation' and passes rawDamage as
+    // the stun duration (since finalDamage may be 0 after armour).
+    if (ammoTraitsBH.includes('stunround') && outcomeMsg2) {
+      await outcomeMsg2.setFlag('mythras-imperative', 'stunRound', true);
+    }
   }
 
   if (finalDamage === 0) {
@@ -1641,7 +1656,7 @@ async function _onSemiAutoRollDamage(ev, message) {
           </span>
         </div>` : ''}
         <div class="mi-roll-result">${finalDamage}</div>
-        ${finalDamage > 0 ? `
+        ${(finalDamage > 0 || outcomeFlags2.stunRound) ? `
         <div class="mi-manual-actions">
           <button class="mi-btn mi-btn-apply-dmg"
             data-actor-id="${defenderId}"
@@ -1650,7 +1665,7 @@ async function _onSemiAutoRollDamage(ev, message) {
             data-raw-damage="${rawDamage}"
             data-location-label="${locationLabel}"
             data-message-id="${messageId ?? ''}">
-            <i class="fas fa-heart-broken"></i> Apply ${finalDamage} to ${locationLabel}
+            <i class="fas fa-heart-broken"></i> Apply ${finalDamage > 0 ? finalDamage : 'Stun'} to ${locationLabel}
           </button>
         </div>` : '<div class="mi-outcome-row"><span class="mi-outcome success">Damage fully blocked</span></div>'}
       </div>

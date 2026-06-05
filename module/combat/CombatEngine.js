@@ -1468,8 +1468,12 @@ export class CombatEngine {
       await CombatEngine._applyDamage(ctx, ctx.sunderResult.carryOver);
     } else {
       const finalDamage     = Math.max(0, damageAfterParry - armourPoints);
-      ctx.damageAfterArmour = finalDamage;
-      await CombatEngine._applyDamage(ctx, finalDamage);
+      // ── Stun Round ammo trait — no HP damage, triggers Stun Location ──────
+      // Stun rounds deal no hit point damage. The stun duration equals the
+      // pre-armour damage roll (damageAfterParry). Defender rolls Endurance as normal.
+      const hasStunRound = (ctx.ammoTraits ?? []).includes('stunround');
+      ctx.damageAfterArmour = hasStunRound ? 0 : finalDamage;
+      await CombatEngine._applyDamage(ctx, hasStunRound ? 0 : finalDamage);
 
       // ── Broadhead ammo trait — automatic Bleed ────────────────────────────
       // If damage penetrated armour, apply Bleed automatically (no SE slot).
@@ -1477,6 +1481,11 @@ export class CombatEngine {
       const hasBroadhead = (ctx.ammoTraits ?? []).includes('broadhead');
       if (hasBroadhead && finalDamage > 0) {
         await SE_RESOLVERS['bleed'](ctx, finalDamage, false);
+      }
+
+      // Stun Round: fire Stun Location using pre-armour damage as duration.
+      if (hasStunRound && damageAfterParry > 0) {
+        await SE_RESOLVERS['stunLocation'](ctx, damageAfterParry, false);
       }
     }
 
