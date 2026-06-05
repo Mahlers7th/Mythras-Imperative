@@ -36,6 +36,7 @@ system:
   enc: 0.5
   traits:
     - firearm
+  ammoType: bullet
   description: A semi-automatic pistol. Load 2 turns. No damage modifier.
   equipped: false
   ammo: 15

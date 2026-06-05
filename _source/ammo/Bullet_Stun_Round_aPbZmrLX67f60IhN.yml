@@ -1,0 +1,33 @@
+_id: aPbZmrLX67f60IhN
+name: Bullet (Stun Round)
+type: ammo
+img: icons/weapons/thrown/dart-flight-blue.webp
+effects: []
+folder: null
+sort: 4
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: bullet
+  traits:
+    - id: 5brwh5QG9c0tt4FA
+      name: Stun Round
+      key: stunRound
+  quantity: 30
+  enc: 0.05
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Stun ammunition. On any hit, triggers Stun Location. Deals no Hit Point damage — stun duration equals the damage roll.
+_key: '!items!aPbZmrLX67f60IhN'

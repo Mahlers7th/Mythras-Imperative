@@ -36,6 +36,7 @@ system:
   enc: 2
   traits:
     - firearm
+  ammoType: bullet
   description: Devastating at close range. Load 3 turns.
   equipped: false
   ammo: 8

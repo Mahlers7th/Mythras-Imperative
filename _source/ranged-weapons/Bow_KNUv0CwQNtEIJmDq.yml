@@ -36,6 +36,7 @@ system:
   enc: 1
   traits:
     - impaling
+  ammoType: arrow
   description: A self-drawn bow. Damage modifier applies. Impaling.
   equipped: false
   ammo: 0

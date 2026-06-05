@@ -38,6 +38,7 @@ system:
     - firearm
     - burst-fire
     - full-auto
+  ammoType: bullet
   description: Electromagnetic mass-driver weapon. Extreme long range. Load 3 turns.
   equipped: false
   ammo: 20

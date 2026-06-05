@@ -35,6 +35,7 @@ system:
   currentHP: 2
   enc: 0.5
   traits: []
+  ammoType: shot
   description: A simple ranged weapon hurling stones or lead shot. Load 2 turns.
   equipped: false
   ammo: 0

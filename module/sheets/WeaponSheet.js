@@ -156,30 +156,81 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Ranged non-firearm (bow, crossbow, sling) — nocking costs one ammo item.
     // Sets system.ammo = 1 (nocked) so "Ammo (loaded)" shows readiness.
     // Firing clears system.ammo back to 0. system.ammoMax = 1 (capacity is always 1 nocked arrow).
-    if (system.category === 'ranged' && system.loadedAmmoId) {
-      const actor    = item.parent ?? null;
-      const ammoItem = actor?.items?.get(system.loadedAmmoId)
-                    ?? game.items.get(system.loadedAmmoId)
-                    ?? null;
-      if (!ammoItem) {
-        ui.notifications.warn(`No ammo loaded — drag an ammo item onto the weapon first.`);
+    if (system.category === 'ranged' && !system.traits?.includes('firearm')) {
+      const actor = item.parent ?? null;
+
+      // Find compatible ammo items on the actor.
+      // If ammoType is set, filter by matching type; otherwise fall back to loadedAmmoId.
+      let candidates = [];
+      if (system.ammoType && actor) {
+        candidates = actor.items.filter(
+          i => i.type === 'ammo' && i.system.type === system.ammoType && (i.system.quantity ?? 0) > 0
+        );
+      }
+
+      // More than one compatible ammo item — show picker dialog.
+      if (candidates.length > 1) {
+        const chosen = await new Promise(resolve => {
+          const buttons = {};
+          for (const ammoItem of candidates) {
+            buttons[ammoItem.id] = {
+              label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
+              callback: () => resolve(ammoItem)
+            };
+          }
+          buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
+          new Dialog({
+            title: `Nock — ${item.name}`,
+            content: `<p>Choose which ammo to nock:</p>`,
+            buttons,
+            default: candidates[0].id
+          }).render(true);
+        });
+        if (!chosen) return;
+        const updated = (chosen.system.quantity ?? 0) - 1;
+        await chosen.update({ 'system.quantity': updated });
+        await item.update({ 'system.loadedAmmoId': chosen.id, 'system.ammo': 1, 'system.ammoMax': 1 });
+        ui.notifications.info(`${item.name} nocked — ${chosen.name} remaining: ${updated}.`);
+        if (updated === 0) ui.notifications.warn(`${chosen.name} is now empty.`);
         return;
       }
-      const current = ammoItem.system.quantity ?? 0;
-      if (current <= 0) {
-        ui.notifications.warn(`${ammoItem.name} is empty — no ammunition remaining.`);
+
+      // Single candidate from ammoType filter — nock it directly.
+      if (candidates.length === 1) {
+        const ammoItem = candidates[0];
+        const updated = (ammoItem.system.quantity ?? 0) - 1;
+        await ammoItem.update({ 'system.quantity': updated });
+        await item.update({ 'system.loadedAmmoId': ammoItem.id, 'system.ammo': 1, 'system.ammoMax': 1 });
+        ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
+        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
         return;
       }
-      const updated = current - 1;
-      await ammoItem.update({ 'system.quantity': updated });
-      await item.update({ 'system.ammo': 1, 'system.ammoMax': 1 });
-      ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
-      if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+
+      // No ammoType set or no candidates found — fall back to loadedAmmoId as before.
+      if (system.loadedAmmoId) {
+        const ammoItem = actor?.items?.get(system.loadedAmmoId)
+                      ?? game.items.get(system.loadedAmmoId)
+                      ?? null;
+        if (!ammoItem) {
+          ui.notifications.warn(`No ammo loaded — drag an ammo item onto the weapon first.`);
+          return;
+        }
+        const current = ammoItem.system.quantity ?? 0;
+        if (current <= 0) {
+          ui.notifications.warn(`${ammoItem.name} is empty — no ammunition remaining.`);
+          return;
+        }
+        const updated = current - 1;
+        await ammoItem.update({ 'system.quantity': updated });
+        await item.update({ 'system.ammo': 1, 'system.ammoMax': 1 });
+        ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
+        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+        return;
+      }
+
+      ui.notifications.info(`No ammo loaded — drag an ammo item onto ${item.name} first.`);
       return;
     }
-
-    // Fallback for generic ranged weapons with no ammo loaded
-    ui.notifications.info(`No ammo loaded — drag an ammo item onto ${item.name} first.`);
   }
 
   async _onClearJam(ev) {

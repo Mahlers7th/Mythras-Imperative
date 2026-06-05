@@ -1,0 +1,33 @@
+_id: IBAEqfllNfkPNk6g
+name: Arrow (Bodkin)
+type: ammo
+img: icons/weapons/arrows/arrow-head-triple.webp
+effects: []
+folder: null
+sort: 2
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: arrow
+  traits:
+    - id: yqIv38rcjOsGysEb
+      name: Bodkin
+      key: bodkin
+  quantity: 20
+  enc: 0.1
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Bodkin-tipped arrow. Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
+_key: '!items!IBAEqfllNfkPNk6g'

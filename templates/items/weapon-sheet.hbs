@@ -199,6 +199,18 @@
              class="mi-stat-input mi-stat-input--num" min="0"/>
     </div>
 
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Ammo Type</div>
+      <select name="system.ammoType" class="mi-stat-input mi-stat-input--select">
+        <option value=""   {{#if (eq system.ammoType "")}}selected{{/if}}>— any —</option>
+        <option value="arrow"  {{#if (eq system.ammoType "arrow")}}selected{{/if}}>Arrow</option>
+        <option value="bolt"   {{#if (eq system.ammoType "bolt")}}selected{{/if}}>Bolt</option>
+        <option value="bullet" {{#if (eq system.ammoType "bullet")}}selected{{/if}}>Bullet</option>
+        <option value="shot"   {{#if (eq system.ammoType "shot")}}selected{{/if}}>Shot</option>
+        <option value="thrown" {{#if (eq system.ammoType "thrown")}}selected{{/if}}>Thrown</option>
+      </select>
+    </div>
+
     <div class="mi-stat-cell mi-stat-cell--reload">
       <div class="mi-stat-label">&nbsp;</div>
       <a class="mi-reload-btn mi-reload-btn--sheet" title="Reload to max"><i class="fas fa-redo"></i> Reload</a>

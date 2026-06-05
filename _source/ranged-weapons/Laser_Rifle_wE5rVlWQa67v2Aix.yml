@@ -37,6 +37,7 @@ system:
   traits:
     - firearm
     - full-auto
+  ammoType: bullet
   description: A futuristic energy weapon. Load 3 turns.
   equipped: false
   ammo: 20

@@ -38,6 +38,7 @@ system:
     - firearm
     - burst-fire
     - full-auto
+  ammoType: bullet
   description: A standard rifle. Load 2 turns. No damage modifier.
   equipped: false
   ammo: 30

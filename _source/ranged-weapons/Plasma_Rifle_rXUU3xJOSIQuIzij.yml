@@ -38,6 +38,7 @@ system:
     - firearm
     - burst-fire
     - full-auto
+  ammoType: bullet
   description: High-energy plasma weapon. Load 3 turns.
   equipped: false
   ammo: 10

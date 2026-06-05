@@ -1,0 +1,33 @@
+_id: y6xZFX7xknvFrOXm
+name: Bolt (Bodkin)
+type: ammo
+img: icons/weapons/arrows/bolt-head-war-flight.webp
+effects: []
+folder: null
+sort: 6
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  type: bolt
+  traits:
+    - id: yqIv38rcjOsGysEb
+      name: Bodkin
+      key: bodkin
+  quantity: 20
+  enc: 0.1
+  price:
+    amount: 0
+    denominationAbbr: ''
+  description: Bodkin crossbow bolt. Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
+_key: '!items!y6xZFX7xknvFrOXm'

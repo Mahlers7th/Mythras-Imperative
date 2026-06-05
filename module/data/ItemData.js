@@ -150,6 +150,14 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       // The engine reads traits from this item at _buildContext time.
       loadedAmmoId: new fields.StringField({ initial: '' }),
 
+      // Ammo type this weapon accepts — matches AmmoData.type values.
+      // Used by the Reload picker to filter compatible ammo items on the actor.
+      // Empty string means no filter (accepts any / not applicable).
+      ammoType: new fields.StringField({
+        initial: '',
+        choices: ['', 'arrow', 'bolt', 'bullet', 'shot', 'thrown']
+      }),
+
       // --- Price -----------------------------------------------------------
       // The listed price in a merchant's inventory. amount is the numeric cost;
       // denominationAbbr is the abbreviation of the currency item (e.g. 'GP').
