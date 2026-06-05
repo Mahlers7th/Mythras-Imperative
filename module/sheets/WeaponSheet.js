@@ -107,8 +107,9 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     if (!srcItem || srcItem.type !== 'ammo') return;
 
     // Ensure the ammo item is on the same actor if possible
-    const actor = this.document.parent ?? null;
-    let ammoId  = srcItem.id;
+    const actor  = this.document.parent ?? null;
+    const system = this.document.system;
+    let ammoId   = srcItem.id;
 
     if (actor && srcItem.parent?.id !== actor.id) {
       // Copy ammo onto the actor so it appears in their inventory
@@ -118,6 +119,16 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       ammoId = created.id;
     }
 
+    // If this weapon has ammoType set, drag-drop just ensures the ammo is in
+    // the actor's inventory. The Reload button picker handles which ammo gets
+    // loaded — setting loadedAmmoId here would overwrite any previously loaded
+    // ammo and bypass the picker entirely.
+    if (system.ammoType) {
+      ui.notifications.info(`${srcItem.name} added to inventory — use Reload to select it.`);
+      return;
+    }
+
+    // No ammoType — set loadedAmmoId directly as before (single-ammo weapons).
     await this.document.update({ 'system.loadedAmmoId': ammoId });
     ui.notifications.info(`${srcItem.name} loaded into ${this.document.name}.`);
   }
