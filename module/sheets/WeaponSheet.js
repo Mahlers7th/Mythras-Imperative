@@ -215,7 +215,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
               content: `<p>Choose which ammo to load:</p>`,
               buttons,
               default: candidates[0].id
-            }).render(true);
+            }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
           });
           if (!chosen) return;
         }
@@ -263,7 +263,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
             content: `<p>Choose which ammo to nock:</p>`,
             buttons,
             default: candidates[0].id
-          }).render(true);
+          }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
         });
         if (!chosen) return;
         await nock(chosen);

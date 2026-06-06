@@ -545,7 +545,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             content: `<p>Choose which ammo to nock:</p>`,
             buttons,
             default: candidates[0].id
-          }).render(true);
+          }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
         });
         if (!chosen) return;
         await nock(chosen);
@@ -616,7 +616,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             content: `<p>Choose which ammo to load:</p>`,
             buttons,
             default: candidates[0].id
-          }).render(true);
+          }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
         });
         if (!chosen) return;
       }
@@ -1241,9 +1241,16 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
 
-    // Ammo: deduplicate by name — increment quantity if already present
+    // Ammo: deduplicate by name — increment quantity if already present.
+    // Resolve synthetic token actor first so find/create hit the right collection.
     if (srcItem.type === 'ammo') {
-      const existing = this.document.items.find(i => i.type === 'ammo' && i.name === srcItem.name);
+      const baseActor = this.document;
+      const actorId   = baseActor?.id ?? null;
+      const token     = actorId
+        ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+        : null;
+      const actor     = token?.actor ?? baseActor;
+      const existing  = actor.items.find(i => i.type === 'ammo' && i.name === srcItem.name);
       if (existing) {
         const addQty = srcItem.system?.quantity ?? 1;
         await existing.update({ 'system.quantity': (existing.system.quantity ?? 0) + addQty });
@@ -1251,7 +1258,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       } else {
         const data = srcItem.toObject();
         delete data._id;
-        await this.document.createEmbeddedDocuments('Item', [data]);
+        await actor.createEmbeddedDocuments('Item', [data]);
       }
       return;
     }
