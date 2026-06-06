@@ -587,6 +587,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const candidates = actor.items.filter(
         i => i.type === 'ammo' && i.system.type === system.ammoType && (i.system.quantity ?? 0) > 0
       );
+      console.log(`[MI Reload] ammoType=${system.ammoType} candidates:`, candidates.map(i => `${i.name} (qty:${i.system.quantity})`));
 
       if (candidates.length === 0) {
         ui.notifications.warn(`No ${system.ammoType} ammo in inventory — drag ammo items onto ${actor.name} first.`);
@@ -1232,6 +1233,21 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const existing = Array.from(this.document.items).filter(i => i.type === 'hit-location');
       data.system.sort = existing.length;
       await this.document.createEmbeddedDocuments('Item', [data]);
+      return;
+    }
+
+    // Ammo: deduplicate by name — increment quantity if already present
+    if (srcItem.type === 'ammo') {
+      const existing = this.document.items.find(i => i.type === 'ammo' && i.name === srcItem.name);
+      if (existing) {
+        const addQty = srcItem.system?.quantity ?? 1;
+        await existing.update({ 'system.quantity': (existing.system.quantity ?? 0) + addQty });
+        ui.notifications.info(`${srcItem.name} quantity updated.`);
+      } else {
+        const data = srcItem.toObject();
+        delete data._id;
+        await this.document.createEmbeddedDocuments('Item', [data]);
+      }
       return;
     }
 

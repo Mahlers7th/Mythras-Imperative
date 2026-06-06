@@ -153,10 +153,7 @@ export class WeaponData extends foundry.abstract.TypeDataModel {
       // Ammo type this weapon accepts — matches AmmoData.type values.
       // Used by the Reload picker to filter compatible ammo items on the actor.
       // Empty string means no filter (accepts any / not applicable).
-      ammoType: new fields.StringField({
-        initial: '',
-        choices: ['', 'arrow', 'bolt', 'bullet', 'shot', 'thrown']
-      }),
+      ammoType: new fields.StringField({ initial: '', blank: true }),
 
       // --- Price -----------------------------------------------------------
       // The listed price in a merchant's inventory. amount is the numeric cost;

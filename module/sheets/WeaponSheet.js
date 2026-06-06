@@ -95,6 +95,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
   async _onDrop(ev) {
     ev.preventDefault();
+    ev.stopPropagation();
     let dragData;
     try { dragData = JSON.parse(ev.dataTransfer.getData('text/plain')); }
     catch(e) { return; }
@@ -106,31 +107,38 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     catch(e) { return; }
     if (!srcItem || srcItem.type !== 'ammo') return;
 
-    // Ensure the ammo item is on the same actor if possible
     const actor  = this.document.parent ?? null;
     const system = this.document.system;
-    let ammoId   = srcItem.id;
 
-    if (actor && srcItem.parent?.id !== actor.id) {
-      // Copy ammo onto the actor so it appears in their inventory
-      const data = srcItem.toObject();
-      delete data._id;
-      const [created] = await actor.createEmbeddedDocuments('Item', [data]);
-      ammoId = created.id;
+    // Deduplicate: if the actor already has an ammo item with the same name,
+    // increment its quantity rather than creating a new copy.
+    let ammoItem = actor?.items?.find(i => i.type === 'ammo' && i.name === srcItem.name) ?? null;
+
+    if (!ammoItem) {
+      if (actor && srcItem.parent?.id !== actor.id) {
+        const data = srcItem.toObject();
+        delete data._id;
+        const [created] = await actor.createEmbeddedDocuments('Item', [data]);
+        ammoItem = created;
+      } else {
+        ammoItem = srcItem;
+      }
+    } else {
+      // Already exists — increment quantity by the source quantity
+      const addQty = srcItem.system?.quantity ?? 1;
+      await ammoItem.update({ 'system.quantity': (ammoItem.system.quantity ?? 0) + addQty });
+      ui.notifications.info(`${ammoItem.name} quantity updated (${ammoItem.system.quantity + addQty} total).`);
     }
 
-    // If this weapon has ammoType set, drag-drop just ensures the ammo is in
-    // the actor's inventory. The Reload button picker handles which ammo gets
-    // loaded — setting loadedAmmoId here would overwrite any previously loaded
-    // ammo and bypass the picker entirely.
-    if (system.ammoType) {
-      ui.notifications.info(`${srcItem.name} added to inventory — use Reload to select it.`);
-      return;
+    // If no ammo is loaded yet, set this as the loaded ammo (fills the pill).
+    // If ammoType is set and something is already loaded, the Reload picker handles switching.
+    if (!system.loadedAmmoId) {
+      await this.document.update({ 'system.loadedAmmoId': ammoItem.id });
     }
 
-    // No ammoType — set loadedAmmoId directly as before (single-ammo weapons).
-    await this.document.update({ 'system.loadedAmmoId': ammoId });
-    ui.notifications.info(`${srcItem.name} loaded into ${this.document.name}.`);
+    if (system.ammoType && system.loadedAmmoId) {
+      ui.notifications.info(`${srcItem.name} added to inventory — use Reload to switch ammo type.`);
+    }
   }
 
   async _onClearAmmo(ev) {
