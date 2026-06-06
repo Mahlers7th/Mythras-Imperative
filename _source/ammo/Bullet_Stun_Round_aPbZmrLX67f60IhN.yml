@@ -1,7 +1,7 @@
 _id: aPbZmrLX67f60IhN
 name: Bullet (Stun Round)
 type: ammo
-img: icons/weapons/thrown/dart-flight-blue.webp
+img: icons/svg/item-bag.svg
 effects: []
 folder: null
 sort: 4

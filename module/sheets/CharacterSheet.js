@@ -496,8 +496,13 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   async _onReload(ev) {
     ev.preventDefault();
-    const actor  = this.document;
-    const weapon = actor.items.get(ev.currentTarget.dataset.itemId);
+    const baseActor = this.document;
+    const actorId   = baseActor?.id ?? null;
+    const token     = actorId
+      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      : null;
+    const actor     = token?.actor ?? baseActor;
+    const weapon    = actor.items.get(ev.currentTarget.dataset.itemId);
     if (!weapon) return;
 
     const NS     = 'mythras-imperative';

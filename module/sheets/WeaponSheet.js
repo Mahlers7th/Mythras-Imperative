@@ -107,8 +107,18 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     catch(e) { return; }
     if (!srcItem || srcItem.type !== 'ammo') return;
 
-    const actor  = this.document.parent ?? null;
-    const system = this.document.system;
+    const baseActor = this.document.parent ?? null;
+    const system    = this.document.system;
+
+    // Resolve through canvas token placeables to get the synthetic actor.
+    // Using this.document.parent directly returns the base world actor, so
+    // createEmbeddedDocuments goes to the wrong collection and the item never
+    // appears on the token sheet.
+    const actorId = baseActor?.id ?? null;
+    const token   = actorId
+      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      : null;
+    const actor   = token?.actor ?? baseActor;
 
     // Deduplicate: if the actor already has an ammo item with the same name,
     // increment its quantity rather than creating a new copy.
@@ -160,26 +170,69 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const item    = this.document;
     const system  = item.system;
 
-    // Firearm reload — refill magazine from system.ammoMax
+    // Resolve synthetic token actor — item.parent returns base world actor for
+    // token-owned items, which has a different items collection.
+    const baseActor = item.parent ?? null;
+    const actorId   = baseActor?.id ?? null;
+    const token     = actorId
+      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      : null;
+    const actor     = token?.actor ?? baseActor;
+
+    // ── Firearm reload ──────────────────────────────────────────────────────
     if (system.category === 'ranged' && system.traits?.includes('firearm')) {
       const ammoMax = system.ammoMax ?? 0;
       if (ammoMax <= 0) {
         ui.notifications.info(`Set Ammo (max) first — nothing to reload to.`);
         return;
       }
+
+      // If ammoType is set, show picker so player chooses which ammo to load.
+      if (system.ammoType && actor) {
+        const candidates = actor.items.filter(
+          i => i.type === 'ammo' && i.system.type === system.ammoType && (i.system.quantity ?? 0) > 0
+        );
+
+        if (candidates.length === 0) {
+          ui.notifications.warn(`No ${system.ammoType} ammo in inventory — drag ammo onto ${actor.name} first.`);
+          return;
+        }
+
+        let chosen = candidates.length === 1 ? candidates[0] : null;
+
+        if (!chosen) {
+          chosen = await new Promise(resolve => {
+            const buttons = {};
+            for (const ammoItem of candidates) {
+              buttons[ammoItem.id] = {
+                label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
+                callback: () => resolve(ammoItem)
+              };
+            }
+            buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
+            new Dialog({
+              title: `Reload — ${item.name}`,
+              content: `<p>Choose which ammo to load:</p>`,
+              buttons,
+              default: candidates[0].id
+            }).render(true);
+          });
+          if (!chosen) return;
+        }
+
+        await item.update({ 'system.loadedAmmoId': chosen.id, 'system.ammo': ammoMax });
+        ui.notifications.info(`${item.name} loaded with ${chosen.name} — ${ammoMax} rounds ready.`);
+        return;
+      }
+
+      // No ammoType — plain reload, no picker needed.
       await item.update({ 'system.ammo': ammoMax });
       ui.notifications.info(`${item.name} reloaded — ${ammoMax} rounds ready.`);
       return;
     }
 
-    // Ranged non-firearm (bow, crossbow, sling) — nocking costs one ammo item.
-    // Sets system.ammo = 1 (nocked) so "Ammo (loaded)" shows readiness.
-    // Firing clears system.ammo back to 0. system.ammoMax = 1 (capacity is always 1 nocked arrow).
+    // ── Ranged non-firearm (bow, crossbow, sling) — nock from inventory ────
     if (system.category === 'ranged' && !system.traits?.includes('firearm')) {
-      const actor = item.parent ?? null;
-
-      // Find compatible ammo items on the actor.
-      // If ammoType is set, filter by matching type; otherwise fall back to loadedAmmoId.
       let candidates = [];
       if (system.ammoType && actor) {
         candidates = actor.items.filter(
@@ -187,7 +240,14 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         );
       }
 
-      // More than one compatible ammo item — show picker dialog.
+      const nock = async (ammoItem) => {
+        const updated = (ammoItem.system.quantity ?? 0) - 1;
+        await ammoItem.update({ 'system.quantity': updated });
+        await item.update({ 'system.loadedAmmoId': ammoItem.id, 'system.ammo': 1, 'system.ammoMax': 1 });
+        ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
+        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+      };
+
       if (candidates.length > 1) {
         const chosen = await new Promise(resolve => {
           const buttons = {};
@@ -206,50 +266,28 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
           }).render(true);
         });
         if (!chosen) return;
-        const updated = (chosen.system.quantity ?? 0) - 1;
-        await chosen.update({ 'system.quantity': updated });
-        await item.update({ 'system.loadedAmmoId': chosen.id, 'system.ammo': 1, 'system.ammoMax': 1 });
-        ui.notifications.info(`${item.name} nocked — ${chosen.name} remaining: ${updated}.`);
-        if (updated === 0) ui.notifications.warn(`${chosen.name} is now empty.`);
+        await nock(chosen);
         return;
       }
 
-      // Single candidate from ammoType filter — nock it directly.
       if (candidates.length === 1) {
-        const ammoItem = candidates[0];
-        const updated = (ammoItem.system.quantity ?? 0) - 1;
-        await ammoItem.update({ 'system.quantity': updated });
-        await item.update({ 'system.loadedAmmoId': ammoItem.id, 'system.ammo': 1, 'system.ammoMax': 1 });
-        ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
-        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+        await nock(candidates[0]);
         return;
       }
 
-      // No ammoType set or no candidates found — fall back to loadedAmmoId as before.
       if (system.loadedAmmoId) {
-        const ammoItem = actor?.items?.get(system.loadedAmmoId)
-                      ?? game.items.get(system.loadedAmmoId)
-                      ?? null;
-        if (!ammoItem) {
-          ui.notifications.warn(`No ammo loaded — drag an ammo item onto the weapon first.`);
-          return;
-        }
+        const ammoItem = actor?.items?.get(system.loadedAmmoId) ?? game.items.get(system.loadedAmmoId) ?? null;
+        if (!ammoItem) { ui.notifications.warn(`No ammo loaded — drag an ammo item onto the weapon first.`); return; }
         const current = ammoItem.system.quantity ?? 0;
-        if (current <= 0) {
-          ui.notifications.warn(`${ammoItem.name} is empty — no ammunition remaining.`);
-          return;
-        }
-        const updated = current - 1;
-        await ammoItem.update({ 'system.quantity': updated });
-        await item.update({ 'system.ammo': 1, 'system.ammoMax': 1 });
-        ui.notifications.info(`${item.name} nocked — ${ammoItem.name} remaining: ${updated}.`);
-        if (updated === 0) ui.notifications.warn(`${ammoItem.name} is now empty.`);
+        if (current <= 0) { ui.notifications.warn(`${ammoItem.name} is empty.`); return; }
+        await nock(ammoItem);
         return;
       }
 
       ui.notifications.info(`No ammo loaded — drag an ammo item onto ${item.name} first.`);
       return;
     }
+
   }
 
   async _onClearJam(ev) {
