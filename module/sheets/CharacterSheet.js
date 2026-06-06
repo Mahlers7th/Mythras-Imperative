@@ -580,6 +580,43 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       ui.notifications.info(`${weapon.name} is already fully loaded.`);
       return;
     }
+
+    // If ammoType is set, find compatible ammo items and show picker if multiple.
+    // This sets loadedAmmoId so the loaded-ammo pill shows what's chambered.
+    if (system.ammoType) {
+      const candidates = actor.items.filter(
+        i => i.type === 'ammo' && i.system.type === system.ammoType && (i.system.quantity ?? 0) > 0
+      );
+
+      if (candidates.length === 0) {
+        ui.notifications.warn(`No ${system.ammoType} ammo in inventory — drag ammo items onto ${actor.name} first.`);
+        return;
+      }
+
+      let chosen = candidates.length === 1 ? candidates[0] : null;
+
+      if (!chosen) {
+        chosen = await new Promise(resolve => {
+          const buttons = {};
+          for (const ammoItem of candidates) {
+            buttons[ammoItem.id] = {
+              label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
+              callback: () => resolve(ammoItem)
+            };
+          }
+          buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
+          new Dialog({
+            title: `Reload — ${weapon.name}`,
+            content: `<p>Choose which ammo to load:</p>`,
+            buttons,
+            default: candidates[0].id
+          }).render(true);
+        });
+        if (!chosen) return;
+      }
+
+      await weapon.update({ 'system.loadedAmmoId': chosen.id });
+    }
     // Guard: another weapon is already reloading
     const existing = actor.getFlag(NS, 'pendingReload') ?? null;
     if (existing) {
