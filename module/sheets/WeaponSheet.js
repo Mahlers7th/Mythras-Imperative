@@ -76,18 +76,21 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   _onRender(context, options) {
     super._onRender(context, options);
     const html = this.element;
-    html.querySelectorAll('.mi-reload-btn').forEach(btn =>
-      btn.addEventListener('click', ev => this._onReload(ev)));
-    html.querySelectorAll('.mi-clear-jam-btn').forEach(btn =>
-      btn.addEventListener('click', ev => this._onClearJam(ev)));
-    html.querySelectorAll('.mi-clear-ammo-btn').forEach(btn =>
-      btn.addEventListener('click', ev => this._onClearAmmo(ev)));
-    html.querySelectorAll('.mi-loaded-ammo-open').forEach(span =>
-      span.addEventListener('click', ev => this._onOpenAmmo(ev)));
+    // Drop listener and click handlers registered once only — base class
+    // _onRender also attaches a drop handler; we must register ours first and
+    // call stopImmediatePropagation() so the base handler never fires.
     if (html && !html.dataset.miDropBound) {
       html.dataset.miDropBound = '1';
       html.addEventListener('dragover', ev => ev.preventDefault());
       html.addEventListener('drop',     ev => this._onDrop(ev));
+      html.querySelectorAll('.mi-reload-btn').forEach(btn =>
+        btn.addEventListener('click', ev => this._onReload(ev)));
+      html.querySelectorAll('.mi-clear-jam-btn').forEach(btn =>
+        btn.addEventListener('click', ev => this._onClearJam(ev)));
+      html.querySelectorAll('.mi-clear-ammo-btn').forEach(btn =>
+        btn.addEventListener('click', ev => this._onClearAmmo(ev)));
+      html.querySelectorAll('.mi-loaded-ammo-open').forEach(span =>
+        span.addEventListener('click', ev => this._onOpenAmmo(ev)));
     }
   }
 
@@ -96,6 +99,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   async _onDrop(ev) {
     ev.preventDefault();
     ev.stopPropagation();
+    ev.stopImmediatePropagation(); // prevent base ItemSheetV2 handler from firing a second time
     let dragData;
     try { dragData = JSON.parse(ev.dataTransfer.getData('text/plain')); }
     catch(e) { return; }
@@ -202,20 +206,35 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
         if (!chosen) {
           chosen = await new Promise(resolve => {
-            const buttons = {};
-            for (const ammoItem of candidates) {
-              buttons[ammoItem.id] = {
-                label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
-                callback: () => resolve(ammoItem)
-              };
-            }
-            buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
-            new Dialog({
+            const rows = candidates.map(a =>
+              `<div class="mi-ammo-pick-row" data-id="${a.id}" style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;cursor:pointer;border-bottom:1px solid var(--mi-paper-3);">
+                <span style="font-weight:600;color:var(--mi-ink);">${a.name}</span>
+                <span style="color:var(--mi-ink-3);font-size:11px;">${a.system.quantity} remaining</span>
+              </div>`
+            ).join('');
+            const content = `<div style="padding:8px 0 4px;">
+              <div style="padding:4px 14px 8px;color:var(--mi-ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Choose ammo to load</div>
+              ${rows}
+            </div>`;
+            const d = new Dialog({
               title: `Reload — ${item.name}`,
-              content: `<p>Choose which ammo to load:</p>`,
-              buttons,
-              default: candidates[0].id
-            }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
+              content,
+              buttons: { cancel: { label: 'Cancel', callback: () => resolve(null) } },
+              default: 'cancel',
+              render: html => {
+                html[0].querySelectorAll('.mi-ammo-pick-row').forEach(row => {
+                  row.addEventListener('mouseenter', () => row.style.background = 'var(--mi-teal-bg)');
+                  row.addEventListener('mouseleave', () => row.style.background = '');
+                  row.addEventListener('click', () => {
+                    const picked = candidates.find(a => a.id === row.dataset.id) ?? null;
+                    resolve(picked);
+                    d.close();
+                  });
+                });
+              },
+              close: () => resolve(null)
+            }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 320 });
+            d.render(true);
           });
           if (!chosen) return;
         }
@@ -250,20 +269,35 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
       if (candidates.length > 1) {
         const chosen = await new Promise(resolve => {
-          const buttons = {};
-          for (const ammoItem of candidates) {
-            buttons[ammoItem.id] = {
-              label: `${ammoItem.name} (${ammoItem.system.quantity} remaining)`,
-              callback: () => resolve(ammoItem)
-            };
-          }
-          buttons.cancel = { label: 'Cancel', callback: () => resolve(null) };
-          new Dialog({
+          const rows = candidates.map(a =>
+            `<div class="mi-ammo-pick-row" data-id="${a.id}" style="display:flex;align-items:center;justify-content:space-between;padding:6px 14px;cursor:pointer;border-bottom:1px solid var(--mi-paper-3);">
+              <span style="font-weight:600;color:var(--mi-ink);">${a.name}</span>
+              <span style="color:var(--mi-ink-3);font-size:11px;">${a.system.quantity} remaining</span>
+            </div>`
+          ).join('');
+          const content = `<div style="padding:8px 0 4px;">
+            <div style="padding:4px 14px 8px;color:var(--mi-ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Choose ammo to nock</div>
+            ${rows}
+          </div>`;
+          const d = new Dialog({
             title: `Nock — ${item.name}`,
-            content: `<p>Choose which ammo to nock:</p>`,
-            buttons,
-            default: candidates[0].id
-          }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 360 }).render(true);
+            content,
+            buttons: { cancel: { label: 'Cancel', callback: () => resolve(null) } },
+            default: 'cancel',
+            render: html => {
+              html[0].querySelectorAll('.mi-ammo-pick-row').forEach(row => {
+                row.addEventListener('mouseenter', () => row.style.background = 'var(--mi-teal-bg)');
+                row.addEventListener('mouseleave', () => row.style.background = '');
+                row.addEventListener('click', () => {
+                  const picked = candidates.find(a => a.id === row.dataset.id) ?? null;
+                  resolve(picked);
+                  d.close();
+                });
+              });
+            },
+            close: () => resolve(null)
+          }, { classes: ['mi-dialog', 'mi-ammo-picker-dialog'], width: 320 });
+          d.render(true);
         });
         if (!chosen) return;
         await nock(chosen);
