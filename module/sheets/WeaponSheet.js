@@ -60,11 +60,20 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
       isThrown:  Array.isArray(system.traits) && system.traits.includes('thrown'),
       isJammed,
 
-      // Loaded ammo — resolved from loadedAmmoId for display
+      // Loaded ammo — resolved from loadedAmmoId for display.
+      // Must use the synthetic token actor (canvas token lookup) because
+      // item.parent returns the base world actor whose items collection does
+      // not contain synthetic-actor-embedded items for unlinked tokens.
       loadedAmmo: (() => {
         const id = system.loadedAmmoId;
         if (!id) return null;
-        const ammoItem = item.parent?.items.get(id) ?? game.items.get(id) ?? null;
+        const baseActor = item.parent ?? null;
+        const actorId   = baseActor?.id ?? null;
+        const token     = actorId
+          ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+          : null;
+        const actor     = token?.actor ?? baseActor;
+        const ammoItem  = actor?.items?.get(id) ?? game.items.get(id) ?? null;
         return ammoItem ? { id: ammoItem.id, name: ammoItem.name } : null;
       })()
     };
