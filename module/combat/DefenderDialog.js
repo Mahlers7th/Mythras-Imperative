@@ -58,11 +58,47 @@ export class DefenderDialog {
     // For ranged attacks only shields may be used to parry (rules p.49).
     const isRangedAttack   = ctx.isRanged ?? false;
     const stylesByWeaponId = _buildStylesByWeaponMap(defender);
+
+    // Formidable Natural Weapons: creature can actively parry with natural weapons.
+    // Rules p.35: "permits the creature to actively parry with its natural weapons."
+    // Without this trait, creatures rely on armour or Evade only.
+    // We inject equipped melee weapons into the style map so _buildParryWeaponList
+    // picks them up. They are paired with the creature's highest combat style (or
+    // a null entry so the parry skill falls back to 0 if no style exists).
+    const hasFormidable = Array.from(defender.items).some(
+      i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'formidableNaturalWeapons'
+    );
+    if (hasFormidable) {
+      const bestStyle = Array.from(defender.items)
+        .filter(i => i.type === 'combat-style')
+        .sort((a, b) => (b.system.total ?? 0) - (a.system.total ?? 0))[0] ?? null;
+      for (const item of defender.items) {
+        if (item.type !== 'weapon') continue;
+        if (item.system.category === 'ranged') continue;
+        if (!stylesByWeaponId[item.id]) {
+          stylesByWeaponId[item.id] = bestStyle ? [bestStyle] : [];
+        }
+      }
+    }
+
     const parryWeapons     = _buildParryWeaponList(defender, stylesByWeaponId, isRangedAttack);
 
     // ── Look up evade and acrobatics skill totals ────────────────────────────
     const evadeSkill       = _findSkill(defender, 'Evade');
     const acrobaticsSkill  = _findSkill(defender, 'Acrobatics');
+
+    // ── Flying / Swimmer creature traits — Fly or Swim substitutes for Evade ─
+    // Rules p.35 (Flying): "may substitute its Fly skill for Evade whilst aloft."
+    // Rules p.35 (Swimmer): "may substitute its Swim skill for Evade whilst in water."
+    // We surface these as extra defence options. No prone penalty (same as Acrobatics).
+    const hasFlying  = Array.from(defender.items).some(
+      i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'flying'
+    );
+    const hasSwimmer = Array.from(defender.items).some(
+      i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'swimmer'
+    );
+    const flySkill   = hasFlying  ? _findSkill(defender, 'Fly')  : null;
+    const swimSkill  = hasSwimmer ? _findSkill(defender, 'Swim') : null;
 
     // ── Check Daredevil trait on any active style — prevents prone on Evade ──
     const hasDaredevil = Array.from(defender.items).some(
@@ -99,6 +135,28 @@ export class DefenderDialog {
           <span class="mi-defence-name">Acrobatics</span>
           <span class="mi-defence-skill">${acrobaticsTotal}%</span>
           <span class="mi-defence-note">(no prone)</span>
+        </span>
+      </label>` : '';
+
+    // Flying / Swimmer — Fly or Swim as Evade substitute (no prone penalty)
+    const flyTotal  = flySkill?.system.total  ?? 0;
+    const swimTotal = swimSkill?.system.total ?? 0;
+    const flyRow = flySkill ? `
+      <label class="mi-defence-option">
+        <input type="radio" name="mi-def-type" value="fly">
+        <span class="mi-defence-label">
+          <span class="mi-defence-name">Fly (Evade)</span>
+          <span class="mi-defence-skill">${flyTotal}%</span>
+          <span class="mi-defence-note">(no prone — aloft)</span>
+        </span>
+      </label>` : '';
+    const swimRow = swimSkill ? `
+      <label class="mi-defence-option">
+        <input type="radio" name="mi-def-type" value="swim">
+        <span class="mi-defence-label">
+          <span class="mi-defence-name">Swim (Evade)</span>
+          <span class="mi-defence-skill">${swimTotal}%</span>
+          <span class="mi-defence-note">(no prone — in water)</span>
         </span>
       </label>` : '';
 
@@ -150,6 +208,8 @@ export class DefenderDialog {
             </label>
 
             ${acrobaticsRow}
+            ${flyRow}
+            ${swimRow}
 
             <label class="mi-defence-option">
               <input type="radio" name="mi-def-type" value="none" ${parryWeapons.length ? '' : 'checked'}>
@@ -185,7 +245,8 @@ export class DefenderDialog {
               const result = _readDialog(
                 html, defender, ctx,
                 stylesByWeaponId, parryWeapons,
-                evadeSkill, acrobaticsSkill, hasDaredevil
+                evadeSkill, acrobaticsSkill, hasDaredevil,
+                flySkill, swimSkill
               );
               resolve(result);
             }
@@ -227,6 +288,10 @@ export class DefenderDialog {
               skill = `${evadeTotal}%`;
             } else if (type === 'acrobatics') {
               skill = `${acrobaticsTotal}%`;
+            } else if (type === 'fly') {
+              skill = `${flyTotal}%`;
+            } else if (type === 'swim') {
+              skill = `${swimTotal}%`;
             }
 
             if (displayEl)  displayEl.textContent  = skill;
@@ -376,7 +441,8 @@ function _buildStyleOptions(styles) {
 function _readDialog(
   html, defender, ctx,
   stylesByWeaponId, parryWeapons,
-  evadeSkill, acrobaticsSkill, hasDaredevil
+  evadeSkill, acrobaticsSkill, hasDaredevil,
+  flySkill = null, swimSkill = null
 ) {
   const type = html.find('input[name="mi-def-type"]:checked').val() ?? 'none';
 
@@ -396,11 +462,15 @@ function _readDialog(
     skillTotal = evadeSkill?.system.total ?? 0;
   } else if (type === 'acrobatics') {
     skillTotal = acrobaticsSkill?.system.total ?? 0;
+  } else if (type === 'fly') {
+    skillTotal = flySkill?.system.total ?? 0;
+  } else if (type === 'swim') {
+    skillTotal = swimSkill?.system.total ?? 0;
   }
 
   // Prone determination:
   //   - Evade → prone, UNLESS Daredevil trait is present on any style
-  //   - Acrobatics → never prone
+  //   - Acrobatics / Fly / Swim → never prone
   //   - Everything else → not prone
   let willBeProne = false;
   if (type === 'evade' && !hasDaredevil) {

@@ -47,6 +47,16 @@
              title="Checked = combat engine reads this trait mechanically"/>
     </div>
 
+    {{! Value — used by engine traits with a numeric rate/count (Regeneration, Vampiric, etc.) }}
+    {{#if system.engineEffect}}
+    <div class="mi-stat-cell">
+      <div class="mi-stat-label">Value</div>
+      <input type="number" name="system.value" value="{{system.value}}"
+             class="mi-stat-input mi-stat-input--sm" min="0" step="1"
+             title="Numeric rate or count used by the engine (e.g. HP/round for Regeneration, Fatigue levels for Vampiric)"/>
+    </div>
+    {{/if}}
+
   </div>
 
   {{! ── DESCRIPTION ─────────────────────────────────────────────────────── }}

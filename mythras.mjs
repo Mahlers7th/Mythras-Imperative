@@ -717,6 +717,12 @@ async function _onUpdateCombat(combat, changed) {
         const actor = combatant.token?.actor ?? combatant.actor;
         if (!actor?.statuses?.has('bleeding')) continue;
 
+        // Undead are immune to Fatigue — bleed drain has no effect
+        const isUndead = Array.from(actor.items ?? []).some(
+          i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'undead'
+        );
+        if (isUndead) continue;
+
         const currentFatigue = actor.system.fatigue ?? 'fresh';
         const currentIdx     = fatigueLevels.findIndex(f => f.id === currentFatigue);
         if (currentIdx === -1 || currentIdx >= fatigueLevels.length - 1) continue;
@@ -752,6 +758,54 @@ async function _onUpdateCombat(combat, changed) {
 
         if (nextLevel.id === 'dead' || nextLevel.id === 'comatose') {
           ui.notifications.error(`${actor.name} has collapsed from blood loss!`);
+        }
+      }
+
+      // ── Regeneration — recover HP per round for each damaged hit location ─
+      // Rules p.35: "At the end of each Combat Round, the creature recovers
+      // one lost Hit Point in each location." Rate stored in the trait item's
+      // system.value field (default 1). Does not restore severed limbs.
+      for (const combatant of active) {
+        const actor = combatant.token?.actor ?? combatant.actor;
+        if (!actor) continue;
+
+        const regenTrait = Array.from(actor.items ?? []).find(
+          i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'regeneration'
+        );
+        if (!regenTrait) continue;
+
+        const regenRate = regenTrait.system.value ?? 1;
+        const locations = Array.from(actor.items).filter(i => i.type === 'hit-location');
+        const healed = [];
+
+        for (const loc of locations) {
+          const maxHp     = loc.system.hp ?? 0;
+          const currentHp = loc.system.current ?? maxHp;
+          if (currentHp >= maxHp) continue; // already at full
+          // Do not regenerate a severed location (current <= -maxHp = destroyed)
+          if (currentHp <= -maxHp) continue;
+          const newHp = Math.min(maxHp, currentHp + regenRate);
+          await loc.update({ 'system.current': newHp });
+          healed.push(`${loc.name}: ${currentHp} → ${newHp}`);
+        }
+
+        if (healed.length > 0) {
+          const content = `
+            <div class="mi-chat-card">
+              <div class="mi-card-header mi-card-header--stacked">
+                <span class="mi-card-actor">${actor.name}</span>
+                <span class="mi-card-skill">Regeneration</span>
+              </div>
+              <div class="mi-card-body">
+                <div class="mi-outcome-row">
+                  <span class="mi-outcome"><i class="fas fa-heartbeat"></i> Regenerates ${regenRate} HP — ${healed.join(', ')}</span>
+                </div>
+              </div>
+            </div>`;
+          await ChatMessage.create({
+            content,
+            speaker: ChatMessage.getSpeaker({ actor })
+          });
         }
       }
     }

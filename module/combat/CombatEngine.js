@@ -2671,6 +2671,50 @@ export class CombatEngine {
     if (ctx.enduranceRequired) {
       await CombatEngine._resolveWoundConsequences(ctx);
     }
+
+    // ── Vampiric trait — drain Fatigue from defender on successful damage ──
+    // Rules p.35: "On a successful attack the attacker will drain blood,
+    // increasing the target's Fatigue levels." Rate from trait item system.value.
+    // Only fires when actual damage was dealt (not fully blocked).
+    if (damage > 0 && ctx.attacker) {
+      const vampTrait = Array.from(ctx.attacker.items ?? []).find(
+        i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'vampiric'
+      );
+      if (vampTrait) {
+        const drainRate    = vampTrait.system.value ?? 1;
+        const fatigueLevels = CONFIG.MYTHRAS?.fatigueLevels ?? [];
+        const currentFatigue = defender.system.fatigue ?? 'fresh';
+        let currentIdx = fatigueLevels.findIndex(f => f.id === currentFatigue);
+        if (currentIdx === -1) currentIdx = 0;
+
+        let newIdx = Math.min(currentIdx + drainRate, fatigueLevels.length - 1);
+        const newLevel = fatigueLevels[newIdx];
+
+        if (newLevel && newIdx > currentIdx) {
+          await defender.update({ 'system.fatigue': newLevel.id });
+          const newName = newLevel.id.charAt(0).toUpperCase() + newLevel.id.slice(1);
+          const content = `
+            <div class="mi-chat-card">
+              <div class="mi-card-header mi-card-header--stacked">
+                <span class="mi-card-actor">${ctx.attacker.name}</span>
+                <span class="mi-card-skill">Vampiric — Blood Drain</span>
+              </div>
+              <div class="mi-card-body">
+                <div class="mi-outcome-row">
+                  <span class="mi-outcome mi-wound-serious">
+                    <i class="fas fa-tint"></i> ${defender.name} loses ${drainRate} Fatigue level${drainRate > 1 ? 's' : ''} — now ${newName}
+                  </span>
+                </div>
+              </div>
+            </div>`;
+          await ChatMessage.create({
+            content,
+            speaker: ChatMessage.getSpeaker({ actor: ctx.attacker })
+          });
+          ui.notifications.warn(`${ctx.attacker.name} drains blood — ${defender.name} Fatigue: ${newName}`);
+        }
+      }
+    }
   }
 
 
@@ -3289,6 +3333,25 @@ export class CombatEngine {
     const attackRoll   = ctx.attackResult ?? 0;
     const isMajor      = woundLevel === 'major';
 
+    // ── Undead trait — immune to Fatigue wound consequences ───────────────
+    // Rules p.35: "Immune to the normal effects of Serious Wounds (i.e. the
+    // creature does not need to make Endurance rolls to avoid the consequences)."
+    // A Major Wound to a vital location (head/torso) still destroys the creature.
+    const isUndead = CombatEngine._hasCreatureTrait(defender, 'undead');
+    if (isUndead && !isMajor) {
+      // Serious wound — apply the stun (can't attack for 1d3 turns) but skip
+      // the Endurance roll and Fatigue consequence entirely.
+      const stunRoll = new Roll('ceil(1d6 / 2)');
+      await stunRoll.evaluate();
+      const stunTurns = stunRoll.total;
+      await CombatEngine._applyStatusToActor(defender, 'stunned');
+      await defender.setFlag('mythras-imperative', 'stunTurns', stunTurns);
+      ui.notifications.warn(
+        `${defender.name} (Undead) — Serious Wound: Stunned for ${stunTurns} Turn${stunTurns > 1 ? 's' : ''}. No Fatigue consequence.`
+      );
+      return;
+    }
+
     // Apply fatigue penalty to Endurance — SE resistance rolls use fatigue only.
     const enduranceSkill = Array.from(defender.items)
       .find(i => i.type === 'skill' && i.name === 'Endurance');
@@ -3307,7 +3370,12 @@ export class CombatEngine {
 
       if (locationType === 'torso' || locationType === 'head') {
         await CombatEngine._applyStatusToActor(defender, 'unconscious');
-        ui.notifications.warn(`${defender.name} is immediately Unconscious from the Major Wound.`);
+        // Undead: vital location Major Wound = destroyed outright
+        if (isUndead) {
+          ui.notifications.error(`${defender.name} (Undead) — Major Wound to vital location — creature destroyed!`);
+        } else {
+          ui.notifications.warn(`${defender.name} is immediately Unconscious from the Major Wound.`);
+        }
       }
     }
 
@@ -4145,5 +4213,21 @@ export class CombatEngine {
       });
     }
     return result;
+  }
+
+  // -------------------------------------------------------------------------
+  // _hasCreatureTrait
+  //
+  // Returns true if the actor has a trait item with category 'creature' and
+  // the given key. Used by all creature trait checks throughout the engine.
+  // -------------------------------------------------------------------------
+
+  static _hasCreatureTrait(actor, key) {
+    if (!actor?.items) return false;
+    return Array.from(actor.items).some(
+      i => i.type === 'trait'
+        && i.system.category === 'creature'
+        && i.system.key === key
+    );
   }
 }

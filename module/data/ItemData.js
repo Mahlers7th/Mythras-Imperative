@@ -507,6 +507,11 @@ export class TraitData extends foundry.abstract.TypeDataModel {
       // Whether the combat engine reads this trait mechanically
       engineEffect: new fields.BooleanField({ initial: false }),
 
+      // Numeric parameter — used by engine-effect traits that need a rate or count.
+      // e.g. Regeneration: HP recovered per round; Vampiric: Fatigue levels drained per bite.
+      // Default 1. GM sets this on the trait item instance dragged onto the creature.
+      value: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
+
       // Node editor hook — null until Phase 11
       graph: new fields.ObjectField({ initial: null, nullable: true, required: false })
     };
