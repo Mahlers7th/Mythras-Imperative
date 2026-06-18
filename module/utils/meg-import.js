@@ -20,10 +20,11 @@
  *   - Passions → embedded passion items (detected by length heuristic)
  *   - Combat styles → embedded combat-style items
  *   - Weapons → embedded weapon items (linked into the combat style)
- *   - Notes → identity.specialAbilities
+ *   - Creature traits → embedded trait items (mapped from features array)
+ *   - Notes → identity.specialAbilities (unmatched features also appended here)
  *
  * Fields MEG provides that are intentionally ignored:
- *   - cult_rank, cults, spirits, features — not in scope for Phase 7a
+ *   - cult_rank, cults, spirits — not in scope
  *   - folk_spells / theism_spells / sorcery_spells / mysticism_spells — Phase 8
  *   - attributes.strike_rank — derived by prepareDerivedData from DEX+INT
  */
@@ -54,6 +55,84 @@ const SIZE_MAP = { S: 'S', M: 'M', L: 'L', H: 'H', E: 'E', C: 'E' };
 
 // Reach values are the same in MEG and WeaponData (T/S/M/L/VL)
 const REACH_MAP = { T: 'T', S: 'S', M: 'M', L: 'L', VL: 'VL' };
+
+// ---------------------------------------------------------------------------
+// MEG feature name → canonical creature trait key
+// MEG's features array uses plain English names from the rulebook (pp.76-79).
+// Keys below match CONFIG.MYTHRAS.creatureTraits.
+// Matching is case-insensitive and strips parenthetical parameters so that
+// entries like "Immunity (Fire)" and "Regeneration (2)" are handled cleanly.
+// The numeric parameter from traits like "Regeneration (2)" is extracted
+// separately and written to system.value on the created trait item.
+// ---------------------------------------------------------------------------
+const MEG_FEATURE_MAP = {
+  'adhering':                   'adhering',
+  'aquatic':                    'aquatic',
+  'blood sense':                'bloodSense',
+  'breathe flame':              'breatheFlame',
+  'breath flame':               'breatheFlame',    // alternate spelling
+  'camouflaged':                'camouflaged',
+  'characteristic drain':       'characteristicDrain',
+  'cold-blooded':               'coldBlooded',
+  'cold blooded':               'coldBlooded',
+  'dark sight':                 'darkSight',
+  'death sense':                'deathSense',
+  'disease immunity':           'diseaseImmunity',
+  'diving strike':              'divingStrike',
+  'earth sense':                'earthSense',
+  'echolocation':               'echolocation',
+  'engulfing':                  'engulfing',
+  'flying':                     'flying',
+  'formidable natural weapons': 'formidableNaturalWeapons',
+  'frenzy':                     'frenzy',
+  'gaze attack':                'gazeAttack',
+  'grappler':                   'grappler',
+  'hold breath':                'holdBreath',
+  'immunity':                   'immunity',
+  'intimidate':                 'intimidate',
+  'leaper':                     'leaper',
+  'life sense':                 'lifeSense',
+  'magic sense':                'magicSense',
+  'multi-headed':               'multiHeaded',
+  'multi headed':               'multiHeaded',
+  'multi-limbed':               'multiLimbed',
+  'multi limbed':               'multiLimbed',
+  'night sight':                'nightSight',
+  'poison immunity':            'poisonImmunity',
+  'regeneration':               'regeneration',
+  'swimmer':                    'swimmer',
+  'terrifying':                 'terrifying',
+  'trample':                    'trample',
+  'undead':                     'undead',
+  'vampiric':                   'vampiric',
+  'venomous':                   'venomous',
+  'wing buffet':                'wingBuffet',
+};
+
+/**
+ * Parse a MEG feature string into a canonical trait key and optional numeric value.
+ * e.g. "Regeneration (2)"  → { key: 'regeneration', value: 2, param: null }
+ *      "Immunity (Fire)"   → { key: 'immunity',      value: null, param: 'Fire' }
+ *      "Flying"            → { key: 'flying',         value: null, param: null }
+ * Returns null if no mapping found.
+ */
+function parseMegFeature(featureStr) {
+  // Extract parenthetical content: "Regeneration (2)" → base="Regeneration", paren="2"
+  const parenMatch = featureStr.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  const baseName   = (parenMatch ? parenMatch[1] : featureStr).trim().toLowerCase();
+  const parenValue = parenMatch ? parenMatch[2].trim() : null;
+
+  const key = MEG_FEATURE_MAP[baseName];
+  if (!key) return null;
+
+  // Numeric paren → value field (e.g. Regeneration (2), Vampiric (2))
+  const numeric = parenValue !== null ? parseInt(parenValue, 10) : NaN;
+  const value   = !isNaN(numeric) ? numeric : null;
+  // Non-numeric paren → display param (e.g. Immunity (Fire))
+  const param   = (parenValue !== null && isNaN(numeric)) ? parenValue : null;
+
+  return { key, value, param };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -161,9 +240,18 @@ export function megToFoundryActor(meg) {
   // --- 4. Identity / notes -------------------------------------------------
   // MEG's notes block contains special abilities, breath weapons, etc.
   // Store in specialAbilities so it appears on the creature sheet.
+  // Unmatched features (no canonical key) are also appended here.
+  const megFeatures  = meg.features ?? [];
+  const unmatchedFeatures = [];
+  for (const f of megFeatures) {
+    if (!parseMegFeature(f)) unmatchedFeatures.push(f);
+  }
+  const unmatchedNote = unmatchedFeatures.length
+    ? `\n\nUnrecognised features: ${unmatchedFeatures.join(', ')}`
+    : '';
   const identity = {
     creatureType:     '',
-    specialAbilities: meg.notes ?? '',
+    specialAbilities: (meg.notes ?? '') + unmatchedNote,
   };
 
   // --- 5. Natural armour ---------------------------------------------------
@@ -332,6 +420,37 @@ export function megToFoundryActor(meg) {
         traits:       [],
         description:  '',
         fumbledLastSession: false,
+      }
+    });
+  }
+
+  // 6d. Creature traits from MEG features array -----------------------------
+  // MEG's features array is a list of plain English trait names (pp.76-79).
+  // We map each to a canonical key and create a trait item. Numeric parameters
+  // (e.g. "Regeneration (2)") are written to system.value. Non-numeric
+  // parameters (e.g. "Immunity (Fire)") are appended to the trait name so
+  // the GM can see them at a glance. Unmatched features are noted in
+  // identity.specialAbilities above — nothing is silently dropped.
+  for (const featureStr of megFeatures) {
+    const parsed = parseMegFeature(featureStr);
+    if (!parsed) continue; // unmatched — already captured in unmatchedNote
+
+    const traitDef = CONFIG.MYTHRAS?.creatureTraits?.[parsed.key] ?? {};
+    // Display name: use param suffix for things like "Immunity (Fire)"
+    const traitName = parsed.param
+      ? `${traitDef.label ?? parsed.key} (${parsed.param})`
+      : (traitDef.label ?? parsed.key);
+
+    items.push({
+      name: traitName,
+      type: 'trait',
+      system: {
+        category:     'creature',
+        key:          parsed.key,
+        description:  traitDef.description ?? '',
+        engineEffect: traitDef.engineEffect ?? false,
+        value:        parsed.value ?? 1,
+        graph:        null,
       }
     });
   }

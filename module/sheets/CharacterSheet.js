@@ -77,6 +77,18 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const gearItems          = allItems.filter(i => i.type === 'gear');
     const ammoItems          = allItems.filter(i => i.type === 'ammo');
     const abilities          = allItems.filter(i => i.type === 'ability').sort((a, b) => a.name.localeCompare(b.name));
+    const creatureTraits     = allItems
+      .filter(i => i.type === 'trait' && i.system.category === 'creature')
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(t => ({
+        id:           t.id,
+        name:         t.name,
+        img:          t.img,
+        engineEffect: t.system.engineEffect ?? false,
+        value:        t.system.value ?? null,
+        description:  t.system.description ?? '',
+        key:          t.system.key ?? '',
+      }));
     const locationItems      = allItems.filter(i => i.type === 'hit-location')
                                        .sort((a, b) => (a.system.sort ?? 0) - (b.system.sort ?? 0));
 
@@ -198,6 +210,8 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       gear,
       ammoItems,
       abilities,
+      creatureTraits,
+      isCreature: actor.type === 'creature',
       currencyItems,
       totalWealth,
       hitLocations,
@@ -1060,6 +1074,8 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const data = { name: `New ${type.replace('-', ' ')}`, type, system: {} };
     if (category) data.system.category = category;
+    // Trait items: seed engineEffect false so the sheet renders cleanly
+    if (type === 'trait') data.system.engineEffect = false;
     const [created] = await this.document.createEmbeddedDocuments('Item', [data]);
     created?.sheet?.render(true);
   }

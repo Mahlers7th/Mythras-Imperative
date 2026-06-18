@@ -19,6 +19,11 @@
     <a class="mi-tab-btn {{#if (eq activeTab 'background')}}active{{/if}}" data-tab="background" title="Background">
       <i class="fas fa-scroll"></i><span>Background</span>
     </a>
+    {{#if isCreature}}
+    <a class="mi-tab-btn {{#if (eq activeTab 'traits')}}active{{/if}}" data-tab="traits" title="Traits">
+      <i class="fas fa-paw"></i><span>Traits</span>
+    </a>
+    {{/if}}
   </nav>
 
   {{! ── MAIN ────────────────────────────────────────────────────────────── }}
@@ -649,6 +654,53 @@
       {{/if}}
 
     </section>
+
+    {{! ══════════════════════════════════════════════════════════════════
+        TAB: CREATURE TRAITS (creatures only)
+    ══════════════════════════════════════════════════════════════════ }}
+    {{#if isCreature}}
+    <section class=\"mi-tab-panel {{#if (eq activeTab 'traits')}}active{{/if}}\" data-tab=\"traits\">
+
+      <div class=\"mi-section-label mi-section-with-add\">
+        <span>Creature Traits</span>
+        <a class=\"mi-add-btn\" data-type=\"trait\" data-category=\"creature\" title=\"Add trait\"><i class=\"fas fa-plus\"></i></a>
+      </div>
+      <div class=\"mi-trait-drop-zone\" title=\"Drag creature traits from the Traits compendium\">
+        Drop traits here from the compendium
+      </div>
+
+      {{#if creatureTraits.length}}
+      <ul class=\"mi-creature-trait-list\">
+        {{#each creatureTraits as |trait|}}
+        <li class=\"mi-creature-trait-row\" data-item-id=\"{{trait.id}}\">
+          <div class=\"mi-creature-trait-main\">
+            <span class=\"mi-creature-trait-name mi-item-open\" data-item-id=\"{{trait.id}}\">{{trait.name}}</span>
+            {{#if trait.engineEffect}}
+            <span class=\"mi-creature-trait-pill engine\" title=\"Engine-automated\">
+              <i class=\"fas fa-cog\"></i> Auto
+            </span>
+            {{else}}
+            <span class=\"mi-creature-trait-pill\" title=\"Narrative / GM-adjudicated\">
+              Narrative
+            </span>
+            {{/if}}
+            {{#if trait.value}}
+            <span class=\"mi-creature-trait-value mi-muted\">×{{trait.value}}</span>
+            {{/if}}
+          </div>
+          {{#if trait.description}}
+          <div class=\"mi-creature-trait-desc mi-muted\">{{{trait.description}}}</div>
+          {{/if}}
+          <a class=\"mi-item-delete mi-faint\" data-item-id=\"{{trait.id}}\"><i class=\"fas fa-times\"></i></a>
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <div class=\"mi-empty-state\">No traits yet — drag from the Traits compendium or use the + button above.</div>
+      {{/if}}
+
+    </section>
+    {{/if}}
 
     {{! ══════════════════════════════════════════════════════════════════
         TAB: BACKGROUND
