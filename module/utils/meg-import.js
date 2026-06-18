@@ -71,6 +71,7 @@ const MEG_FEATURE_MAP = {
   'blood sense':                'bloodSense',
   'breathe flame':              'breatheFlame',
   'breath flame':               'breatheFlame',    // alternate spelling
+  'breath weapon':              'breatheFlame',    // MEG notes section header
   'camouflaged':                'camouflaged',
   'characteristic drain':       'characteristicDrain',
   'cold-blooded':               'coldBlooded',
@@ -111,15 +112,25 @@ const MEG_FEATURE_MAP = {
 
 /**
  * Parse a MEG feature string into a canonical trait key and optional numeric value.
- * e.g. "Regeneration (2)"  → { key: 'regeneration', value: 2, param: null }
- *      "Immunity (Fire)"   → { key: 'immunity',      value: null, param: 'Fire' }
- *      "Flying"            → { key: 'flying',         value: null, param: null }
+ * Handles three formats MEG actually produces:
+ *   - Plain:    "Flying"  /  "Regeneration (2)"  /  "Immunity (Fire)"
+ *   - Markdown: "Ability: ***Dark Sight*** see normally in any level of limited light"
+ *   - Markdown: "***Formidable Natural Weapons***"
  * Returns null if no mapping found.
  */
 function parseMegFeature(featureStr) {
+  // Strip leading "Ability:" prefix MEG sometimes adds
+  let cleaned = featureStr.replace(/^Ability\s*:\s*/i, '').trim();
+
+  // Extract bold markdown name: ***TraitName*** ... rest of prose
+  const boldMatch = cleaned.match(/^\*{3}([^*]+)\*{3}/);
+  if (boldMatch) {
+    cleaned = boldMatch[1].trim();
+  }
+
   // Extract parenthetical content: "Regeneration (2)" → base="Regeneration", paren="2"
-  const parenMatch = featureStr.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  const baseName   = (parenMatch ? parenMatch[1] : featureStr).trim().toLowerCase();
+  const parenMatch = cleaned.match(/^(.+?)\s*\(([^)]+)\)\s*(?:$|:)/);
+  const baseName   = (parenMatch ? parenMatch[1] : cleaned).trim().toLowerCase();
   const parenValue = parenMatch ? parenMatch[2].trim() : null;
 
   const key = MEG_FEATURE_MAP[baseName];
@@ -133,6 +144,41 @@ function parseMegFeature(featureStr) {
 
   return { key, value, param };
 }
+
+/**
+ * Scan the MEG notes string for trait names that appear as section headers.
+ * MEG often puts ability text into notes as:
+ *   "Immunity (Fire): This creature is completely immune..."
+ *   "Trample: The creature is able to trample..."
+ *   "Breathe Flame / Breath Weapon: ..."
+ * We scan for lines where a known trait name precedes a colon.
+ * Returns an array of parsed trait objects (same shape as parseMegFeature).
+ * Only returns traits NOT already found in the features array (no duplicates).
+ */
+function extractTraitsFromNotes(notesStr, alreadyFound) {
+  if (!notesStr) return [];
+  const foundKeys = new Set(alreadyFound.map(t => t.key));
+  const results   = [];
+
+  // Split on newlines; test each line for "TraitName (param): prose" or "TraitName: prose"
+  for (const line of notesStr.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Match "Some Trait Name (optional param):" at start of line
+    const headerMatch = trimmed.match(/^([A-Za-z][A-Za-z\s\-]*)(?:\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*:/);
+    if (!headerMatch) continue;
+    const candidate = trimmed.match(/^((?:[A-Za-z][A-Za-z\s\-]*?)(?:\s*\([^)]+\))?)\s*:/);
+    if (!candidate) continue;
+    const parsed = parseMegFeature(candidate[1].trim());
+    if (!parsed) continue;
+    if (foundKeys.has(parsed.key)) continue;
+    foundKeys.add(parsed.key);
+    results.push(parsed);
+  }
+
+  return results;
+}
+
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -424,17 +470,21 @@ export function megToFoundryActor(meg) {
     });
   }
 
-  // 6d. Creature traits from MEG features array -----------------------------
-  // MEG's features array is a list of plain English trait names (pp.76-79).
-  // We map each to a canonical key and create a trait item. Numeric parameters
-  // (e.g. "Regeneration (2)") are written to system.value. Non-numeric
-  // parameters (e.g. "Immunity (Fire)") are appended to the trait name so
-  // the GM can see them at a glance. Unmatched features are noted in
-  // identity.specialAbilities above — nothing is silently dropped.
-  for (const featureStr of megFeatures) {
-    const parsed = parseMegFeature(featureStr);
-    if (!parsed) continue; // unmatched — already captured in unmatchedNote
+  // 6d. Creature traits from MEG features array + notes scanning -----------
+  // MEG's features array is often empty or contains markdown prose. We parse
+  // both the features array and the notes field to extract trait names.
+  // Traits found in features take priority; notes scanning adds any not
+  // already found. Nothing is silently dropped — unmatched features are
+  // appended to identity.specialAbilities.
+  const parsedFromFeatures = megFeatures
+    .map(f => parseMegFeature(f))
+    .filter(Boolean);
 
+  const parsedFromNotes = extractTraitsFromNotes(meg.notes ?? '', parsedFromFeatures);
+
+  const allParsedTraits = [...parsedFromFeatures, ...parsedFromNotes];
+
+  for (const parsed of allParsedTraits) {
     const traitDef = CONFIG.MYTHRAS?.creatureTraits?.[parsed.key] ?? {};
     // Display name: use param suffix for things like "Immunity (Fire)"
     const traitName = parsed.param
