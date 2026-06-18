@@ -202,18 +202,24 @@ function parseRange(rangeStr) {
 
 /**
  * Detect whether a MEG skill entry should be treated as a passion rather than
- * a skill item. Heuristic: name is not in the standard skill list AND is either
- * longer than 40 characters OR contains no parentheses (i.e. not a professional
- * skill like "Language (Chromatic Dragon)").
+ * a skill item.
  *
- * For this importer we use a simpler rule: if the cleaned name contains a comma,
- * or is longer than 45 characters, it's a passion. Professional skills (even
- * unusual ones) tend to be shorter and use parenthetical notation.
+ * MEG signals passions in two ways:
+ *   1. Explicit "Passion:" prefix — "Passion: Evil (Hate Gnomes and Dwarves)"
+ *   2. Long descriptive strings with commas — "Quick to anger, suspicious, and..."
+ *
+ * Professional skills use parenthetical notation without the "Passion:" prefix
+ * e.g. "Language (Chromatic Dragon)", "Lore (Dragon)".
  */
 function isPassion(name) {
   if (STANDARD_SKILL_NAMES.has(name)) return false;
-  // Long descriptive strings like "Quick to anger, suspicious..." are passions
-  return name.includes(',') || name.length > 45;
+  // Explicit MEG passion prefix — most reliable signal
+  if (/^passion\s*:/i.test(name)) return true;
+  // Long descriptive strings with commas outside parentheses
+  // e.g. "Quick to anger, suspicious..." is a passion
+  // but "Languages (Goblin, Hobgoblin, Orcish)" is a professional skill
+  const withoutParens = name.replace(/\([^)]*\)/g, '');
+  return withoutParens.includes(',') || name.length > 45;
 }
 
 /**
