@@ -1,0 +1,563 @@
+_id: QI7CRBsQYXzENpOS
+name: Horse
+type: creature
+img: icons/svg/mystery-man.svg
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  identity:
+    creatureType: ''
+    specialAbilities: 'Trample: can trample beings of SIZ 15 or less using Athletics
+      skill.'
+  characteristics:
+    str:
+      value: 0
+    con:
+      value: 0
+    siz:
+      value: 31
+    dex:
+      value: 0
+    int:
+      value: 0
+    pow:
+      value: 0
+    cha:
+      value: 0
+  attributes:
+    actionPoints:
+      value: 2
+      max: 2
+    damageModifier: +1d12
+    initiativeBonus: 11
+    magicPoints:
+      value: 7
+      max: 7
+    movementRate: 12m
+  hitLocations: []
+  naturalArmour: 0
+  fatigue: fresh
+  conditions:
+    prone: false
+    bleeding: false
+    unconscious: false
+    surprised: false
+    entangled: false
+    burning: false
+  notes: ''
+items:
+- _id: wqFEg8D04wzInjq5
+  name: Athletics
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 52
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.wqFEg8D04wzInjq5'
+- _id: JzjuxZEOQpY7NEkX
+  name: Brawn
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 83
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.JzjuxZEOQpY7NEkX'
+- _id: kSE4HNdc06PVz0oR
+  name: Endurance
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 66
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.kSE4HNdc06PVz0oR'
+- _id: aFxMPMDEaIaGr8bY
+  name: Evade
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 40
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.aFxMPMDEaIaGr8bY'
+- _id: PX4gfjlGYqyxzJ9o
+  name: Perception
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 48
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.PX4gfjlGYqyxzJ9o'
+- _id: Q0O1VfxIdakEAWJ1
+  name: Willpower
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 34
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.Q0O1VfxIdakEAWJ1'
+- _id: O50fSlqPL2lVSID1
+  name: Hoof
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 1d6+1d12
+    size: H
+    reach: S
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 0
+    hp: 0
+    currentHP: 0
+    enc: 0
+    traits: []
+    description: ''
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!QI7CRBsQYXzENpOS.O50fSlqPL2lVSID1'
+- _id: u7a67h9DpLm4IWxH
+  name: Rear and Plunge
+  type: combat-style
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 62
+    weapons:
+    - id: O50fSlqPL2lVSID1
+      name: Hoof
+    traits: []
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!QI7CRBsQYXzENpOS.u7a67h9DpLm4IWxH'
+- _id: fGcn13Dce53Ic5t7
+  name: Trample
+  type: trait
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: creature
+    key: trample
+    description: ''
+    engineEffect: false
+    value: 1
+    graph: null
+  _key: '!actors.items!QI7CRBsQYXzENpOS.fGcn13Dce53Ic5t7'
+- _id: KUSyekoZy3uUi9SF
+  name: Right Hind Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Right Hind Leg
+    hp: 9
+    current: 9
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 1
+    rangeMax: 3
+    sort: 0
+  _key: '!actors.items!QI7CRBsQYXzENpOS.KUSyekoZy3uUi9SF'
+- _id: 8dBZvV7yVbq9Ew6A
+  name: Left Hind Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Left Hind Leg
+    hp: 9
+    current: 9
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 4
+    rangeMax: 6
+    sort: 1
+  _key: '!actors.items!QI7CRBsQYXzENpOS.8dBZvV7yVbq9Ew6A'
+- _id: QOfMXSfjSNTtgatw
+  name: Hindquarters
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Hindquarters
+    hp: 10
+    current: 10
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 7
+    rangeMax: 9
+    sort: 2
+  _key: '!actors.items!QI7CRBsQYXzENpOS.QOfMXSfjSNTtgatw'
+- _id: qilBIzbvfLuxsyf3
+  name: Forequarters
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Forequarters
+    hp: 11
+    current: 11
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 10
+    rangeMax: 12
+    sort: 3
+  _key: '!actors.items!QI7CRBsQYXzENpOS.qilBIzbvfLuxsyf3'
+- _id: 48JkxisEdAAEeppM
+  name: Right Front Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Right Front Leg
+    hp: 8
+    current: 8
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 13
+    rangeMax: 14
+    sort: 4
+  _key: '!actors.items!QI7CRBsQYXzENpOS.48JkxisEdAAEeppM'
+- _id: Kmgs6uMXuuY18it6
+  name: Left Front Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Left Front Leg
+    hp: 8
+    current: 8
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 15
+    rangeMax: 16
+    sort: 5
+  _key: '!actors.items!QI7CRBsQYXzENpOS.Kmgs6uMXuuY18it6'
+- _id: mt78sREJpxYyhIKH
+  name: Head
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Head
+    hp: 9
+    current: 9
+    ap: 1
+    wound: none
+    group: ''
+    rangeMin: 17
+    rangeMax: 20
+    sort: 6
+  _key: '!actors.items!QI7CRBsQYXzENpOS.mt78sREJpxYyhIKH'
+_key: '!actors!QI7CRBsQYXzENpOS'

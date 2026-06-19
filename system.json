@@ -2,7 +2,7 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.242",
+  "version": "1.4.243",
   "compatibility": {
     "minimum": "14",
     "verified": "14",
@@ -103,6 +103,14 @@
       "label": "Macros",
       "path": "packs/macros",
       "type": "Macro",
+      "packageType": "system",
+      "system": "mythras-imperative"
+    },
+    {
+      "name": "creatures",
+      "label": "Creatures",
+      "path": "packs/creatures",
+      "type": "Actor",
       "packageType": "system",
       "system": "mythras-imperative"
     }

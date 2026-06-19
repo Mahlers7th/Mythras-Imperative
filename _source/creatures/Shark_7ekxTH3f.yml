@@ -1,0 +1,649 @@
+_id: 7ekxTH3fKMDb6k3j
+name: Shark
+type: creature
+img: icons/svg/mystery-man.svg
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  identity:
+    creatureType: ''
+    specialAbilities: 'Blood Sense: detects blood up to 1d6+6 km. Frenzy: when wounded
+      rolls Willpower or attacks all within reach for CON rounds. Swimmer: uses Swim
+      in place of Evade in water.'
+  characteristics:
+    str:
+      value: 0
+    con:
+      value: 0
+    siz:
+      value: 42
+    dex:
+      value: 0
+    int:
+      value: 0
+    pow:
+      value: 0
+    cha:
+      value: 0
+  attributes:
+    actionPoints:
+      value: 3
+      max: 3
+    damageModifier: +2d6
+    initiativeBonus: 13
+    magicPoints:
+      value: 7
+      max: 7
+    movementRate: 12m (swim)
+  hitLocations: []
+  naturalArmour: 0
+  fatigue: fresh
+  conditions:
+    prone: false
+    bleeding: false
+    unconscious: false
+    surprised: false
+    entangled: false
+    burning: false
+  notes: ''
+items:
+- _id: mIsMCKEVm3Vpazov
+  name: Athletics
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 87
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.mIsMCKEVm3Vpazov'
+- _id: 026aO0TgGoEd9Sf5
+  name: Brawn
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 87
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.026aO0TgGoEd9Sf5'
+- _id: 3GRx8ffiYeJA7oqt
+  name: Endurance
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 66
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.3GRx8ffiYeJA7oqt'
+- _id: XRTtqemWKjkCzH7m
+  name: Evade
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 55
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.XRTtqemWKjkCzH7m'
+- _id: tqhjQZRcZufpwFPq
+  name: Perception
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 57
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.tqhjQZRcZufpwFPq'
+- _id: 9bzCUpCXiaZ8iZxN
+  name: Swim
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: professional
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 91
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.9bzCUpCXiaZ8iZxN'
+- _id: NKqYbd3Bh4ZucCkJ
+  name: Willpower
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 34
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.NKqYbd3Bh4ZucCkJ'
+- _id: Fc1pDxj51I4TAtzS
+  name: Bite
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 1d10+2d6
+    size: E
+    reach: S
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 0
+    hp: 0
+    currentHP: 0
+    enc: 0
+    traits: []
+    description: ''
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.Fc1pDxj51I4TAtzS'
+- _id: qexF3lX87eCr0uIa
+  name: Jaws
+  type: combat-style
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 81
+    weapons:
+    - id: Fc1pDxj51I4TAtzS
+      name: Bite
+    traits: []
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.qexF3lX87eCr0uIa'
+- _id: YybQknlr2cMpszId
+  name: Blood Sense
+  type: trait
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: creature
+    key: bloodSense
+    description: ''
+    engineEffect: false
+    value: 1
+    graph: null
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.YybQknlr2cMpszId'
+- _id: rim2GNXX9WwHE4Fy
+  name: Frenzy
+  type: trait
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: creature
+    key: frenzy
+    description: ''
+    engineEffect: false
+    value: 1
+    graph: null
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.rim2GNXX9WwHE4Fy'
+- _id: ltn3Wd9GV98gOqY4
+  name: Swimmer
+  type: trait
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: creature
+    key: swimmer
+    description: ''
+    engineEffect: true
+    value: 1
+    graph: null
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.ltn3Wd9GV98gOqY4'
+- _id: d9n0Xv00kKXR4bR6
+  name: Tail
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Tail
+    hp: 12
+    current: 12
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 1
+    rangeMax: 3
+    sort: 0
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.d9n0Xv00kKXR4bR6'
+- _id: IIl92EtEfonGa4mi
+  name: Dorsal Fin
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Dorsal Fin
+    hp: 11
+    current: 11
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 4
+    rangeMax: 6
+    sort: 1
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.IIl92EtEfonGa4mi'
+- _id: S40ubK4W017x6ygs
+  name: Hindquarters
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Hindquarters
+    hp: 13
+    current: 13
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 7
+    rangeMax: 10
+    sort: 2
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.S40ubK4W017x6ygs'
+- _id: ij6X7Ok8R5WnKktQ
+  name: Forequarters
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Forequarters
+    hp: 14
+    current: 14
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 11
+    rangeMax: 14
+    sort: 3
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.ij6X7Ok8R5WnKktQ'
+- _id: hT66y97cL57nJ6iU
+  name: Right Fin
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Right Fin
+    hp: 11
+    current: 11
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 15
+    rangeMax: 16
+    sort: 4
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.hT66y97cL57nJ6iU'
+- _id: o8k2fRN2Bqpepgax
+  name: Left Fin
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Left Fin
+    hp: 11
+    current: 11
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 17
+    rangeMax: 18
+    sort: 5
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.o8k2fRN2Bqpepgax'
+- _id: T82ExHgD1OQke0st
+  name: Head
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Head
+    hp: 12
+    current: 12
+    ap: 2
+    wound: none
+    group: ''
+    rangeMin: 19
+    rangeMax: 20
+    sort: 6
+  _key: '!actors.items!7ekxTH3fKMDb6k3j.T82ExHgD1OQke0st'
+_key: '!actors!7ekxTH3fKMDb6k3j'

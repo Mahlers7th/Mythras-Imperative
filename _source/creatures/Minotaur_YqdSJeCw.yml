@@ -1,0 +1,862 @@
+_id: YqdSJeCwEJwpgJSo
+name: Minotaur
+type: creature
+img: icons/svg/mystery-man.svg
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  identity:
+    creatureType: ''
+    specialAbilities: 'Intimidate: opponents must pass Willpower or retreat/flee.
+      Head has natural armour (AP 3).'
+  characteristics:
+    str:
+      value: 0
+    con:
+      value: 0
+    siz:
+      value: 22
+    dex:
+      value: 0
+    int:
+      value: 0
+    pow:
+      value: 0
+    cha:
+      value: 0
+  attributes:
+    actionPoints:
+      value: 2
+      max: 2
+    damageModifier: +1d6
+    initiativeBonus: 12
+    magicPoints:
+      value: 11
+      max: 11
+    movementRate: 8m
+  hitLocations: []
+  naturalArmour: 0
+  fatigue: fresh
+  conditions:
+    prone: false
+    bleeding: false
+    unconscious: false
+    surprised: false
+    entangled: false
+    burning: false
+  notes: ''
+items:
+- _id: dg2luCq1GNLLKv0M
+  name: Athletics
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 57
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.dg2luCq1GNLLKv0M'
+- _id: YRsMfihslQFzixlN
+  name: Brawn
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 79
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.YRsMfihslQFzixlN'
+- _id: QO9IEitBdwaiY7FE
+  name: Customs
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: professional
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 66
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.QO9IEitBdwaiY7FE'
+- _id: Qz0EfbVsrHkCUVIh
+  name: Endurance
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 66
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.Qz0EfbVsrHkCUVIh'
+- _id: hWZwZcSH9gZUs9Bv
+  name: Evade
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 40
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.hWZwZcSH9gZUs9Bv'
+- _id: YB9WoYKvSNkimmdv
+  name: Insight
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: professional
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 44
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.YB9WoYKvSNkimmdv'
+- _id: rHuRrq19Qf7W491h
+  name: Locale
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: professional
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 56
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.rHuRrq19Qf7W491h'
+- _id: 1pSZVPEJqzCN2fFr
+  name: Lore (Herding)
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: professional
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 66
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.1pSZVPEJqzCN2fFr'
+- _id: 6w6uaVTTCPwdHnAn
+  name: Perception
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 54
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.6w6uaVTTCPwdHnAn'
+- _id: qZuJJEvQdgWCh1Ba
+  name: Unarmed
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 57
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.qZuJJEvQdgWCh1Ba'
+- _id: 7mQiOj5qOpx4kysR
+  name: Willpower
+  type: skill
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: standard
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 42
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.7mQiOj5qOpx4kysR'
+- _id: We9DyF5QHXw3HNfV
+  name: Axe
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 2d8+2+1d6
+    size: E
+    reach: M
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 0
+    hp: 0
+    currentHP: 0
+    enc: 0
+    traits: []
+    description: ''
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.We9DyF5QHXw3HNfV'
+- _id: OwOc8QyU7AaqFGJJ
+  name: Spear
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 1d8+1+1d6
+    size: H
+    reach: L
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 4
+    hp: 5
+    currentHP: 5
+    enc: 0
+    traits: []
+    description: ''
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.OwOc8QyU7AaqFGJJ'
+- _id: ByVKFvbgz7h6itCm
+  name: Shield
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 1d8+1d6
+    size: E
+    reach: S
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 4
+    hp: 12
+    currentHP: 12
+    enc: 0
+    traits:
+    - shield
+    description: Hoplite Shield — Protects 3 locations for Passive Blocking/Warding
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.ByVKFvbgz7h6itCm'
+- _id: DDBRtsYh0OPk9pkj
+  name: Gore
+  type: weapon
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: melee
+    damage: 1d8+1d6
+    size: L
+    reach: S
+    force: M
+    rangeClose: 0
+    rangeEffective: 0
+    rangeLong: 0
+    rangeExtreme: 0
+    load: 0
+    ammo: 0
+    ammoMax: 0
+    firingMode: single
+    burstSize: 0
+    cyclicRate: 0
+    impaleSize: M
+    damageModApplies: true
+    ap: 0
+    hp: 0
+    currentHP: 0
+    enc: 0
+    traits: []
+    description: ''
+    equipped: true
+    price:
+      amount: 0
+      denominationAbbr: ''
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.DDBRtsYh0OPk9pkj'
+- _id: I7ozlNAbMmKyRmUY
+  name: Minotaur Warrior
+  type: combat-style
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    baseFormula: ''
+    baseValue: 0
+    bonusPoints: 0
+    total: 67
+    weapons:
+    - id: We9DyF5QHXw3HNfV
+      name: Axe
+    - id: OwOc8QyU7AaqFGJJ
+      name: Spear
+    - id: ByVKFvbgz7h6itCm
+      name: Shield
+    - id: DDBRtsYh0OPk9pkj
+      name: Gore
+    traits: []
+    description: ''
+    fumbledLastSession: false
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.I7ozlNAbMmKyRmUY'
+- _id: oORaDioQaRY9Aiex
+  name: Intimidate
+  type: trait
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    category: creature
+    key: intimidate
+    description: ''
+    engineEffect: false
+    value: 1
+    graph: null
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.oORaDioQaRY9Aiex'
+- _id: Tgt2iVUi9iGaOBSM
+  name: Right Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Right Leg
+    hp: 7
+    current: 7
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 1
+    rangeMax: 3
+    sort: 0
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.Tgt2iVUi9iGaOBSM'
+- _id: jzQ1fgUKx7tirfIL
+  name: Left Leg
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Left Leg
+    hp: 7
+    current: 7
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 4
+    rangeMax: 6
+    sort: 1
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.jzQ1fgUKx7tirfIL'
+- _id: LWQ0OsGFUsd37EgE
+  name: Abdomen
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Abdomen
+    hp: 8
+    current: 8
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 7
+    rangeMax: 9
+    sort: 2
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.LWQ0OsGFUsd37EgE'
+- _id: KG895i1JwQV7Vbeq
+  name: Chest
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Chest
+    hp: 9
+    current: 9
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 10
+    rangeMax: 12
+    sort: 3
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.KG895i1JwQV7Vbeq'
+- _id: cdWFMFzRfHMrtFmY
+  name: Right Arm
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Right Arm
+    hp: 6
+    current: 6
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 13
+    rangeMax: 15
+    sort: 4
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.cdWFMFzRfHMrtFmY'
+- _id: HyNZQeRT0dfACLtT
+  name: Left Arm
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Left Arm
+    hp: 6
+    current: 6
+    ap: 0
+    wound: none
+    group: ''
+    rangeMin: 16
+    rangeMax: 18
+    sort: 5
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.HyNZQeRT0dfACLtT'
+- _id: ThRRk7GWSkhWq2Vb
+  name: Head
+  type: hit-location
+  img: icons/svg/item-bag.svg
+  effects: []
+  folder: null
+  flags: {}
+  sort: 0
+  ownership:
+    default: 0
+  _stats:
+    coreVersion: '14.363'
+    systemId: null
+    systemVersion: null
+    createdTime: null
+    modifiedTime: null
+    lastModifiedBy: null
+    compendiumSource: null
+    duplicateSource: null
+    exportSource: null
+  system:
+    label: Head
+    hp: 7
+    current: 7
+    ap: 3
+    wound: none
+    group: ''
+    rangeMin: 19
+    rangeMax: 20
+    sort: 6
+  _key: '!actors.items!YqdSJeCwEJwpgJSo.ThRRk7GWSkhWq2Vb'
+_key: '!actors!YqdSJeCwEJwpgJSo'
