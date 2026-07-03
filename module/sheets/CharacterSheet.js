@@ -4,26 +4,10 @@
  * Foundry v14 ActorSheetV2 for the Character actor type.
  */
 
+import { locationNameToKey } from '../utils/hit-location.js';
+
 const { ActorSheetV2 }             = foundry.applications.sheets;
 const { HandlebarsApplicationMixin } = foundry.applications.api;
-
-/**
- * Convert a hit location label to the camelCase key used by ArmourData.locations
- * and wardedLocations. Handles the standard 7 humanoid labels; unknown labels
- * fall back to a simple camelCase conversion.
- */
-function _locationNameToKey(label) {
-  const map = {
-    'head':      'head',
-    'chest':     'chest',
-    'abdomen':   'abdomen',
-    'right arm': 'rightArm',
-    'left arm':  'leftArm',
-    'right leg': 'rightLeg',
-    'left leg':  'leftLeg',
-  };
-  return map[label?.toLowerCase()] ?? label?.replace(/\s+(.)/g, (_, c) => c.toUpperCase()).replace(/^\w/, c => c.toLowerCase()) ?? label;
-}
 
 export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
@@ -284,7 +268,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Match by location id (canonical key) against armour item's locations map.
       // The location item's name is used as the key — we normalise to camelCase
       // to match the ArmourData schema keys (head, chest, abdomen, rightArm, etc.)
-      const locKey = _locationNameToKey(s.label);
+      const locKey = locationNameToKey(s.label);
       let highestWornAP = 0;
       for (const piece of equipped) {
         if (piece.system.locations?.[locKey]) {
@@ -301,7 +285,17 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const effectiveWornAP    = Math.max(0, highestWornAP - wornReduction);
       const effectiveNaturalAP = Math.max(0, naturalAP - naturalReduction);
 
-      const totalAP    = effectiveNaturalAP + effectiveWornAP;
+      // Module armour bonus hooks (e.g. Destined Inherent Armour, Power Armour).
+      // Mirror CombatEngine._getArmourAt so the sheet AP column matches what
+      // actually absorbs damage in combat. Read-time, non-sunderable, never
+      // stored — recomputed each render from the actor's live powers.
+      const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
+        .reduce((sum, fn) => {
+          try { return sum + (Number(fn(this.actor, locKey)) || 0); }
+          catch (err) { console.error('Mythras | armourBonusHook error (sheet):', err); return sum; }
+        }, 0);
+
+      const totalAP    = effectiveNaturalAP + effectiveWornAP + armourBonus;
       const woundClass = this._woundClass(s.current, s.hp);
       const woundLevel = woundClass === 'mi-wound-major'   ? 'major'
                        : woundClass === 'mi-wound-serious' ? 'serious'
@@ -321,6 +315,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         ap:          totalAP,
         naturalAP,
         wornAP:      highestWornAP,
+        armourBonus,
         wound:       s.wound,
         group:       s.group,
         sort:        s.sort,

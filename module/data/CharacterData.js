@@ -59,6 +59,14 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
           value: new fields.NumberField({ initial: 10, integer: true, min: 0 }),
           max:   new fields.NumberField({ initial: 10, integer: true, min: 0 })
         }),
+        // Power Points — a separate resource pool from Magic Points, used by
+        // downstream modules (e.g. Destined superpowers) for activating powers.
+        // Kept distinct so the system's own Magic Points mechanics are never
+        // overloaded. Defaults to 0; modules populate value/max as needed.
+        powerPoints: new fields.SchemaField({
+          value: new fields.NumberField({ initial: 0, integer: true, min: 0 }),
+          max:   new fields.NumberField({ initial: 0, integer: true, min: 0 })
+        }),
         movementRate: new fields.NumberField({ initial: 6, integer: true }),
         // Derived from movementRate — computed in prepareDerivedData, not stored
         walk:   new fields.NumberField({ initial: 6, integer: true }),
@@ -158,6 +166,17 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
    */
   prepareDerivedData() {
     const c = this.characteristics;
+
+    // ── Characteristic bonus hooks (modules) ───────────────────────────────
+    // Fire BEFORE any characteristic local is read so deltas cascade into every
+    // derived value below. Each hook mutates `c` in place (e.g. Destined
+    // Enhanced STR / Growth). Defensive: a throwing hook must not break
+    // derivation for the whole actor.
+    for (const fn of (CONFIG.MYTHRAS?.characteristicBonusHooks ?? [])) {
+      try { fn(c, this.parent); }
+      catch (err) { console.error('Mythras | characteristicBonusHook error:', err); }
+    }
+
     const str = c.str.value;
     const con = c.con.value;
     const siz = c.siz.value;
@@ -203,8 +222,18 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
 
     // Walk / Run / Sprint derived from base movement rate (p.30)
     // Fatigue: normal → full rates; halved → all halved; immobile → all 0
+    // Module movementHooks (e.g. Destined Enhanced Speed / Enhanced Body /
+    // Multi-Limbs) add a signed integer to the base BEFORE the trio derives, so
+    // walk/run/sprint all inherit the bonus. The stored movementRate is not
+    // mutated; this is a read-time adjustment for this cycle only. Floored at 0.
     const moveMode = fatigueLevel?.moveMode ?? 'normal';
-    const baseMove = attr.movementRate ?? 6;
+    let baseMove = attr.movementRate ?? 6;
+    const moveBonus = (CONFIG.MYTHRAS?.movementHooks ?? [])
+      .reduce((sum, fn) => {
+        try { return sum + (Number(fn(this.parent)) || 0); }
+        catch { return sum; }
+      }, 0);
+    baseMove = Math.max(0, baseMove + moveBonus);
     if (moveMode === 'immobile') {
       attr.walk   = 0;
       attr.run    = 0;
@@ -221,6 +250,12 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
 
     // Initiative Bonus: (DEX + INT) / 2, round down
     attr.initiativeBonus = Math.floor((dex + int) / 2);
+    // Module initiativeOffsetHooks (e.g. Destined Enhanced Reactions +, Bulky −,
+    // Growth −) add a signed integer. Read-time, idempotent.
+    for (const fn of (CONFIG.MYTHRAS?.initiativeOffsetHooks ?? [])) {
+      try { attr.initiativeBonus += Number(fn(this.parent)) || 0; }
+      catch (err) { console.error('Mythras | initiativeOffsetHook error:', err); }
+    }
 
     // Magic Points: equal to POW
     attr.magicPoints.max = pow;
@@ -228,14 +263,30 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
       attr.magicPoints.value = attr.magicPoints.max;
     }
 
-    // Damage Modifier from STR+SIZ table, then apply dmOffset step
-    attr.damageModifier = this._calcDamageModifierWithOffset(str + siz, attr.dmOffset ?? 0);
+    // Damage Modifier from STR+SIZ table, then apply dmOffset step.
+    // Module damageModOffsetHooks (e.g. Destined Enhanced Strength) add a
+    // signed step shift on top of the manual offset. Read-time, idempotent:
+    // the hook derives from the actor's powers each cycle. STR itself is
+    // untouched so lift/encumbrance/skills stay on the true score.
+    let dmOffset = attr.dmOffset ?? 0;
+    for (const fn of (CONFIG.MYTHRAS?.damageModOffsetHooks ?? [])) {
+      try { dmOffset += fn(this.parent) ?? 0; }
+      catch (err) { console.error('Mythras | damageModOffsetHook error:', err); }
+    }
+    attr.damageModifier = this._calcDamageModifierWithOffset(str + siz, dmOffset);
 
     // Experience Modifier from CHA table
     attr.experienceModifier = this._calcExperienceModifier(cha);
 
     // Healing Rate from CON table
     attr.healingRate = this._calcHealingRate(con);
+    // Module healingRateHooks (e.g. Destined Durability) add a signed integer
+    // BEFORE the Hero Level ×2 below, so the power delta stacks additively and
+    // is then doubled if the healingRate advantage is present. Read-time.
+    for (const fn of (CONFIG.MYTHRAS?.healingRateHooks ?? [])) {
+      try { attr.healingRate += Number(fn(this.parent)) || 0; }
+      catch (err) { console.error('Mythras | healingRateHook error:', err); }
+    }
 
     // Luck Points from POW table
     attr.luckPoints.max = this._calcLuckPoints(pow);
@@ -247,6 +298,17 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
     if (adv.includes('luckyPoint2'))   attr.luckPoints.max     += 2;
     if (adv.includes('healingRate'))   attr.healingRate         = attr.healingRate * 2;
     // hitPoints bonus applied inside _calcHitLocationHP; grade-easier handled at roll time
+
+    // Module luckPointsHooks (e.g. Destined Lucky ×2 / Mega Lucky ×4) add a
+    // signed integer to the max AFTER the Hero Level luckyPoint adjustments.
+    // Read-time, idempotent.
+    for (const fn of (CONFIG.MYTHRAS?.luckPointsHooks ?? [])) {
+      try { attr.luckPoints.max += Number(fn(this.parent)) || 0; }
+      catch (err) { console.error('Mythras | luckPointsHook error:', err); }
+    }
+    if (attr.luckPoints.value > attr.luckPoints.max) {
+      attr.luckPoints.value = attr.luckPoints.max;
+    }
 
     // Max Encumbrance from STR+SIZ (simplified: STR score)
     this.encumbrance.max = str;
@@ -347,6 +409,10 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
     const hpBonus = adv.includes('hitPoints2') ? 2 : adv.includes('hitPoints') ? 1 : 0;
     if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
 
+    // hitPointBonusHooks are NOT consumed here. hit-location items are the
+    // sole HP-max authority — mythras.mjs syncHitLocationHP() is the one
+    // writer, and it applies the hook sum at write time. This derived object
+    // is read by nothing for HP-max purposes.
     const locs = this.hitLocations;
     locs.head.hp    = head;
     locs.chest.hp   = chest;

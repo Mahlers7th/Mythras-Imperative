@@ -6,6 +6,63 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+---
+
+## v1.4.251 — July 2026
+- **Hardening: `syncHitLocationHP` now consolidates on a single canonical location-key mapper, closing a drift risk between it and `CharacterSheet`'s AP display.** Both call sites independently derived a hit-location item's camelCase key from its label; `CharacterSheet.js` had a more robust explicit lookup (`_locationNameToKey`), while `syncHitLocationHP` used a separate regex-only derivation. On inspection the two derivations were functionally equivalent for the 7 standard humanoid labels — the reported symptom (hook sum always 0) could not be reproduced against this derivation on static review — but two independent implementations of the same contract is exactly the kind of thing that silently drifts, so this collapses them into one regardless.
+- **New `module/utils/hit-location.js`** exports `locationNameToKey(label)` — the single canonical implementation (explicit lookup for the 7 standard humanoid labels, regex camelCase fallback for anything else, e.g. vehicle system components). `CharacterSheet.js` now imports it instead of keeping a local copy; `syncHitLocationHP` in `mythras.mjs` now imports and uses it instead of its own inline regex.
+- **New regression test**: `tests/extension-hooks.test.js` now imports the real `locationNameToKey` (it's Foundry-free, unlike `mythras.mjs`) and drives a stub hit-location item — `{ system: { label: 'Right Arm', hp: 3 } }` — through a mirror of `syncHitLocationHP`'s item-processing loop with a `hitPointBonusHooks` stub keyed on `'rightArm'`, asserting the bonus lands on the computed `system.hp`. The existing 8 `syncHitLocationHP` tests fed the camelCase key directly and so could not have caught a derivation-layer regression; this one exercises the derivation itself.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+---
+
+## v1.4.250 — July 2026
+- **HP-max lock: hit-location items are now the sole authority for `system.hp` (max), and `hitPointBonusHooks` is folded into the single writer.** Previously `hitPointBonusHooks` was consumed twice — once (correctly) in the write-time HP sync inline in the `updateActor` hook (which never actually read the hook), and once in the read-time derived `CharacterData#_calcHitLocationHP`, which fed a derived object nothing reads for HP-max. That second consumption is deleted; `hitPointBonusHooks` is now consumed in exactly one place.
+- **New `syncHitLocationHP(actor)`**, extracted from the inline `updateActor` block in `mythras.mjs`. Computes the CON+SIZ table → Hero Level HP bonus → per-location `hitPointBonusHooks` sum, then persists to each hit-location item's `system.hp`. Idempotent — only writes locations whose computed max differs from the stored value.
+- **`hitPointBonusHooks` location-key vocabulary expanded** from the old 5-key set (`head`/`chest`/`abdomen`/`arm`/`leg`, shared across sides) to the full 7-key canonical camelCase vocabulary already used by `armourBonusHooks`: `head`, `chest`, `abdomen`, `rightArm`, `leftArm`, `rightLeg`, `leftLeg`. A hook can now grant HP to one side only, even though the base CON+SIZ table still computes one value per limb pair.
+- **`updateActor` trigger guard expanded**: the sync now also fires on any `flags.destined-module` change, not just CON/SIZ/heroAdvantages — so a module writing hook-driving state to its own flag namespace (e.g. toggling Enhanced Body) triggers a resync even when no system field moved.
+- **`game.system.api = Object.freeze({ syncHitLocationHP })`** attached in the `ready` hook — the first entry in a frozen `game.system.api` surface, letting a module force a resync directly (e.g. after a batched flag write the guard didn't see as one event).
+- **New docs**: `frozen-api-updated.md` and `extension-point-api-updated.md`, referenced by `system-CLAUDE.md` but not previously present in the repo — created here with the entries verified as part of this change (`game.system.api.syncHitLocationHP`, the full extension-point hook table, `hitPointBonusHooks` reclassified write-time).
+- Added `syncHitLocationHP` unit coverage to `tests/extension-hooks.test.js` (CON+SIZ table, Hero Level bonus stacking, a stub `hitPointBonusHooks` hook folded in, per-side variation via the camelCase key, null/NaN/throw guards, idempotency). Existing `hitPointBonusHooks` tests retargeted to the write-time contract and camelCase keys.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+---
+
+## v1.4.249 — July 2026
+- **Four new extension points completing the Phase 3a hook batch:**
+  - **`initiativeOffsetHooks` (`(actor) => number`)** — signed integer added to `attributes.initiativeBonus` after the base `floor((DEX+INT)/2)` derives. For Destined Enhanced Reactions (+), Bulky (−), Growth (−); one hook owns the net.
+  - **`healingRateHooks` (`(actor) => number`)** — signed integer added to `attributes.healingRate` after the CON-table base but BEFORE the Hero Level ×2, so a power delta stacks additively then doubles. For Destined Durability.
+  - **`luckPointsHooks` (`(actor) => number`)** — signed integer added to `attributes.luckPoints.max` after the POW-table base AND after the Hero Level luckyPoint/luckyPoint2 advantages. For Destined Lucky (×2) / Mega Lucky (×4). A `luckPoints.value > max` clamp was added alongside (mirroring the existing magic/action-point clamps) so a negative hook can't leave current above max.
+  - **`hitPointBonusHooks` (`(actor, locationId) => number`)** — flat integer added PER LOCATION inside `_calcHitLocationHP`, beside the Hero Level HP bonus. The `locationId` ('head'|'chest'|'abdomen'|'arm'|'leg') lets a future per-location power vary by location; current callers apply the same delta everywhere. For Destined Enhanced Body HP (CON+SIZ+½POW), Durability HP (STR+CON+SIZ), and flat Power-Level HP — none of which reduce to a CON bump, so they are added as flat HP rather than faked as a CON delta that would wrongly cascade into healing rate, Inherent Armour AP, and CON-keyed skills.
+- All four are read-time and idempotent: derived from the actor's powers each cycle, nothing stored or reverted, each consumption loop guards against null/NaN/throwing hooks.
+- Added 22 `extension-hooks` tests (application loops, ordering constraints — healing-before-×2 and luck-after-heroAdvantage, per-location HP variation, guards, idempotency). Suite now 259, all passing.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+---
+
+- **New extension point: `movementHooks` (`(actor) => number`).** Modules return a signed integer added to the actor's stored `attributes.movementRate` base. Consumed in `CharacterData#prepareDerivedData` immediately before Walk/Run/Sprint are derived, so the whole trio inherits the bonus (walk = base, run = base×3, sprint = base×5). The adjusted base is floored at 0. The stored `movementRate` is never mutated — this is a read-time adjustment for the current derivation cycle only: idempotent, derived from the actor's powers each cycle, nothing stored or reverted. Hooks read the stored `movementRate` as their own base (resolved before this point), never the derived `walk`, so there is no self-reference loop. Built for Destined Enhanced Speed / Enhanced Body / Multi-Limbs, whose movement contributions were previously computed against dead v13 fields.
+- Multiple hooks are summed; a single module hook owning net resolution across several movement powers is the expected pattern. Fatigue is applied after the hook sum (halved mode halves the post-hook trio; immobile zeroes it).
+- Added 10 `extension-hooks` tests covering the application loop (summing, flat vs multiplicative contributions inheriting into the trio, negative-net with the ≥0 floor, null/NaN/throw guards, idempotency, and the halved/immobile fatigue interactions). Suite now 237, all passing.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+---
+
+- **New extension point: `damageModOffsetHooks` (`(actor) => number`).** Modules return a signed number of steps to shift along the 15-step Damage Modifier table. Consumed in `CharacterData#prepareDerivedData` where the DM is derived: the manual `attributes.dmOffset` and every hook's return are summed, then clamped to the table bounds. The actor's STR characteristic is never modified, so lift, encumbrance, and STR-based skills stay on the true score — only the resulting Damage Modifier shifts. Read-time and idempotent: hooks derive from the actor's powers each cycle, nothing is stored or reverted. Built for Destined Enhanced Strength / Enhanced Body, whose damage bonus derives from STR+CON+SIZ / STR+SIZ+½CON rather than the normal STR+SIZ.
+- Manual GM offset and power offsets compose additively; a single hook owning `Math.max` between mutually-exclusive powers (Enhanced Strength vs Enhanced Body do not stack) is the expected pattern.
+- Added 4 `char-math` tests pinning the Enhanced Strength step-delta math and its composition with a manual offset, and 8 `extension-hooks` tests covering the application loop (summing, negative offsets, null/throw guards, idempotency, max-resolution). Suite now 227, all passing.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+## v1.4.246 — June 2026
+- **Fix: module armour bonuses (Destined Inherent Armour / Power Armour) now show in the character sheet hit-location AP column.** v1.4.245 wired `armourBonusHooks` into combat (`_getArmourAt`) but the sheet's `_buildHitLocations` summed only natural + worn AP, so Inherent Armour reduced damage in combat yet appeared as 0 AP on the sheet (and created no item, unlike the old approach). `_buildHitLocations` now adds the same `armourBonusHooks` sum per location, so the displayed AP matches what absorbs damage. Recomputed each render from the actor's live powers — nothing stored, updates immediately when a power is added/removed or CON/SIZ changes. Each location object also exposes `armourBonus` for optional template breakout.
+- No combat-math or compendium changes; 215 tests still passing.
+
+
+- **Fix: `armourBonusHooks` now applies on every damage path.** v1.4.244 added the hook but only read it inside `_applySunder`, so a registered module armour bonus (Destined Inherent Armour) only reduced damage during a Sunder special effect, not in normal combat. Folded the hook into `CombatEngine._getArmourAt` — the single armour chokepoint that full-auto, unarmed, and (now) semi-auto all route through.
+- **Refactor: semi-auto armour math consolidated.** The inline natural+worn+sunder computation in `mythras.mjs` `_onSemiAutoRollDamage` is replaced by a call to `_getArmourAt`, removing a duplicated copy that had to be kept in sync. The Bodkin/Armour-Piercing AP reduction still layers on top of the result unchanged.
+- **Fix: hook bonus is non-sunderable.** In `_applySunder` the hook bonus is now a separate Step-3 absorbing layer applied after the sunderable worn/natural AP, and is never recorded in the `sunderedAP` flag. Regenerating armour (recomputed each derivation cycle) cannot be permanently sundered; the previous code folded it into `effectiveNaturalAP` where a Sunder would have written a reduction that then eroded real natural AP on the next cycle.
+- Added 7 integration tests to `tests/extension-hooks.test.js` covering `_getArmourAt` layering and the non-sunderable behaviour. Suite now 215, all passing.
+- No compendium content changed; no `packs/` rebuild required.
+
 ## v1.4.234 — June 2026
 - **Fix: broadhead bleed in semi-auto — root cause found**. The broadhead block in `_onSemiAutoRollDamage` was firing Bleed at *Roll Damage* time via a hand-built `broadCtx` and a direct `resolveBleed` call. But when `finalDamage > 0`, every other opposed SE (including a normally-chosen Bleed) fires later — at *Apply Damage* time — through the `.mi-btn-apply-dmg` handler calling `_resolveOpposedSEs`. The broadhead path was the only opposed effect not using that shared, proven dispatch, which is why it silently produced no dialog and no result card while normal Bleed worked
 - **Fix approach (as suggested): reuse the existing Bleed SE end-to-end**. Broadhead now stamps a `broadhead: true` flag on the outcome card at Roll Damage time. The Apply Damage handler reads that flag and, when damage penetrates, injects `'bleed'` into the chosen-SE list it already dispatches through `_resolveOpposedSEs`. Broadhead is now mechanically identical to manually choosing Bleed: same Endurance resistance dialog, same result card, same single code path

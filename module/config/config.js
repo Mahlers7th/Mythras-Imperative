@@ -104,6 +104,154 @@ export const MYTHRAS = {
   apBonusHooks: [],
 
   // -----------------------------------------------------------------------
+  // CHARACTERISTIC BONUS HOOKS
+  //   characteristicBonusHook : (chars, actor) => void
+  //   Called at the VERY TOP of CharacterData#prepareDerivedData, BEFORE the
+  //   str/con/siz/... locals are read, so any delta a hook writes into `chars`
+  //   cascades correctly into every derived value (Damage Modifier, hit-
+  //   location HP, Magic Points, movement, etc.). Each hook mutates the
+  //   `chars` object in place (e.g. `chars.str.value += 10`). `chars` is the
+  //   live `this.characteristics` object; `actor` is the parent document.
+  //   This replaces the old `.mod`-delta model: deltas live in module flags,
+  //   the hook reads the flag and adds, and derivation recomputes every cycle
+  //   so there is nothing to revert. Used by Destined for Enhanced STR,
+  //   Growth/Shrink (SIZ), Morph, etc. Hooks must be idempotent and must not
+  //   assume any particular ordering relative to other hooks.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each mutates the characteristics object in place */
+  characteristicBonusHooks: [],
+
+  // -----------------------------------------------------------------------
+  // ARMOUR BONUS HOOKS
+  //   armourBonusHook : (actor, locationId) => number
+  //   Called when the CombatEngine resolves the effective AP at a hit
+  //   location, AFTER natural (hit-location item) AP and worn-armour AP are
+  //   summed. Return a non-negative integer of additional AP to add at that
+  //   location (e.g. Destined Inherent Armour, Power Armour). `locationId` is
+  //   the location key ('head', 'chest', 'rightArm', ...). Multiple hooks
+  //   stack. This is a LATE, read-time hook — it never mutates stored AP, so
+  //   the location's persistent `system.ap` is untouched and the bonus is
+  //   recomputed each time damage is resolved.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns bonus AP for the given actor + location */
+  armourBonusHooks: [],
+
+  // -----------------------------------------------------------------------
+  // DAMAGE MODIFIER OFFSET HOOKS
+  //   damageModOffsetHook : (actor) => number
+  //   Called during prepareDerivedData when the Damage Modifier is resolved,
+  //   AFTER the base STR+SIZ table index is determined. Return a signed
+  //   integer number of STEPS to shift along the 15-step DM table (negative
+  //   shifts weaker, positive stronger). The result is ADDED to the actor's
+  //   manual `attributes.dmOffset`, so a GM-set offset and power offsets
+  //   compose. The final index is clamped to the table bounds.
+  //   The actor's STR characteristic is NOT changed — only the resulting
+  //   Damage Modifier — so lift, encumbrance, skills, etc. stay on the true
+  //   score. Used by Destined for Enhanced Strength / Enhanced Body, whose
+  //   damage bonus derives from STR+CON+SIZ / STR+SIZ+½CON rather than the
+  //   normal STR+SIZ. This is a read-time hook: it derives from the actor's
+  //   powers each cycle, so it is idempotent and there is nothing to revert.
+  //   Multiple hooks are summed; a single hook that owns max-resolution
+  //   between mutually-exclusive powers is the expected pattern.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed DM-table step offset for the actor */
+  damageModOffsetHooks: [],
+
+  // -----------------------------------------------------------------------
+  // MOVEMENT HOOKS
+  //   movementHook : (actor) => number
+  //   Called during prepareDerivedData BEFORE walk/run/sprint are derived from
+  //   the base movement rate. Return a signed integer added to the actor's
+  //   stored `attributes.movementRate` base; because walk/run/sprint all derive
+  //   from that adjusted base, the whole derived trio inherits the bonus (walk =
+  //   base, run = base×3, sprint = base×5). The stored movementRate field is NOT
+  //   mutated — only the derived base used for this cycle — so this is a
+  //   read-time hook: idempotent, derived from the actor's powers each cycle,
+  //   nothing to revert. Hooks read the STORED movementRate as their own base
+  //   (safe — it is resolved before this point), never the derived walk, so
+  //   there is no self-reference. Multiple hooks are summed; a single module
+  //   hook that owns net resolution across several movement powers is the
+  //   expected pattern. Used by Destined for Enhanced Speed / Enhanced Body /
+  //   Multi-Limbs. The adjusted base is floored at 0.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed integer added to the actor's base movementRate */
+  movementHooks: [],
+
+  // -----------------------------------------------------------------------
+  // INITIATIVE OFFSET HOOKS
+  //   initiativeOffsetHook : (actor) => number
+  //   Called during prepareDerivedData after the base Initiative Bonus
+  //   (floor((DEX+INT)/2)) is derived. Return a signed integer added to
+  //   `attributes.initiativeBonus`. Read-time and idempotent: derived from the
+  //   actor's powers each cycle, nothing stored or reverted. Multiple hooks are
+  //   summed; a single module hook that owns the net (positive and negative
+  //   contributions from several powers) is the expected pattern. Used by
+  //   Destined for Enhanced Reactions (+), Bulky armour limit (−), Growth (−).
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed integer added to attributes.initiativeBonus */
+  initiativeOffsetHooks: [],
+
+  // -----------------------------------------------------------------------
+  // HEALING RATE HOOKS
+  //   healingRateHook : (actor) => number
+  //   Called during prepareDerivedData after the base Healing Rate is derived
+  //   from the CON table, but BEFORE the Hero Level ×2 (healingRate advantage),
+  //   so a power delta stacks additively and is then doubled if the advantage is
+  //   present. Return a signed integer added to `attributes.healingRate`.
+  //   Read-time and idempotent. Used by Destined for Durability (healing rate
+  //   from CON+½SIZ rather than CON).
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed integer added to attributes.healingRate (pre-heroAdvantage ×2) */
+  healingRateHooks: [],
+
+  // -----------------------------------------------------------------------
+  // LUCK POINTS HOOKS
+  //   luckPointsHook : (actor) => number
+  //   Called during prepareDerivedData after the base Luck Points max is derived
+  //   from the POW table AND after the Hero Level luckyPoint/luckyPoint2
+  //   advantages are applied. Return a signed integer added to
+  //   `attributes.luckPoints.max`. Read-time and idempotent. Used by Destined
+  //   for Lucky (×2) / Mega Lucky (×4).
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed integer added to attributes.luckPoints.max */
+  luckPointsHooks: [],
+
+  // -----------------------------------------------------------------------
+  // HIT POINT BONUS HOOKS  —  WRITE-TIME (the one exception to the read-time
+  // pattern used by every other hook array on this object)
+  //   hitPointBonusHook : (actor, locationId) => number
+  //   Called for EACH hit location by mythras.mjs syncHitLocationHP(actor) —
+  //   the sole writer of hit-location item `system.hp` (max) — beside the
+  //   Hero Level HP bonus. Return a flat integer added to that location's HP.
+  //   locationId is the canonical camelCase location key: 'head' | 'chest' |
+  //   'abdomen' | 'rightArm' | 'leftArm' | 'rightLeg' | 'leftLeg' (the same
+  //   vocabulary armourBonusHooks uses), letting a per-location HP power vary
+  //   by side even though the base table computes one value per limb pair.
+  //   syncHitLocationHP persists its result directly to each hit-location
+  //   item — hit-location items are the sole HP-max authority. It runs from
+  //   the updateActor hook (fires on CON/SIZ/heroAdvantages changes and any
+  //   flags.destined-module change) and is also exposed frozen on
+  //   game.system.api.syncHitLocationHP for modules to call directly. Do NOT
+  //   reintroduce a read-time consumption of this hook in derived data (e.g.
+  //   CharacterData#_calcHitLocationHP) — that caused the derived/persisted
+  //   drift this write-time model replaced. Used by Destined for Enhanced
+  //   Body HP (CON+SIZ+½POW), Durability HP (STR+CON+SIZ), and flat
+  //   Power-Level HP — none of which reduce to a CON characteristic bump, so
+  //   they must not be faked as a CON delta (that would wrongly cascade into
+  //   healing rate, Inherent Armour AP, and CON-keyed skills).
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a flat integer added to the given location's HP */
+  hitPointBonusHooks: [],
+
+  // -----------------------------------------------------------------------
   // COMBAT ACTIONS
   // Modules register additional Combat Actions that appear in the combat
   // action menu. Each entry: { id, label, icon, handler }

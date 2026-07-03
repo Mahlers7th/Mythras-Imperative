@@ -1,0 +1,34 @@
+{
+  "id": "spike-a2-typetest",
+  "title": "Phase 0 Spike A2 — Custom Type Test",
+  "description": "Throwaway module that declares a custom Actor type and a custom Item type via the manifest documentTypes field, to prove the durable v14 registration path before building the Destined port. Delete after testing.",
+  "version": "0.0.1",
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14"
+  },
+  "authors": [{ "name": "Phase 0 Spike" }],
+  "relationships": {
+    "systems": [{ "id": "mythras-imperative", "type": "system" }]
+  },
+
+  "//": "------------------------------------------------------------------",
+  "//1": "THE ACTUAL TEST. In Foundry v14 a module declares document sub-types",
+  "//2": "here. Foundry reads this at load and merges them into the valid type",
+  "//3": "list BEFORE document validation classes are built — which is exactly",
+  "//4": "the timing the old main.bundle.js patch was faking. If a 'spikeActor'",
+  "//5": "type becomes creatable in the New Actor dialog with THIS module active",
+  "//6": "and NO change to the system's template.json, the manifest route is",
+  "//7": "confirmed and Phase 5 (custom Destined actor types) is viable.",
+  "//8": "------------------------------------------------------------------",
+  "documentTypes": {
+    "Actor": {
+      "spikeActor": {}
+    },
+    "Item": {
+      "spikeItem": {}
+    }
+  },
+
+  "esmodules": ["spike-a2.mjs"]
+}

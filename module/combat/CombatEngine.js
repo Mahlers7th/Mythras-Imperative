@@ -2234,7 +2234,17 @@ export class CombatEngine {
     const wornReduction    = Math.min(sunderAtLoc, wornAP);
     const naturalReduction = Math.min(Math.max(0, sunderAtLoc - wornReduction), naturalAP);
 
-    return Math.max(0, naturalAP - naturalReduction) + Math.max(0, wornAP - wornReduction);
+    // Module armour bonus hooks (e.g. Destined Inherent Armour, Power Armour).
+    // Read-time only — never mutates stored AP, recomputed each resolution.
+    // Added as an extra armour layer at this location, AFTER sunder reductions,
+    // so it is not consumed by prior sunder (it regenerates each cycle).
+    const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
+      .reduce((sum, fn) => {
+        try { return sum + (Number(fn(defender, locKey)) || 0); }
+        catch (err) { console.error('Mythras | armourBonusHook error:', err); return sum; }
+      }, 0);
+
+    return Math.max(0, naturalAP - naturalReduction) + Math.max(0, wornAP - wornReduction) + armourBonus;
   }
 
   // -------------------------------------------------------------------------
@@ -3183,8 +3193,20 @@ export class CombatEngine {
     const priorWornRed  = Math.min(existingSunderAtLoc, wornApBase);
     const priorNatRed   = Math.min(Math.max(0, existingSunderAtLoc - priorWornRed), naturalApBase);
     const effectiveWornAP    = Math.max(0, wornApBase    - priorWornRed);
+
+    // Module armour bonus hooks (e.g. Destined Inherent Armour, Power Armour).
+    // Read-time only — never mutates stored AP, recomputed each resolution.
+    // It is a SEPARATE absorbing layer (applied after sunderable natural AP)
+    // and is NEVER recorded in sunderedAP — regenerating armour cannot be
+    // permanently sundered, so it must not feed the flag write below.
+    const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
+      .reduce((sum, fn) => {
+        try { return sum + (Number(fn(defender, locKey)) || 0); }
+        catch (err) { console.error('Mythras | armourBonusHook error:', err); return sum; }
+      }, 0);
+
     const effectiveNaturalAP = Math.max(0, naturalApBase - priorNatRed);
-    const totalApBefore      = effectiveWornAP + effectiveNaturalAP;
+    const totalApBefore      = effectiveWornAP + effectiveNaturalAP + armourBonus;
 
     const damage    = damageAfterParry;
     const affectedNames = [];
@@ -3235,9 +3257,17 @@ export class CombatEngine {
         );
       }
     } else if (effectiveNaturalAP === 0) {
-      // No natural AP — carryOver passes straight to HP
+      // No natural AP — carryOver passes straight to the bonus layer / HP
     } else {
       carryOver = 0;
+    }
+
+    // ── Step 3: Apply remaining carry-over against the module bonus layer ──
+    // The hook bonus (Inherent / Power Armour) absorbs whatever survives the
+    // sunderable layers. It is regenerating, so it is NOT reduced or recorded
+    // in sunderedAP — it simply soaks damage each resolution.
+    if (carryOver > 0 && armourBonus > 0) {
+      carryOver = Math.max(0, carryOver - armourBonus);
     }
 
     // ── Write sunderedAP flag ─────────────────────────────────────────────
@@ -3256,7 +3286,7 @@ export class CombatEngine {
       wornApAfter,
       naturalApAfter,
       totalApBefore,
-      totalApAfter:    wornApAfter + naturalApAfter,
+      totalApAfter:    wornApAfter + naturalApAfter + armourBonus,
       apReduced:       totalReduction,
       carryOver,
       affectedNames

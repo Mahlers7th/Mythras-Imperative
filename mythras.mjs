@@ -31,6 +31,7 @@ import {
   resolveDamageWeapon,
 } from './module/combat/effects/index.js';
 import { CombatSocket }               from './module/combat/CombatSocket.js';
+import { locationNameToKey }          from './module/utils/hit-location.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -259,6 +260,12 @@ Hooks.once('ready', () => {
   // This must run in 'ready' — game.socket is not available before this hook.
   CombatSocket.register();
 
+  // ── Frozen API surface for modules (Destined et al.) ──────────────────────
+  // syncHitLocationHP is the sole writer of hit-location item system.hp (max).
+  // Exposed so a module can force a resync after a batched flag write that
+  // the updateActor guard may not observe as a single change event.
+  game.system.api = Object.freeze({ syncHitLocationHP });
+
   // ── Settings migration ────────────────────────────────────────────────────
   // If an old stored value ('automated', 'gmOnly') is present from a previous
   // version, reset it to 'manual' so the settings UI renders correctly.
@@ -474,7 +481,77 @@ function _scheduleRedistribute(actor) {
 }
 
 // ---------------------------------------------------------------------------
-// ACTOR UPDATE — sync hit location item HP when CON or SIZ changes
+// HIT LOCATION HP SYNC — sole writer of hit-location item system.hp (max).
+// CON+SIZ table -> hero-level bonus -> per-location hitPointBonusHooks sum.
+// Hooks receive the canonical camelCase location key (head, chest, abdomen,
+// rightArm, leftArm, rightLeg, leftLeg). Idempotent — only locations whose
+// computed max differs from the stored value are written. Exposed on
+// game.system.api so modules can force a resync after a flag change they
+// know we didn't see (e.g. a batched update).
+// ---------------------------------------------------------------------------
+export function syncHitLocationHP(actor) {
+  const con    = actor.system.characteristics.con.value;
+  const siz    = actor.system.characteristics.siz.value;
+  const conSiz = con + siz;
+
+  let head, chest, abdomen, arm, leg;
+  if      (conSiz <= 5)  { head=1; chest=2;  abdomen=2;  arm=1; leg=1; }
+  else if (conSiz <= 10) { head=2; chest=3;  abdomen=3;  arm=2; leg=2; }
+  else if (conSiz <= 15) { head=3; chest=4;  abdomen=4;  arm=3; leg=3; }
+  else if (conSiz <= 20) { head=4; chest=5;  abdomen=5;  arm=3; leg=4; }
+  else if (conSiz <= 25) { head=5; chest=6;  abdomen=6;  arm=4; leg=5; }
+  else if (conSiz <= 30) { head=6; chest=7;  abdomen=7;  arm=5; leg=6; }
+  else if (conSiz <= 35) { head=7; chest=8;  abdomen=8;  arm=6; leg=7; }
+  else if (conSiz <= 40) { head=8; chest=9;  abdomen=9;  arm=7; leg=8; }
+  else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
+
+  // Hero Level HP bonus
+  const advantages = actor.system.heroAdvantages ?? [];
+  const hpBonus = advantages.includes('hitPoints2') ? 2 : advantages.includes('hitPoints') ? 1 : 0;
+  if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
+
+  const baseByKey = {
+    head, chest, abdomen,
+    rightArm: arm, leftArm: arm,
+    rightLeg: leg, leftLeg: leg
+  };
+
+  // Module hitPointBonusHooks — this IS the HP-max writer, so the hook sum is
+  // applied here (write-time), not in derived data. Each hook receives the
+  // canonical camelCase location key and may vary its return by location.
+  const hpHooks = CONFIG.MYTHRAS?.hitPointBonusHooks ?? [];
+  const hpByKey = {};
+  for (const [key, base] of Object.entries(baseByKey)) {
+    let hp = base;
+    for (const fn of hpHooks) {
+      try { hp += Number(fn(actor, key)) || 0; }
+      catch (err) { console.error('Mythras | hitPointBonusHook error:', err); }
+    }
+    hpByKey[key] = hp;
+  }
+
+  const locationItems = Array.from(actor.items).filter(i => i.type === 'hit-location');
+  if (locationItems.length === 0) return Promise.resolve();
+
+  const updates = [];
+  for (const loc of locationItems) {
+    // Canonical camelCase derivation — shared with CharacterSheet's AP
+    // display so the two can never key the same item differently.
+    const key    = locationNameToKey(loc.system.label ?? loc.name ?? '');
+    const newMax = hpByKey[key] ?? null;
+    if (newMax === null || loc.system.hp === newMax) continue;
+    updates.push({ _id: loc.id, 'system.hp': newMax });
+  }
+
+  if (updates.length === 0) return Promise.resolve();
+  return actor.updateEmbeddedDocuments('Item', updates).then(() => {
+    console.log(`Mythras Imperative | Synced hit location HP for ${actor.name} (CON+SIZ=${conSiz})`);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// ACTOR UPDATE — sync hit location item HP when CON, SIZ, heroAdvantages, or
+// a destined-module flag changes
 // ---------------------------------------------------------------------------
 Hooks.on('updateActor', async (actor, changed, _options, _userId) => {
   if (!game.user.isGM) return;
@@ -535,53 +612,19 @@ Hooks.on('updateActor', async (actor, changed, _options, _userId) => {
     ui.notifications.info(parts.join(' '));
   }
 
-  // ── CON/SIZ change OR heroAdvantages change — sync hit location HP ────────
+  // ── CON/SIZ/heroAdvantages change OR any flags.destined-module change ────
+  // The destined-module namespace is where hitPointBonusHooks-driving powers
+  // (Enhanced Body, Durability, Power-Level HP, etc.) store their state, so a
+  // flag write there must re-run the sync even when CON/SIZ/heroAdvantages
+  // didn't move.
   const changedCon        = foundry.utils.getProperty(changed, 'system.characteristics.con.value');
   const changedSiz        = foundry.utils.getProperty(changed, 'system.characteristics.siz.value');
   const changedAdvantages = foundry.utils.getProperty(changed, 'system.heroAdvantages');
-  if (changedCon === undefined && changedSiz === undefined && changedAdvantages === undefined) return;
+  const changedDestined   = foundry.utils.getProperty(changed, 'flags.destined-module');
+  if (changedCon === undefined && changedSiz === undefined &&
+      changedAdvantages === undefined && changedDestined === undefined) return;
 
-  const con    = actor.system.characteristics.con.value;
-  const siz    = actor.system.characteristics.siz.value;
-  const conSiz = con + siz;
-
-  let head, chest, abdomen, arm, leg;
-  if      (conSiz <= 5)  { head=1; chest=2;  abdomen=2;  arm=1; leg=1; }
-  else if (conSiz <= 10) { head=2; chest=3;  abdomen=3;  arm=2; leg=2; }
-  else if (conSiz <= 15) { head=3; chest=4;  abdomen=4;  arm=3; leg=3; }
-  else if (conSiz <= 20) { head=4; chest=5;  abdomen=5;  arm=3; leg=4; }
-  else if (conSiz <= 25) { head=5; chest=6;  abdomen=6;  arm=4; leg=5; }
-  else if (conSiz <= 30) { head=6; chest=7;  abdomen=7;  arm=5; leg=6; }
-  else if (conSiz <= 35) { head=7; chest=8;  abdomen=8;  arm=6; leg=7; }
-  else if (conSiz <= 40) { head=8; chest=9;  abdomen=9;  arm=7; leg=8; }
-  else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
-
-  // Apply hero level HP bonus
-  const advantages = actor.system.heroAdvantages ?? [];
-  const hpBonus = advantages.includes('hitPoints2') ? 2 : advantages.includes('hitPoints') ? 1 : 0;
-  if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
-
-  const hpByKey = {
-    head, chest, abdomen,
-    rightarm: arm, leftarm: arm,
-    rightleg: leg, leftleg: leg
-  };
-
-  const locationItems = Array.from(actor.items).filter(i => i.type === 'hit-location');
-  if (locationItems.length === 0) return;
-
-  const updates = [];
-  for (const loc of locationItems) {
-    const key    = (loc.system.label ?? loc.name).toLowerCase().replace(/\s+/g, '');
-    const newMax = hpByKey[key] ?? null;
-    if (newMax === null || loc.system.hp === newMax) continue;
-    updates.push({ _id: loc.id, 'system.hp': newMax });
-  }
-
-  if (updates.length > 0) {
-    await actor.updateEmbeddedDocuments('Item', updates);
-    console.log(`Mythras Imperative | Synced hit location HP for ${actor.name} (CON+SIZ=${conSiz})`);
-  }
+  await syncHitLocationHP(actor);
 });
 
 // ---------------------------------------------------------------------------
@@ -1553,30 +1596,9 @@ async function _onSemiAutoRollDamage(ev, message) {
       locationId    = locIdMatch?.[1]  || null;
       locationLabel = locLblMatch?.[1] || 'Unknown';
       if (locationId && !bypassArmour) {
-        // Sum natural AP (hit-location item) + worn armour items covering this location
-        const locItem = defender.items.get(locationId);
-        if (locItem) {
-          armourAP = locItem.system.ap ?? 0;
-          // Derive location key: "Right Leg" -> "rightLeg"
-          const label  = (locItem.system.label ?? locItem.name ?? '');
-          const locKey = label.trim()
-            .replace(/\s+(\w)/g, (_, c) => c.toUpperCase())
-            .replace(/^(\w)/, c => c.toLowerCase());
-          let wornAP = 0;
-          for (const armourItem of defender.items) {
-            if (armourItem.type !== 'armour') continue;
-            if (!armourItem.system.equipped) continue;
-            if (armourItem.system.locations?.[locKey]) {
-              wornAP += armourItem.system.ap ?? 0;
-            }
-          }
-          // Subtract any AP permanently sundered at this specific location
-          const sunderedAP  = defender.getFlag('mythras-imperative', 'sunderedAP') ?? {};
-          const sunderAtLoc = sunderedAP[locKey] ?? 0;
-          const wornReduction    = Math.min(sunderAtLoc, wornAP);
-          const naturalReduction = Math.min(Math.max(0, sunderAtLoc - wornReduction), armourAP);
-          armourAP = Math.max(0, armourAP - naturalReduction) + Math.max(0, wornAP - wornReduction);
-        }
+        // Single armour chokepoint: natural (hit-location) AP + worn armour +
+        // module armourBonusHooks (Inherent / Power Armour), minus sunder.
+        armourAP = CombatEngine._getArmourAt(defender, locationId);
       }
     }
   }

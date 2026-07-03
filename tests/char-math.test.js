@@ -89,6 +89,52 @@ describe('calcDamageModifierWithOffset', () => {
 });
 
 // =============================================================================
+// damageModOffsetHooks contract — Enhanced Strength / Enhanced Body
+//   The system reads attr.dmOffset, then sums each damageModOffsetHook's
+//   signed step return on top of it, then clamps. Enhanced Strength's delta
+//   is computed as the step difference between the power's STR+CON+SIZ damage
+//   total and the normal STR+SIZ. These tests pin that math and its
+//   composition with a manual GM offset. STR is never changed.
+// =============================================================================
+
+describe('Enhanced Strength damage-step offset', () => {
+  // The exact delta the Destined hook returns: step(power total) - step(STR+SIZ).
+  const esDelta = (str, con, siz) =>
+    dmBaseIndex(str + con + siz) - dmBaseIndex(str + siz);
+
+  test('Enhanced Strength shifts DM by the STR+CON+SIZ step delta', () => {
+    // STR 13, SIZ 12 → STR+SIZ 25 (+0, index 4).
+    // CON 14 → STR+CON+SIZ 39 (+1d6, index 7). Delta = +3 steps.
+    const str = 13, con = 14, siz = 12;
+    expect(esDelta(str, con, siz)).toBe(3);
+    expect(calcDamageModifierWithOffset(str + siz, esDelta(str, con, siz)))
+      .toBe('+1d6');
+  });
+
+  test('power offset composes additively with a manual GM offset', () => {
+    // Same character, GM has also set a manual +1 dmOffset.
+    const str = 13, con = 14, siz = 12;
+    const manual = 1;
+    const total = manual + esDelta(str, con, siz); // 1 + 3 = 4
+    expect(calcDamageModifierWithOffset(str + siz, total)).toBe('+1d8');
+  });
+
+  test('zero delta when CON adds no step (boundary)', () => {
+    // STR+SIZ 25 (index 4); +CON 0 keeps total in the same band only if
+    // CON keeps the sum <= 25. STR 13, SIZ 12, CON 0 → no shift.
+    expect(esDelta(13, 0, 12)).toBe(0);
+    expect(calcDamageModifierWithOffset(25, 0)).toBe('+0');
+  });
+
+  test('result clamps at the top of the table', () => {
+    // Very high totals cannot exceed +2d12.
+    const str = 40, con = 40, siz = 40; // STR+SIZ 80, +CON 40 → far past top
+    expect(calcDamageModifierWithOffset(str + siz, esDelta(str, con, siz)))
+      .toBe('+2d12');
+  });
+});
+
+// =============================================================================
 // calcExperienceModifier
 // =============================================================================
 
