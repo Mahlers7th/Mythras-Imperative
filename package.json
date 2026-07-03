@@ -1,9 +1,9 @@
 {
   "name": "mythras-imperative",
-  "version": "1.4.251",
+  "version": "1.4.252",
   "description": "Mythras Imperative Foundry VTT system",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/.bin/jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "pack": "node scripts/pack-all.mjs",
     "unpack": "node scripts/unpack-all.mjs"
   },

@@ -8,6 +8,14 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.252 — July 2026
+- **Tooling fix: `npm test` now launches correctly on Windows.** The `test` script called `node --experimental-vm-modules node_modules/.bin/jest` directly. On this Windows install `node_modules/.bin/jest` is a POSIX shell shim (for Git-Bash/Cygwin compatibility), not a bare JS file — feeding a shell script straight into `node` threw an immediate syntax error, regardless of which shell (`cmd.exe`, PowerShell, or Git Bash) launched `npm test`.
+- Script now points `node --experimental-vm-modules` directly at jest's real entry file, `node_modules/jest/bin/jest.js`, bypassing the `.bin` shim entirely. No new devDependency, no shell-specific env-var syntax (npm's default Windows script-shell is `cmd.exe`, which doesn't support the POSIX `VAR=value command` prefix form, so a `NODE_OPTIONS=...` approach would have needed `cross-env` for no real benefit here). `--experimental-vm-modules` is preserved — required since the test suite is ESM (`"type": "module"`).
+- Verified via `npm test` itself (not a direct `jest.js` invocation) in both Git Bash and native PowerShell: launches cleanly, exit code 0, 268/268 green in both.
+- No runtime/system code changed — `package.json` only. `system.json` bumped in lockstep per project convention.
+
+---
+
 ## v1.4.251 — July 2026
 - **Hardening: `syncHitLocationHP` now consolidates on a single canonical location-key mapper, closing a drift risk between it and `CharacterSheet`'s AP display.** Both call sites independently derived a hit-location item's camelCase key from its label; `CharacterSheet.js` had a more robust explicit lookup (`_locationNameToKey`), while `syncHitLocationHP` used a separate regex-only derivation. On inspection the two derivations were functionally equivalent for the 7 standard humanoid labels — the reported symptom (hook sum always 0) could not be reproduced against this derivation on static review — but two independent implementations of the same contract is exactly the kind of thing that silently drifts, so this collapses them into one regardless.
 - **New `module/utils/hit-location.js`** exports `locationNameToKey(label)` — the single canonical implementation (explicit lookup for the 7 standard humanoid labels, regex camelCase fallback for anything else, e.g. vehicle system components). `CharacterSheet.js` now imports it instead of keeping a local copy; `syncHitLocationHP` in `mythras.mjs` now imports and uses it instead of its own inline regex.
