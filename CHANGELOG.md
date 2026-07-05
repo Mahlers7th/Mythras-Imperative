@@ -8,6 +8,16 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.253 — July 2026
+- **Batch 4A (system-side): new `powerPointsHooks` extension point.** Read-time hook, consumed in `CharacterData#prepareDerivedData` right after `luckPointsHooks`, that computes `attributes.powerPoints.max`. Unlike every other `.max` hook, the system contributes no base — `powerPoints` is a module-owned resource pool the system never populates (per the schema comment beside the field) — so the hook sum *is* the max, not an addition to one. Consumption accumulates into a local variable and assigns once, rather than `+=` on the field directly, since there's no prior base assignment in this pass to reset against.
+- Empty array (today's default) resolves to `0`, matching the field's stored initial value — **zero behavior change for any existing actor**. Destined (Batch 4B) will register a single hook returning `POW + POWER_LEVEL_STATS[level].ppMod`, owning the entire max.
+- No module changes in this batch.
+- Added a `powerPointsHooks` describe block to `tests/extension-hooks.test.js` (6 tests): empty array → 0, a single hook is the max outright, multiple hooks sum, null/NaN/non-number guards, a throwing hook doesn't block later hooks, idempotency. Suite now 274 (268 + 6), all green.
+- `extension-point-api-updated.md` updated: `powerPointsHooks` row in the hooks table plus a dedicated `### MYTHRAS.powerPointsHooks[]` section (type, call site, signature, the no-base distinction, Destined usage). Also noted, for the record, that the Phase 3a hooks (`luckPointsHooks`, `healingRateHooks`, `initiativeOffsetHooks`, `movementHooks`, `hitPointBonusHooks`, `damageModOffsetHooks`) landed in v1.4.247–249, ahead of this doc's own v1.4.250 creation.
+- No combat-math or compendium changes; no `packs/` rebuild required.
+
+---
+
 ## v1.4.252 — July 2026
 - **Tooling fix: `npm test` now launches correctly on Windows.** The `test` script called `node --experimental-vm-modules node_modules/.bin/jest` directly. On this Windows install `node_modules/.bin/jest` is a POSIX shell shim (for Git-Bash/Cygwin compatibility), not a bare JS file — feeding a shell script straight into `node` threw an immediate syntax error, regardless of which shell (`cmd.exe`, PowerShell, or Git Bash) launched `npm test`.
 - Script now points `node --experimental-vm-modules` directly at jest's real entry file, `node_modules/jest/bin/jest.js`, bypassing the `.bin` shim entirely. No new devDependency, no shell-specific env-var syntax (npm's default Windows script-shell is `cmd.exe`, which doesn't support the POSIX `VAR=value command` prefix form, so a `NODE_OPTIONS=...` approach would have needed `cross-env` for no real benefit here). `--experimental-vm-modules` is preserved — required since the test suite is ESM (`"type": "module"`).

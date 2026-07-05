@@ -310,6 +310,21 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
       attr.luckPoints.value = attr.luckPoints.max;
     }
 
+    // Power Points max — module-owned (Destined). Unlike luckPointsHooks and
+    // the other .max hooks above, the system contributes NO base: the hook
+    // sum IS the max, not an addition to one. There is no prior assignment to
+    // += against, so accumulate into a local and assign once — using +=
+    // directly on attr.powerPoints.max here would accumulate across every
+    // derivation pass instead of recomputing fresh each time. Empty array →
+    // 0, matching the stored initial value (no behavior change with no
+    // hooks registered). Read-time, idempotent.
+    let ppMax = 0;
+    for (const fn of (CONFIG.MYTHRAS?.powerPointsHooks ?? [])) {
+      try { ppMax += Number(fn(this.parent)) || 0; }
+      catch (err) { console.error('Mythras | powerPointsHook error:', err); }
+    }
+    attr.powerPoints.max = ppMax;
+
     // Max Encumbrance from STR+SIZ (simplified: STR score)
     this.encumbrance.max = str;
 

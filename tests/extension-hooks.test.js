@@ -127,6 +127,21 @@ function applyLuckPointsHooks(hooks, baseMax, actor, heroAdj = 0) {
 }
 
 /**
+ * Mirror of the prepareDerivedData power-points loop. Unlike
+ * applyLuckPointsHooks, there is no base value to seed with — the system
+ * contributes nothing to Power Points max, so the hook sum IS the max.
+ * Faithful to CharacterData.js.
+ */
+function applyPowerPointsHooks(hooks, actor) {
+  let max = 0;
+  for (const fn of (hooks ?? [])) {
+    try { max += Number(fn(actor)) || 0; }
+    catch { /* swallowed */ }
+  }
+  return max;
+}
+
+/**
  * Mirror of the per-location hitPointBonus loop inside mythras.mjs
  * syncHitLocationHP — the sole writer of hit-location item system.hp (max).
  * Sums each hook's flat return for a given camelCase location key. Faithful
@@ -612,6 +627,49 @@ describe('luckPointsHooks', () => {
   test('idempotent', () => {
     const hooks = [() => 3];
     expect(applyLuckPointsHooks(hooks, 3, {}, 1)).toBe(applyLuckPointsHooks(hooks, 3, {}, 1));
+  });
+});
+
+// =============================================================================
+// powerPointsHooks
+//   Unlike every other .max hook above, the system contributes NO base — the
+//   hook sum IS attributes.powerPoints.max, not an addition to one. Empty
+//   array -> 0, matching the stored initial value (this is the case that
+//   proves existing actors see no behavior change). Used by Destined, whose
+//   single registered hook returns POW + the Power Level's ppMod.
+// =============================================================================
+
+describe('powerPointsHooks', () => {
+  test('empty/undefined list resolves to 0 — no behavior change for existing actors', () => {
+    expect(applyPowerPointsHooks([], {})).toBe(0);
+    expect(applyPowerPointsHooks(undefined, {})).toBe(0);
+  });
+
+  test('a single hook IS the max — there is no base to add to', () => {
+    // Destined: POW 14, Street level ppMod -2 -> 12
+    const powerPointsForActor = () => 14 + (-2);
+    expect(applyPowerPointsHooks([powerPointsForActor], {})).toBe(12);
+  });
+
+  test('multiple hooks sum additively', () => {
+    expect(applyPowerPointsHooks([() => 12, () => 3], {})).toBe(15);
+  });
+
+  test('null/NaN/non-number returns coerce to 0', () => {
+    expect(applyPowerPointsHooks([() => null, () => undefined, () => NaN, () => 'x', () => 5], {})).toBe(5);
+  });
+
+  test('a throwing hook is caught; later hooks still run', () => {
+    const hooks = [() => 12, () => { throw new Error('boom'); }, () => 3];
+    expect(applyPowerPointsHooks(hooks, {})).toBe(15);
+  });
+
+  test('idempotent: re-running the consumption twice yields the same max (no accumulation)', () => {
+    const hooks = [() => 12];
+    const first  = applyPowerPointsHooks(hooks, {});
+    const second = applyPowerPointsHooks(hooks, {});
+    expect(first).toBe(second);
+    expect(second).toBe(12);
   });
 });
 

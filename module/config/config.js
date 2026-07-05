@@ -224,6 +224,30 @@ export const MYTHRAS = {
   luckPointsHooks: [],
 
   // -----------------------------------------------------------------------
+  // POWER POINTS HOOKS
+  //   powerPointsHook : (actor) => number
+  //   Called during prepareDerivedData to compute `attributes.powerPoints.max`.
+  //   Unlike every other .max hook on this object, the system contributes NO
+  //   base value — powerPoints is a module-owned resource pool (see the
+  //   powerPoints schema comment above), so the hook sum IS the max, not an
+  //   addition to one. An empty array resolves to 0 (the stored initial
+  //   value), so registering no hooks is a true no-op. Read-time and
+  //   idempotent: must not mutate the actor, must be synchronous, and is
+  //   safe to run every derivation pass. Used by Destined, whose single
+  //   registered hook returns POW + the Power Level's ppMod.
+  // -----------------------------------------------------------------------
+
+  /**
+   * @callback PowerPointsHook
+   * @param {Actor} actor
+   * @returns {number} PP max contribution. Summed across hooks (the sum IS
+   *   attributes.powerPoints.max — the system contributes no base). Read-only;
+   *   must not mutate the actor. Synchronous. Idempotent.
+   */
+  /** @type {PowerPointsHook[]} */
+  powerPointsHooks: [],
+
+  // -----------------------------------------------------------------------
   // HIT POINT BONUS HOOKS  —  WRITE-TIME (the one exception to the read-time
   // pattern used by every other hook array on this object)
   //   hitPointBonusHook : (actor, locationId) => number
