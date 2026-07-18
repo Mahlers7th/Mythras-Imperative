@@ -794,3 +794,187 @@ describe('syncHitLocationHP — item label -> key derivation (real locationNameT
     expect(updates).toEqual([{ _id: 'loc1', 'system.hp': 8 }]); // 3 + 5
   });
 });
+
+// =============================================================================
+// weaponDamageHooks / weaponForceHooks
+//   weaponDamageHook : (weapon, actor) => string | undefined
+//   weaponForceHook  : (weapon, actor) => string | undefined
+//   OVERRIDE (first-wins) hooks, not sum — the opposite pattern from every
+//   other hook array in this file. Consumed by CombatEngine._getWeaponDamage /
+//   _getWeaponForce, the single chokepoint every damage-roll and parry-size
+//   read in the combat engine goes through (module/combat/CombatEngine.js
+//   ~L4013-4038). Mirrored here byte-for-faithful, same approach as the rest
+//   of this file for Foundry-coupled call sites.
+// =============================================================================
+
+/** Mirror of CombatEngine._getWeaponDamage. */
+function getWeaponDamage(hooks, weapon, actor) {
+  for (const fn of (hooks ?? [])) {
+    try {
+      const result = fn(weapon, actor);
+      if (result !== undefined) return result;
+    } catch (err) { /* swallowed in production via console.error */ }
+  }
+  return weapon.system.damage;
+}
+
+/** Mirror of CombatEngine._getWeaponForce. */
+function getWeaponForce(hooks, weapon, actor) {
+  for (const fn of (hooks ?? [])) {
+    try {
+      const result = fn(weapon, actor);
+      if (result !== undefined) return result;
+    } catch (err) { /* swallowed in production via console.error */ }
+  }
+  return weapon.system.parrySize;
+}
+
+/**
+ * Stub weapon matching WeaponData's real shape, including the parrySize
+ * getter's exact logic (category === 'ranged' ? force : size) — ItemData.js
+ * ~L204.
+ */
+function makeWeapon({ damage = '1d6', category = 'melee', size = 'M', force = 'M' } = {}) {
+  return {
+    system: {
+      damage,
+      category,
+      size,
+      force,
+      parrySize: category === 'ranged' ? force : size,
+    },
+  };
+}
+
+function makeActor(characteristics = {}) {
+  return { system: { characteristics } };
+}
+
+describe('weaponDamageHooks', () => {
+  test('default path: no hooks registered returns weapon.system.damage unchanged', () => {
+    const weapon = makeWeapon({ damage: '1d8+2' });
+    expect(getWeaponDamage([], weapon, makeActor())).toBe('1d8+2');
+    expect(getWeaponDamage(undefined, weapon, makeActor())).toBe('1d8+2');
+  });
+
+  test('hook override: a registered hook returning a formula wins', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const hook = () => '1d8';
+    expect(getWeaponDamage([hook], weapon, makeActor())).toBe('1d8');
+  });
+
+  test('hook decline: a hook returning undefined falls through to the stored value', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const hook = () => undefined;
+    expect(getWeaponDamage([hook], weapon, makeActor())).toBe('1d6');
+  });
+
+  test('first-wins: the first non-undefined result is used, the second hook is not consulted', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    let secondCalled = false;
+    const first  = () => '2d6';
+    const second = () => { secondCalled = true; return '3d6'; };
+    expect(getWeaponDamage([first, second], weapon, makeActor())).toBe('2d6');
+    expect(secondCalled).toBe(false);
+  });
+
+  test('a declining hook falls through to a later hook that overrides', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const decline = () => undefined;
+    const override = () => '1d10';
+    expect(getWeaponDamage([decline, override], weapon, makeActor())).toBe('1d10');
+  });
+
+  test('hooks receive the weapon and actor, and can derive a formula from actor characteristics', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const actor = makeActor({ pow: { value: 16 } });
+    // e.g. Destined Blast: POW-derived damage table lookup
+    const hook = (w, a) => (a.system.characteristics.pow.value >= 16 ? '2d8' : undefined);
+    expect(getWeaponDamage([hook], weapon, actor)).toBe('2d8');
+  });
+
+  test('a throwing hook is skipped and does not poison the result; a later hook still wins', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const hooks = [
+      () => { throw new Error('bad weaponDamageHook'); },
+      () => '1d12',
+    ];
+    expect(getWeaponDamage(hooks, weapon, makeActor())).toBe('1d12');
+  });
+
+  test('a throwing hook with no other hooks falls through to the stored value', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const hooks = [() => { throw new Error('bad weaponDamageHook'); }];
+    expect(getWeaponDamage(hooks, weapon, makeActor())).toBe('1d6');
+  });
+
+  test('idempotent: re-running against the same inputs yields the same result', () => {
+    const weapon = makeWeapon({ damage: '1d6' });
+    const actor = makeActor({ pow: { value: 16 } });
+    const hooks = [(w, a) => `${a.system.characteristics.pow.value}d2`];
+    const first  = getWeaponDamage(hooks, weapon, actor);
+    const second = getWeaponDamage(hooks, weapon, actor);
+    expect(first).toBe(second);
+    expect(second).toBe('16d2');
+  });
+});
+
+describe('weaponForceHooks', () => {
+  test('default path: no hooks registered returns weapon.system.parrySize — melee resolves to size', () => {
+    const weapon = makeWeapon({ category: 'melee', size: 'L', force: 'S' });
+    expect(getWeaponForce([], weapon, makeActor())).toBe('L');
+  });
+
+  test('default path: no hooks registered returns weapon.system.parrySize — ranged resolves to force', () => {
+    const weapon = makeWeapon({ category: 'ranged', size: 'S', force: 'H' });
+    expect(getWeaponForce([], weapon, makeActor())).toBe('H');
+    expect(getWeaponForce(undefined, weapon, makeActor())).toBe('H');
+  });
+
+  test('hook override: a registered hook returning a Force/Size code wins', () => {
+    const weapon = makeWeapon({ category: 'melee', size: 'M' });
+    const hook = () => 'E';
+    expect(getWeaponForce([hook], weapon, makeActor())).toBe('E');
+  });
+
+  test('hook decline: a hook returning undefined falls through to parrySize', () => {
+    const weapon = makeWeapon({ category: 'ranged', force: 'M' });
+    const hook = () => undefined;
+    expect(getWeaponForce([hook], weapon, makeActor())).toBe('M');
+  });
+
+  test('first-wins: the first non-undefined result is used, the second hook is not consulted', () => {
+    const weapon = makeWeapon({ category: 'melee', size: 'M' });
+    let secondCalled = false;
+    const first  = () => 'H';
+    const second = () => { secondCalled = true; return 'E'; };
+    expect(getWeaponForce([first, second], weapon, makeActor())).toBe('H');
+    expect(secondCalled).toBe(false);
+  });
+
+  test('hooks receive the weapon and actor, and can derive a Force code from actor characteristics', () => {
+    const weapon = makeWeapon({ category: 'ranged', force: 'M' });
+    const actor = makeActor({ str: { value: 18 } });
+    // e.g. Destined Mega Blast: physical damage adds ½STR — reflected in Force too
+    const hook = (w, a) => (a.system.characteristics.str.value >= 18 ? 'H' : undefined);
+    expect(getWeaponForce([hook], weapon, actor)).toBe('H');
+  });
+
+  test('a throwing hook is skipped and does not poison the result; a later hook still wins', () => {
+    const weapon = makeWeapon({ category: 'melee', size: 'M' });
+    const hooks = [
+      () => { throw new Error('bad weaponForceHook'); },
+      () => 'L',
+    ];
+    expect(getWeaponForce(hooks, weapon, makeActor())).toBe('L');
+  });
+
+  test('idempotent: re-running against the same inputs yields the same result', () => {
+    const weapon = makeWeapon({ category: 'melee', size: 'M' });
+    const hooks = [() => 'H'];
+    const first  = getWeaponForce(hooks, weapon, makeActor());
+    const second = getWeaponForce(hooks, weapon, makeActor());
+    expect(first).toBe(second);
+    expect(second).toBe('H');
+  });
+});

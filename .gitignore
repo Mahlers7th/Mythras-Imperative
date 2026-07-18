@@ -10,6 +10,7 @@ desktop.ini
 # Editor directories
 .vscode/
 .idea/
+.claude/
 
 # Node
 node_modules/

@@ -1097,7 +1097,8 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     if (!weapon) return;
 
     const actor       = this.document;
-    const dmgFormula  = weapon.system.damage ?? '1d6';
+    const { CombatEngine } = await import('../combat/CombatEngine.js');
+    const dmgFormula  = CombatEngine._getWeaponDamage(weapon, actor) ?? '1d6';
     const applyDmgMod = weapon.system.damageModApplies;
     const actorDmgMod = actor.system.attributes?.damageModifier ?? '';
 

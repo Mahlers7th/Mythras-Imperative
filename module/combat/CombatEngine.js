@@ -1086,8 +1086,9 @@ export class CombatEngine {
     // Charge steps DM up one category; the button carries the already-stepped formula
     const effectiveDM1 = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const baseDamage1 = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM1 && effectiveDM1 !== '+0' && effectiveDM1 !== '0')
-      ? `${weapon.system.damage}${effectiveDM1}` : weapon.system.damage;
+      ? `${baseDamage1}${effectiveDM1}` : baseDamage1;
 
     const attackerScored = ctx.attackOutcome === 'critical' || ctx.attackOutcome === 'success';
     const isSemi = CombatEngine.automationLevel === 'semi';
@@ -1197,8 +1198,9 @@ export class CombatEngine {
     const applyMod   = ctx.weapon.system.damageModApplies ?? true;
     const effectiveDM2 = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const baseDamage2 = CombatEngine._getWeaponDamage(ctx.weapon, ctx.attacker);
     const dmgFormula = (applyMod && effectiveDM2 && effectiveDM2 !== '+0' && effectiveDM2 !== '0')
-      ? `${ctx.weapon.system.damage}${effectiveDM2}` : ctx.weapon.system.damage;
+      ? `${baseDamage2}${effectiveDM2}` : baseDamage2;
 
     const attackerScored = ctx.attackOutcome === 'critical' || ctx.attackOutcome === 'success';
     const isSemi = CombatEngine.automationLevel === 'semi';
@@ -1382,8 +1384,9 @@ export class CombatEngine {
     const effectiveDM = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod)
       : dmMod;
+    const baseDamageFullAuto = CombatEngine._getWeaponDamage(weapon, attacker);
     let dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
-      ? `${weapon.system.damage}${effectiveDM}` : weapon.system.damage;
+      ? `${baseDamageFullAuto}${effectiveDM}` : baseDamageFullAuto;
 
     // Impale SE — roll damage twice, attacker picks best (rules p.44)
     const impaleChosen = ctx.chosenSpecialEffects.includes('impale');
@@ -1514,8 +1517,9 @@ export class CombatEngine {
     // Damage formula (no DM for firearms — damageModApplies is false)
     const dmMod    = attacker.system.attributes?.damageModifier ?? '';
     const applyMod = weapon.system.damageModApplies ?? true;
+    const baseDamageBurst = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && dmMod && dmMod !== '+0' && dmMod !== '0')
-      ? `${weapon.system.damage}${dmMod}` : weapon.system.damage;
+      ? `${baseDamageBurst}${dmMod}` : baseDamageBurst;
 
     const burstResults = [];
     let firstRound = true;
@@ -2339,8 +2343,9 @@ export class CombatEngine {
     const applyMod = weapon.system.damageModApplies ?? true;
     const effectiveDM = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const baseDamageVeh = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
-      ? `${weapon.system.damage}${effectiveDM}` : weapon.system.damage;
+      ? `${baseDamageVeh}${effectiveDM}` : baseDamageVeh;
 
     const damageRoll = new Roll(dmgFormula);
     await damageRoll.evaluate();
@@ -2460,8 +2465,9 @@ export class CombatEngine {
     const applyMod = weapon.system.damageModApplies ?? true;
     const effectiveDM = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const baseDamageVehCard = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
-      ? `${weapon.system.damage}${effectiveDM}` : weapon.system.damage;
+      ? `${baseDamageVehCard}${effectiveDM}` : baseDamageVehCard;
 
     const sizeLabel = {
       small:'Small', medium:'Medium', large:'Large',
@@ -2748,8 +2754,9 @@ export class CombatEngine {
     // Build damage formula — attacker rolls their own weapon against themselves
     const applyMod   = weapon.system.damageModApplies ?? true;
     const attackerDM = attacker.system.attributes?.damageModifier ?? '';
+    const baseDamageAI = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && attackerDM && attackerDM !== '+0' && attackerDM !== '0')
-      ? `${weapon.system.damage}${attackerDM}` : weapon.system.damage;
+      ? `${baseDamageAI}${attackerDM}` : baseDamageAI;
 
     // ── Semi-Auto: post a card with Roll Hit Location + Roll Damage buttons ──
     // The buttons target the attacker as the wounded actor (defender slot),
@@ -3816,9 +3823,10 @@ export class CombatEngine {
     // Charge steps DM up one category
     const effectiveDM = (ctx.isCharge && applyMod)
       ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const baseDamageManual = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
-      ? `${weapon.system.damage}${effectiveDM}`
-      : weapon.system.damage;
+      ? `${baseDamageManual}${effectiveDM}`
+      : baseDamageManual;
 
     // Only show action buttons on a success or critical
     const canAct = outcome === 'critical' || outcome === 'success';
@@ -3857,7 +3865,7 @@ export class CombatEngine {
           actorId:     attacker.id,
           manualCombat: true,
           outcome,
-          weapon: { id: weapon.id, name: weapon.name, damage: weapon.system.damage }
+          weapon: { id: weapon.id, name: weapon.name, damage: baseDamageManual }
         }
       }
     });
@@ -3994,6 +4002,43 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
+  // Weapon derivation chokepoint — CONFIG.MYTHRAS.weaponDamageHooks / weaponForceHooks
+  //
+  // Every damage-formula build and every parry-size lookup in the engine goes
+  // through these two methods instead of reading weapon.system.damage /
+  // weapon.system.parrySize directly. With no hooks registered this is a
+  // pure pass-through — bit-for-bit identical to the old direct reads.
+  //
+  // `actor` must be the actual wielder (ctx.attacker / ctx.defender), not
+  // weapon.actor — for a vehicle-mounted weapon, weapon.actor is the vehicle,
+  // but the wielder whose characteristics matter is the crew member.
+  // -------------------------------------------------------------------------
+
+  static _getWeaponDamage(weapon, actor) {
+    for (const fn of (CONFIG.MYTHRAS?.weaponDamageHooks ?? [])) {
+      try {
+        const result = fn(weapon, actor);
+        if (result !== undefined) return result;
+      } catch (err) {
+        console.error('Mythras | weaponDamageHook error:', err);
+      }
+    }
+    return weapon.system.damage;
+  }
+
+  static _getWeaponForce(weapon, actor) {
+    for (const fn of (CONFIG.MYTHRAS?.weaponForceHooks ?? [])) {
+      try {
+        const result = fn(weapon, actor);
+        if (result !== undefined) return result;
+      } catch (err) {
+        console.error('Mythras | weaponForceHook error:', err);
+      }
+    }
+    return weapon.system.parrySize;
+  }
+
+  // -------------------------------------------------------------------------
   // Parry damage reduction — p.40
   //
   // Size categories: S=0 M=1 L=2 H=3 E=4
@@ -4002,12 +4047,14 @@ export class CombatEngine {
   // Two or more steps less: no reduction
   // -------------------------------------------------------------------------
 
-  static resolveParryReduction(attackWeapon, defenceWeapon, defenderStyle, ctx = null) {
+  static resolveParryReduction(attackWeapon, defenceWeapon, defenderStyle, ctx = null, attackerActor = null, defenderActor = null) {
     if (!defenceWeapon) return { multiplier: 1, label: 'none' };
 
     const sizeOrder = { S: 0, M: 1, L: 2, H: 3, E: 4 };
+    const atkActor = attackerActor ?? ctx?.attacker ?? null;
+    const defActor = defenderActor ?? ctx?.defender ?? null;
 
-    let defSize = sizeOrder[defenceWeapon.system.parrySize ?? defenceWeapon.system.size] ?? 1;
+    let defSize = sizeOrder[CombatEngine._getWeaponForce(defenceWeapon, defActor)] ?? 1;
 
     // Defensive Minded trait steps parry size up one when not attacking
     if (defenderStyle?.system.traits?.includes('defensiveMinded')) {
@@ -4025,7 +4072,7 @@ export class CombatEngine {
 
     // For ranged weapons, parrySize reads system.force (set by the WeaponData getter).
     // At Long range, force is reduced by one step (rules p.49).
-    let atkSize = sizeOrder[attackWeapon.system.parrySize ?? attackWeapon.system.size] ?? 1;
+    let atkSize = sizeOrder[CombatEngine._getWeaponForce(attackWeapon, atkActor)] ?? 1;
     if (ctx?.isRanged && ctx?.rangeBand === 'long') {
       atkSize = Math.max(0, atkSize - 1);
     }
@@ -4239,7 +4286,7 @@ export class CombatEngine {
       result.push({
         locKey,
         weaponId:   ward.weaponId,
-        weaponSize: wardWeapon?.system.parrySize ?? wardWeapon?.system.size ?? 'M'
+        weaponSize: wardWeapon ? CombatEngine._getWeaponForce(wardWeapon, defender) : 'M'
       });
     }
     return result;

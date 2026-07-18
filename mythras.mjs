@@ -1576,7 +1576,7 @@ async function _onSemiAutoRollDamage(ev, message) {
         parryNote = 'fully blocked';
       } else {
         const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-        const pr = CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle);
+        const pr = CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle, null, attacker, defender);
         damageAfterParry = Math.ceil(rawDamage * pr.multiplier);
         parryNote = pr.label === 'full' ? 'fully blocked' : pr.label === 'half' ? 'half damage' : '';
       }

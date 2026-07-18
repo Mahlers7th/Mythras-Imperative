@@ -276,6 +276,49 @@ export const MYTHRAS = {
   hitPointBonusHooks: [],
 
   // -----------------------------------------------------------------------
+  // WEAPON DAMAGE / FORCE HOOKS  —  OVERRIDE (first-wins), not sum
+  //   weaponDamageHook : (weapon, actor) => string | undefined
+  //   weaponForceHook  : (weapon, actor) => string | undefined
+  //   Called by CombatEngine._getWeaponDamage / _getWeaponForce, the single
+  //   chokepoint every damage-roll and parry-size read in the combat engine
+  //   goes through. Return undefined to decline — the overwhelmingly common
+  //   case, since almost all weapons roll their own stored `damage`/`parrySize`
+  //   unmodified. The FIRST hook to return a non-undefined value wins; no
+  //   further hooks are consulted, and nothing is summed. This is the
+  //   opposite pattern from every additive hook array above — there is no
+  //   sensible way to "add" two damage formula strings.
+  //
+  //   Unlike every read-time hook above, hooks here are NOT called during
+  //   `prepareDerivedData` — they fire at roll time, potentially several
+  //   times per attack (the chokepoint is called once per damage-formula
+  //   build and once per parry-size lookup, on both the attack and defence
+  //   side). Hooks MUST be pure and side-effect free — no actor/item writes,
+  //   no PP spend, no chat output. `actor` is the prepared wielder document
+  //   (for a vehicle-mounted weapon, this is the crew member firing it, never
+  //   the vehicle) — `actor.system.characteristics.*.value` already reflects
+  //   anything `characteristicBonusHooks` applied this cycle.
+  //
+  //   Added for Destined's Blast power, whose damage/Force derive from live
+  //   POW/STR/INT/CON rather than a stored weapon field — a stored formula
+  //   goes stale the instant Morph, Growth, Shrink, or Enhanced Strength
+  //   change the actor's characteristics mid-session. Deriving inside a
+  //   WeaponData getter was rejected: an embedded item can prepare before its
+  //   owning actor's characteristicBonusHooks have run, which would read
+  //   unhooked characteristics — the exact snapshot bug this exists to avoid.
+  //   The resolver must be a function called at roll time with the prepared
+  //   actor, never a getter on the item's own data model.
+  //
+  //   Range is deliberately NOT covered by a hook here — how ranged bands are
+  //   stored/consumed has not been audited. Do not add one speculatively.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a damage formula string to override `weapon.system.damage`, or undefined to decline */
+  weaponDamageHooks: [],
+
+  /** @type {Function[]} Each returns a Force/Size code (S/M/L/H/E) to override `weapon.system.parrySize`, or undefined to decline */
+  weaponForceHooks: [],
+
+  // -----------------------------------------------------------------------
   // COMBAT ACTIONS
   // Modules register additional Combat Actions that appear in the combat
   // action menu. Each entry: { id, label, icon, handler }
