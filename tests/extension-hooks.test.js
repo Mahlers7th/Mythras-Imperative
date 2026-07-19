@@ -978,3 +978,130 @@ describe('weaponForceHooks', () => {
     expect(second).toBe('H');
   });
 });
+
+// =============================================================================
+// damageHooks
+//   damageHook : (ctx, damage) => number | false | void
+//   Called in CombatEngine._applyDamage (~L2649-2662), once per hook,
+//   immediately before damage is written to the defending hit location.
+//   `false` suppresses damage entirely and short-circuits the loop (full
+//   immunity, absolute — nothing later can raise it back up). A finite
+//   number COMPOSES: each subsequent hook receives the already-reduced
+//   damage, unlike weaponDamageHooks' first-wins override, because two
+//   independent reductions (e.g. a resistance power and a shield) should
+//   both apply. The composed value is floored to a non-negative integer.
+//   Any other return (undefined, null, true, a string, NaN) is ignored.
+//   Unlike several other hook consumers in this file, this loop has NO
+//   try/catch — a throwing hook is expected to propagate (see below).
+// =============================================================================
+
+/** Mirror of CombatEngine._applyDamage's damageHooks reduction loop. Deliberately has NO try/catch, matching the real loop. */
+function applyDamageHooks(hooks, ctx, damage) {
+  for (const hook of (hooks ?? [])) {
+    const result = hook(ctx, damage);
+    if (result === false) {
+      damage = 0;
+      break;
+    }
+    if (typeof result === 'number' && Number.isFinite(result)) {
+      damage = Math.max(0, Math.floor(result));
+    }
+  }
+  return damage;
+}
+
+function makeDamageCtx(overrides = {}) {
+  return {
+    defender: makeActor(),
+    weapon: makeWeapon(),
+    hitLocationId: 'loc1',
+    ...overrides,
+  };
+}
+
+describe('damageHooks', () => {
+  test('no hooks registered, and undefined hooks array: damage passes through unchanged', () => {
+    expect(applyDamageHooks([], makeDamageCtx(), 10)).toBe(10);
+    expect(applyDamageHooks(undefined, makeDamageCtx(), 10)).toBe(10);
+  });
+
+  test('a hook returning false suppresses damage to 0', () => {
+    const hook = () => false;
+    expect(applyDamageHooks([hook], makeDamageCtx(), 10)).toBe(0);
+  });
+
+  test('false short-circuits: a second hook is not consulted', () => {
+    let secondCalled = false;
+    const hooks = [
+      () => false,
+      () => { secondCalled = true; return 20; },
+    ];
+    expect(applyDamageHooks(hooks, makeDamageCtx(), 10)).toBe(0);
+    expect(secondCalled).toBe(false);
+  });
+
+  test('a hook returning a number sets damage to that value', () => {
+    const hook = () => 4;
+    expect(applyDamageHooks([hook], makeDamageCtx(), 10)).toBe(4);
+  });
+
+  test('two numeric hooks compose: the second receives the first\'s reduced value', () => {
+    const hooks = [
+      (ctx, dmg) => dmg - 3, // 10 -> 7
+      (ctx, dmg) => dmg - 2, // 7 -> 5
+    ];
+    expect(applyDamageHooks(hooks, makeDamageCtx(), 10)).toBe(5);
+  });
+
+  test('a hook returning undefined declines and leaves damage unchanged; a later hook still runs', () => {
+    const hooks = [
+      () => undefined,
+      (ctx, dmg) => dmg - 1,
+    ];
+    expect(applyDamageHooks(hooks, makeDamageCtx(), 10)).toBe(9);
+  });
+
+  test('null, true, a string, and NaN are all ignored — damage unchanged', () => {
+    expect(applyDamageHooks([() => null], makeDamageCtx(), 10)).toBe(10);
+    expect(applyDamageHooks([() => true], makeDamageCtx(), 10)).toBe(10);
+    expect(applyDamageHooks([() => 'blocked'], makeDamageCtx(), 10)).toBe(10);
+    // NaN explicitly: typeof NaN === 'number' is true, so Number.isFinite
+    // must be doing real filtering work here, not defensive decoration.
+    expect(applyDamageHooks([() => NaN], makeDamageCtx(), 10)).toBe(10);
+  });
+
+  test('a negative number floors to 0', () => {
+    const hook = () => -5;
+    expect(applyDamageHooks([hook], makeDamageCtx(), 10)).toBe(0);
+  });
+
+  test('a fractional number floors to an integer', () => {
+    const hook = () => 4.9;
+    expect(applyDamageHooks([hook], makeDamageCtx(), 10)).toBe(4);
+  });
+
+  test('hooks receive ctx (defender/weapon/hitLocationId) and the running damage value', () => {
+    const ctx = makeDamageCtx({ hitLocationId: 'rightArm' });
+    const hook = (c, dmg) => (c.hitLocationId === 'rightArm' ? dmg - 1 : dmg);
+    expect(applyDamageHooks([hook], ctx, 10)).toBe(9);
+  });
+
+  // Documents current behaviour rather than asserting a design intent: this
+  // loop has no try/catch (unlike movementHooks in CharacterData.js, which
+  // wraps each call in try { ... } catch { return sum; }). A throwing hook
+  // propagates out of _applyDamage uncaught. See the report for the
+  // try/catch recommendation — this batch does not add one.
+  test('a throwing hook propagates — this loop has no try/catch (documents current behaviour)', () => {
+    const hook = () => { throw new Error('bad damageHook'); };
+    expect(() => applyDamageHooks([hook], makeDamageCtx(), 10)).toThrow('bad damageHook');
+  });
+
+  test('idempotent: re-running against the same inputs yields the same result', () => {
+    const hooks = [(ctx, dmg) => dmg - 2];
+    const ctx = makeDamageCtx();
+    const first  = applyDamageHooks(hooks, ctx, 10);
+    const second = applyDamageHooks(hooks, ctx, 10);
+    expect(first).toBe(second);
+    expect(second).toBe(8);
+  });
+});

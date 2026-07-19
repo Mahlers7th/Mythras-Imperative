@@ -2650,9 +2650,15 @@ export class CombatEngine {
       for (const hook of (CONFIG.MYTHRAS?.damageHooks ?? [])) {
         const result = hook(ctx, damage);
         if (result === false) {
-          // A hook suppressed damage — still let opposed SEs fire below.
+          // A hook suppressed damage entirely — still let opposed SEs fire below.
           damage = 0;
           break;
+        }
+        if (typeof result === 'number' && Number.isFinite(result)) {
+          // A hook reduced (or raised) damage. Later hooks see the updated value
+          // and may reduce it further, so reductions compose rather than the
+          // first one winning. Floored at 0; never negative.
+          damage = Math.max(0, Math.floor(result));
         }
       }
     }

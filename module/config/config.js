@@ -71,11 +71,34 @@ export const MYTHRAS = {
 
   // -----------------------------------------------------------------------
   // DAMAGE HOOKS
-  // applyDamage : ({ actor, location, damage, source }) => void
-  //              Intercept for damage reduction powers, shields, etc.
+  // damageHook : (ctx, damage) => number | false | void
+  //   Called in CombatEngine._applyDamage, once per hook, immediately before
+  //   damage is written to the defending hit location. ctx carries
+  //   ctx.defender, ctx.weapon and ctx.hitLocationId (and the rest of the
+  //   attack context) for a hook that needs to look up armour, resistances,
+  //   shields, etc.
+  //
+  //   Return false to suppress damage entirely (full immunity). This is
+  //   absolute and short-circuits the loop — no later hook, even one that
+  //   would otherwise raise damage, runs after a false.
+  //
+  //   Return a finite number to set damage to that value. Unlike
+  //   weaponDamageHooks (first-wins override), numeric results from
+  //   damageHooks COMPOSE: each hook receives the damage as already reduced
+  //   by every earlier hook in the array, so two independent reductions
+  //   (e.g. a resistance power and a shield) both apply rather than only the
+  //   first one taking effect. The result is floored to a non-negative
+  //   integer (Math.max(0, Math.floor(result))) before being handed to the
+  //   next hook — hit location HP arithmetic assumes integers.
+  //
+  //   Any other return (undefined, null, true, a string, NaN) is ignored;
+  //   the hook declines and damage is unchanged for the next hook. NaN is
+  //   explicitly excluded even though typeof NaN === 'number' — an
+  //   unfiltered NaN would propagate into system.current and corrupt a hit
+  //   location.
   // -----------------------------------------------------------------------
 
-  /** @type {Function[]} Called when damage is about to be applied to an actor */
+  /** @type {Function[]} Each may return a new (composed) damage number, false to suppress entirely, or decline */
   damageHooks: [],
 
   // -----------------------------------------------------------------------
