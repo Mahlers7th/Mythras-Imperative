@@ -2,7 +2,7 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.255",
+  "version": "1.4.258",
   "compatibility": {
     "minimum": "14",
     "verified": "14",

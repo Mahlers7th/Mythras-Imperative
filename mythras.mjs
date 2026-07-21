@@ -1144,51 +1144,57 @@ function _onRenderChatMessage(message, html) {
         id => CONFIG.MYTHRAS.specialEffects.find(e => e.id === id)?.phase === 'opposed'
       );
 
+      // Fields _ctxFromCardFlags cannot know — it is deliberately DOM-
+      // independent, so extraction from the button's dataset happens here.
+      const extras = { hitLocationId: locationId ?? null, hitLocationLabel: locLabel, damage, rawDamage };
+
       if (hasOpposedSE) {
-        const attacker = _resolveActor(flags.attackerId);
-        if (attacker && actor) {
-          try {
-            const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+        try {
+          const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+          const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
+          if (!baseCtx) {
+            console.error('Mythras Imperative | Opposed SE failed: could not rehydrate ctx from outcome card', { messageId: btn.dataset.messageId });
+            ui.notifications.error('Special Effect roll failed — check console for details.');
+          } else {
             const minimalCtx = {
-              attacker,
-              defender:           actor,
-              weapon:             CombatEngine._getItem(attacker, flags.weaponId),
-              defenceWeapon:      CombatEngine._getItem(actor,    flags.defenceWeaponId),
-              attackResult:       flags.attackResult       ?? 0,
-              attackerSkillTotal: flags.attackerSkillTotal ?? 0,
-              defenceResult:      flags.defenceResult      ?? 0,
-              defenderSkillTotal: flags.defenderSkillTotal ?? 0,
+              ...baseCtx,
+              // Derived, not stamped — _ctxFromCardFlags cannot compute this.
+              locationType:         CombatEngine._classifyLocation(locLabel ?? ''),
+              // NOT the raw flags.chosenSEs _ctxFromCardFlags read: this is the
+              // locally mutated copy with broadhead/Stun Round auto-injection
+              // applied above. Must override the helper's passthrough or both
+              // ammo traits silently stop working.
               chosenSpecialEffects: chosenSEs,
-              seWinner:           flags.seWinner           ?? 'attacker',
-              hitLocationId:      locationId ?? null,
-              hitLocationLabel:   locLabel,
-              locationType:       CombatEngine._classifyLocation(locLabel ?? ''),
-              rawDamage:          rawDamage,   // pre-armour damage — used by Bash for knockback
-              attackerStyle:      null,        // not available from card flags; Knockout Blow inactive in Semi-Auto
-              chatMessageId:      btn.dataset.messageId ?? null   // outcome card — player has seen it
+              chatMessageId:        btn.dataset.messageId ?? null   // outcome card — player has seen it
             };
             await CombatEngine._resolveOpposedSEs(minimalCtx, stunRoundActive ? rawDamage : damage);
-          } catch (err) {
-            console.error('Mythras Imperative | Opposed SE failed:', err);
-            ui.notifications.error('Special Effect roll failed — check console for details.');
           }
+        } catch (err) {
+          console.error('Mythras Imperative | Opposed SE failed:', err);
+          ui.notifications.error('Special Effect roll failed — check console for details.');
         }
       }
 
       // ── Resolve wound consequences (Endurance roll for Serious/Major) ─────────
       if (semiCtxForWound?.enduranceRequired) {
-        const attacker = _resolveActor(flags.attackerId);
         try {
           const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-          const woundCtx = {
-            ...semiCtxForWound,
-            attacker:           attacker ?? null,
-            defender:           actor,
-            attackResult:       flags.attackResult       ?? 0,
-            attackerSkillTotal: flags.attackerSkillTotal ?? 0,
-            chosenSpecialEffects: chosenSEs
-          };
-          await CombatEngine._resolveWoundConsequences(woundCtx);
+          const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
+          if (!baseCtx) {
+            console.error('Mythras Imperative | Wound consequence failed: could not rehydrate ctx from outcome card', { messageId: btn.dataset.messageId });
+            ui.notifications.error('Wound consequence roll failed — check console for details.');
+          } else {
+            const woundCtx = {
+              ...baseCtx,
+              // Computed after the damage write, above — the helper cannot know
+              // these; they override its (absent/derived) versions of the same
+              // fields: woundLevel, newCurrent, maxHp, locationType,
+              // hitLocationLabel, enduranceRequired, damageAfterArmour.
+              ...semiCtxForWound,
+              chosenSpecialEffects: chosenSEs
+            };
+            await CombatEngine._resolveWoundConsequences(woundCtx);
+          }
         } catch (err) {
           console.error('Mythras Imperative | Wound consequence failed:', err);
           ui.notifications.error('Wound consequence roll failed — check console for details.');

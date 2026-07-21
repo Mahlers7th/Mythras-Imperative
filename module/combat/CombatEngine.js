@@ -2632,6 +2632,115 @@ export class CombatEngine {
     await chatMsg.update({ content: newContent });
   }
 
+  // -------------------------------------------------------------------------
+  // _resolveActorById — resolve a stamped actor id to its live document,
+  // preferring a placed canvas token's synthetic actor over the base/world
+  // actor (matters for unlinked tokens, whose flags/state live on the
+  // synthetic actor, not the prototype). Mirrors mythras.mjs's private
+  // _resolveActor helper; duplicated rather than imported, since mythras.mjs
+  // already imports FROM this file (dynamically, at several call sites) —
+  // a static import in the reverse direction would be circular.
+  // -------------------------------------------------------------------------
+  static _resolveActorById(actorId) {
+    if (!actorId) return null;
+    const token = canvas?.tokens?.placeables?.find(t =>
+      t.actor?.id === actorId || t.document?.actorId === actorId
+    ) ?? null;
+    return token?.actor ?? game.actors.get(actorId) ?? null;
+  }
+
+  // -------------------------------------------------------------------------
+  // _ctxFromCardFlags — full ctx rehydration from an outcome chat card's
+  // stamped flags, for the semi-auto "Apply Damage" button.
+  //
+  // Batch 1 of the damage-chokepoint fix (damage-chokepoint-prompt.md): this
+  // helper is added UNUSED here — nothing calls it yet. Batch 2 swaps the
+  // button handler's hand-built minimalCtx/woundCtx for its output; Batch 3
+  // routes the handler through _applyDamage(ctx, damage) using it.
+  //
+  // Reads ALL fields stamped on the outcome card at attack-resolution time
+  // (the ChatMessage.create call ~L1119-1151 above) — not the hand-picked
+  // subset minimalCtx/woundCtx used. attackerId/defenderId/weaponId/
+  // defenceWeaponId/attackerStyleId/defenceStyleId are resolved to live
+  // documents; every other stamped field passes through under its normal
+  // ctx name (chosenSEs -> chosenSpecialEffects, matching every other ctx
+  // producer in this file).
+  //
+  // The stamped `actorId` field is a legacy duplicate of `attackerId` (both
+  // are set to attacker.id at stamp time) and is intentionally not
+  // surfaced separately here.
+  //
+  // damageRoll is always null. Its only consumer system-wide —
+  // _diceBreakdown(ctx.damageRoll), inside _updateCardWithDamage — is a
+  // full-auto-only card renderer never reached from the semi-auto path
+  // this ctx feeds. Do not attempt to reconstruct/serialise a Roll here.
+  //
+  // No `btn`/DOM parameter, deliberately — this reads only outcomeMsg's
+  // stamped flags and the caller-supplied extras, so it stays reusable by
+  // any future caller with no button at all (e.g. the full-auto
+  // resolve-immediately path at ~L2871, which bypasses damageHooks the
+  // same way the semi-auto button does and is a later candidate for this
+  // same helper). defenderId is always stamped alongside attackerId at
+  // outcome-card creation time (~L1126) — there is no DOM fallback for it;
+  // a genuinely missing defenderId means a malformed outcome card, which
+  // should surface as a null ctx (see @returns), not be silently patched
+  // over from an unrelated DOM attribute that might belong to a different
+  // message entirely.
+  // @param {ChatMessage|{flags: object, id: string}} outcomeMsg - the
+  //   resolved outcome-card message, or a flags-shaped stand-in for tests
+  // @param {{hitLocationId?: string, hitLocationLabel?: string, damage?: number, rawDamage?: number}} [extras] -
+  //   the four fields that live on the Apply Damage button's OWN dataset,
+  //   set later at damage-resolution time — NOT part of the outcome card's
+  //   attack-time flags, so they cannot be read from outcomeMsg
+  // @returns {object|null} a full ctx object, or null if outcomeMsg has no
+  //   resolvable flags, or if the attacker/defender cannot be resolved
+  //   (e.g. the outcome message, an actor, or defenderId itself was
+  //   missing/deleted) — one convention for every "can't build a ctx" case
+  // -------------------------------------------------------------------------
+  static _ctxFromCardFlags(outcomeMsg, extras = {}) {
+    const flags = outcomeMsg?.flags?.['mythras-imperative'];
+    if (!flags) return null;
+
+    const attacker = CombatEngine._resolveActorById(flags.attackerId);
+    const defender  = CombatEngine._resolveActorById(flags.defenderId);
+    if (!attacker || !defender) return null;
+
+    const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0 } = extras;
+
+    return {
+      attacker,
+      defender,
+      weapon:               CombatEngine._getItem(attacker, flags.weaponId),
+      defenceWeapon:        CombatEngine._getItem(defender, flags.defenceWeaponId),
+      attackerStyle:        CombatEngine._getItem(attacker, flags.attackerStyleId),
+      defenceStyle:         CombatEngine._getItem(defender, flags.defenceStyleId),
+      stage:                flags.stage ?? null,
+      dmgFormula:           flags.dmgFormula ?? null,
+      isCharge:             flags.isCharge ?? false,
+      isBurstFire:          flags.isBurstFire ?? false,
+      isFullAuto:           flags.isFullAuto ?? false,
+      rangeBand:            flags.rangeBand ?? null,
+      difficulty:           flags.difficulty ?? 'standard',
+      defenceType:          flags.defenceType ?? null,
+      chosenSpecialEffects: flags.chosenSEs ?? [],
+      seWinner:             flags.seWinner ?? null,
+      isRanged:             flags.isRanged ?? false,
+      attackOutcome:        flags.attackOutcome ?? null,
+      defenceOutcome:       flags.defenceOutcome ?? null,
+      attackResult:         flags.attackResult ?? 0,
+      attackerSkillTotal:   flags.attackerSkillTotal ?? 0,
+      defenceResult:        flags.defenceResult ?? 0,
+      defenderSkillTotal:   flags.defenderSkillTotal ?? 0,
+      hitLocationId,
+      hitLocationLabel,
+      locationType:         CombatEngine._classifyLocation(hitLocationLabel),
+      damage,
+      rawDamage,
+      damageRoll:           null,
+      chatMessageId:        outcomeMsg?.id ?? null,
+    };
+  }
+
   // _applyDamage — writes system.current and system.wound on the location item
   //
   // Schema (HitLocationData):

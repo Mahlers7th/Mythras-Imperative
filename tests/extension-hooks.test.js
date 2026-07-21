@@ -1105,3 +1105,399 @@ describe('damageHooks', () => {
     expect(second).toBe(8);
   });
 });
+
+// =============================================================================
+// CombatEngine._ctxFromCardFlags / _resolveActorById
+//   Damage-chokepoint fix, Batch 1 (damage-chokepoint-prompt.md), amended —
+//   added UNUSED in production; nothing calls these yet. Mirrored here the
+//   same way as _getWeaponDamage/_getWeaponForce above, since CombatEngine.js
+//   cannot be imported directly in plain Node (it imports from files with
+//   Foundry-coupled module-level code).
+//
+//   _resolveActorById mirrors the real version's canvas.tokens.placeables
+//   token-preferred lookup, but takes an injected { tokens, actors } world
+//   instead of reaching for the real `canvas`/`game` globals — the same
+//   adaptation this file already makes for actor/weapon fixtures elsewhere.
+//
+//   _ctxFromCardFlags mirrors the real version field-for-field: reads every
+//   flag stamped on the outcome card (CombatEngine.js's ChatMessage.create,
+//   ~L1119-1151 — 24 fields, not the 21 the prompt estimated), resolves
+//   actor/item ids to documents, and takes hitLocationId/hitLocationLabel/
+//   damage/rawDamage from `extras` (the Apply Damage button's own dataset,
+//   stamped later at damage-resolution time, not part of the outcome
+//   card's attack-time flags). No `btn`/DOM parameter — amended out, since
+//   defenderId is always stamped alongside attackerId at outcome-card
+//   creation time; a missing defenderId means a malformed card and returns
+//   null, the same convention as every other "can't build a ctx" case here.
+// =============================================================================
+
+/** Mirror of CombatEngine._resolveActorById, with canvas/game injected as `world`. */
+function resolveActorById(actorId, world = {}) {
+  if (!actorId) return null;
+  const tokens = world.tokens ?? [];
+  const actors = world.actors ?? new Map();
+  const token = tokens.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null;
+  return token?.actor ?? actors.get(actorId) ?? null;
+}
+
+/** Mirror of the module's getItem (module/combat/effects/helpers.js) — actor.items.get, null-safe. */
+function getItemStub(actor, itemId) {
+  if (!actor || !itemId) return null;
+  try { return actor.items.get(itemId) ?? null; }
+  catch (_) { return null; }
+}
+
+/** Deterministic stand-in for CombatEngine._classifyLocation — real classification
+ * logic is combat-math.js's concern and separately tested; this only needs to prove
+ * _ctxFromCardFlags passes hitLocationLabel through to it correctly. */
+function classifyLocationStub(label) {
+  return (label || '').toLowerCase().includes('head') ? 'head' : 'body';
+}
+
+/** Mirror of CombatEngine._ctxFromCardFlags. */
+function ctxFromCardFlags(outcomeMsg, extras = {}, world = {}) {
+  const flags = outcomeMsg?.flags?.['mythras-imperative'];
+  if (!flags) return null;
+
+  const attacker = resolveActorById(flags.attackerId, world);
+  const defender  = resolveActorById(flags.defenderId, world);
+  if (!attacker || !defender) return null;
+
+  const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0 } = extras;
+
+  return {
+    attacker,
+    defender,
+    weapon:               getItemStub(attacker, flags.weaponId),
+    defenceWeapon:        getItemStub(defender, flags.defenceWeaponId),
+    attackerStyle:        getItemStub(attacker, flags.attackerStyleId),
+    defenceStyle:         getItemStub(defender, flags.defenceStyleId),
+    stage:                flags.stage ?? null,
+    dmgFormula:           flags.dmgFormula ?? null,
+    isCharge:             flags.isCharge ?? false,
+    isBurstFire:          flags.isBurstFire ?? false,
+    isFullAuto:           flags.isFullAuto ?? false,
+    rangeBand:            flags.rangeBand ?? null,
+    difficulty:           flags.difficulty ?? 'standard',
+    defenceType:          flags.defenceType ?? null,
+    chosenSpecialEffects: flags.chosenSEs ?? [],
+    seWinner:             flags.seWinner ?? null,
+    isRanged:             flags.isRanged ?? false,
+    attackOutcome:        flags.attackOutcome ?? null,
+    defenceOutcome:       flags.defenceOutcome ?? null,
+    attackResult:         flags.attackResult ?? 0,
+    attackerSkillTotal:   flags.attackerSkillTotal ?? 0,
+    defenceResult:        flags.defenceResult ?? 0,
+    defenderSkillTotal:   flags.defenderSkillTotal ?? 0,
+    hitLocationId,
+    hitLocationLabel,
+    locationType:         classifyLocationStub(hitLocationLabel),
+    damage,
+    rawDamage,
+    damageRoll:           null,
+    chatMessageId:        outcomeMsg?.id ?? null,
+  };
+}
+
+function makeItemsCollection(items) {
+  const map = new Map(items.map(i => [i.id, i]));
+  return { get: id => map.get(id) ?? null };
+}
+
+function makeCtxActor(id, name, items = []) {
+  return { id, name, items: makeItemsCollection(items) };
+}
+
+// A full, representative 24-field flag set, as CombatEngine.js's
+// ChatMessage.create actually stamps it.
+function makeOutcomeFlags(overrides = {}) {
+  return {
+    actorId:             'attacker1',
+    defenderId:           'defender1',
+    attackerId:           'attacker1',
+    weaponId:             'weapon1',
+    stage:                'outcome',
+    dmgFormula:           '1d8+1d4',
+    isCharge:             false,
+    isBurstFire:          false,
+    isFullAuto:           false,
+    rangeBand:            null,
+    difficulty:           'standard',
+    defenceType:          'parry',
+    defenceWeaponId:      'shield1',
+    defenceStyleId:       'style-defence',
+    chosenSEs:            ['bleed'],
+    seWinner:             'attacker',
+    attackerStyleId:      'style-attack',
+    isRanged:             false,
+    attackOutcome:        'success',
+    defenceOutcome:       'fail',
+    attackResult:         85,
+    attackerSkillTotal:   90,
+    defenceResult:        20,
+    defenderSkillTotal:   60,
+    ...overrides,
+  };
+}
+
+function makeOutcomeMsg(flagOverrides = {}, id = 'msg1') {
+  return { id, flags: { 'mythras-imperative': makeOutcomeFlags(flagOverrides) } };
+}
+
+describe('CombatEngine._resolveActorById', () => {
+  test('resolves via a placed token actor when one matches, in preference to the base actor', () => {
+    const baseActor  = makeCtxActor('a1', 'Base');
+    const tokenActor = makeCtxActor('a1', 'Token Copy'); // same id, different (synthetic) instance
+    const world = { actors: new Map([['a1', baseActor]]), tokens: [{ actor: tokenActor }] };
+    expect(resolveActorById('a1', world)).toBe(tokenActor);
+  });
+
+  test('falls back to the base/world actor when no matching token is placed', () => {
+    const baseActor = makeCtxActor('a1', 'Base');
+    const world = { actors: new Map([['a1', baseActor]]), tokens: [] };
+    expect(resolveActorById('a1', world)).toBe(baseActor);
+  });
+
+  test('null/undefined id returns null without touching the world', () => {
+    expect(resolveActorById(null, { actors: new Map(), tokens: [] })).toBeNull();
+    expect(resolveActorById(undefined)).toBeNull();
+  });
+
+  test('unresolvable id returns null', () => {
+    expect(resolveActorById('ghost', { actors: new Map(), tokens: [] })).toBeNull();
+  });
+});
+
+describe('CombatEngine._ctxFromCardFlags', () => {
+  function standardWorld() {
+    const weapon  = { id: 'weapon1', name: 'Longsword' };
+    const shield  = { id: 'shield1', name: 'Heater Shield' };
+    const atkStyle = { id: 'style-attack', name: 'Sword & Shield', system: { traits: ['knockoutBlow'] } };
+    const defStyle = { id: 'style-defence', name: 'Sword & Shield' };
+    const attacker = makeCtxActor('attacker1', 'Attacker', [weapon, atkStyle]);
+    const defender = makeCtxActor('defender1', 'Defender', [shield, defStyle]);
+    return {
+      world: { actors: new Map([['attacker1', attacker], ['defender1', defender]]), tokens: [] },
+      attacker, defender, weapon, shield, atkStyle, defStyle,
+    };
+  }
+
+  test('full rehydration from a representative flag set', () => {
+    const { world, attacker, defender, weapon, shield, atkStyle, defStyle } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg();
+    const extras = { hitLocationId: 'loc-head', hitLocationLabel: 'Head', damage: 6, rawDamage: 9 };
+
+    const ctx = ctxFromCardFlags(outcomeMsg, extras, world);
+
+    expect(ctx).toEqual({
+      attacker, defender,
+      weapon, defenceWeapon: shield,
+      attackerStyle: atkStyle, defenceStyle: defStyle,
+      stage: 'outcome',
+      dmgFormula: '1d8+1d4',
+      isCharge: false, isBurstFire: false, isFullAuto: false,
+      rangeBand: null, difficulty: 'standard',
+      defenceType: 'parry',
+      chosenSpecialEffects: ['bleed'],
+      seWinner: 'attacker',
+      isRanged: false,
+      attackOutcome: 'success', defenceOutcome: 'fail',
+      attackResult: 85, attackerSkillTotal: 90,
+      defenceResult: 20, defenderSkillTotal: 60,
+      hitLocationId: 'loc-head', hitLocationLabel: 'Head',
+      locationType: 'head',
+      damage: 6, rawDamage: 9,
+      damageRoll: null,
+      chatMessageId: 'msg1',
+    });
+  });
+
+  test('attackerStyle resolves to a real item (the Knockout Blow / fumble-SE wake-up case)', () => {
+    const { world, atkStyle } = standardWorld();
+    const ctx = ctxFromCardFlags(makeOutcomeMsg(), {}, world);
+    expect(ctx.attackerStyle).toBe(atkStyle);
+    expect(ctx.attackerStyle.system.traits).toContain('knockoutBlow');
+  });
+
+  test('graceful handling of a missing/deleted outcome message: returns null, does not throw', () => {
+    expect(() => ctxFromCardFlags(null)).not.toThrow();
+    expect(ctxFromCardFlags(null)).toBeNull();
+    expect(ctxFromCardFlags(undefined)).toBeNull();
+  });
+
+  test('graceful handling of an outcome message with no mythras-imperative flags', () => {
+    expect(ctxFromCardFlags({ id: 'msg2', flags: {} })).toBeNull();
+  });
+
+  test('returns null if the attacker or defender cannot be resolved', () => {
+    const world = { actors: new Map(), tokens: [] }; // empty world — nobody resolves
+    expect(ctxFromCardFlags(makeOutcomeMsg(), {}, world)).toBeNull();
+  });
+
+  test('returns null (same convention, no DOM fallback) when defenderId is absent from the flags', () => {
+    const { world } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg({ defenderId: undefined });
+    expect(ctxFromCardFlags(outcomeMsg, {}, world)).toBeNull();
+  });
+
+  test('chosenSEs flag is renamed to chosenSpecialEffects on ctx', () => {
+    const { world } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg({ chosenSEs: ['trip', 'stunLocation'] });
+    const ctx = ctxFromCardFlags(outcomeMsg, {}, world);
+    expect(ctx.chosenSpecialEffects).toEqual(['trip', 'stunLocation']);
+    expect(ctx.chosenSEs).toBeUndefined();
+  });
+
+  test('damageRoll is always null — never reconstructed from flags', () => {
+    const { world } = standardWorld();
+    const ctx = ctxFromCardFlags(makeOutcomeMsg(), {}, world);
+    expect(ctx.damageRoll).toBeNull();
+  });
+
+  test('extras defaults (hitLocationId/Label/damage/rawDamage) apply when extras is omitted', () => {
+    const { world } = standardWorld();
+    const ctx = ctxFromCardFlags(makeOutcomeMsg(), undefined, world);
+    expect(ctx.hitLocationId).toBeNull();
+    expect(ctx.hitLocationLabel).toBe('');
+    expect(ctx.damage).toBe(0);
+    expect(ctx.rawDamage).toBe(0);
+  });
+
+  test('idempotent: re-running against the same inputs yields an equal result', () => {
+    const { world } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg();
+    const extras = { hitLocationId: 'loc-head', hitLocationLabel: 'Head', damage: 6, rawDamage: 9 };
+    const first  = ctxFromCardFlags(outcomeMsg, extras, world);
+    const second = ctxFromCardFlags(outcomeMsg, extras, world);
+    expect(first).toEqual(second);
+  });
+});
+
+// =============================================================================
+// mythras.mjs .mi-btn-apply-dmg handler — ctx construction (mirrored)
+//   Damage-chokepoint fix, Batch 2 (batch2-prompt.md). The real handler is a
+//   DOM click callback with game.messages/ui.notifications dependencies and
+//   is not unit-tested directly (same reason CombatEngine.js itself is
+//   mirrored throughout this file). This mirrors just the two behaviours
+//   Batch 2 changes: (1) the ammo-trait chosenSEs injection must survive
+//   the swap to _ctxFromCardFlags — the helper only knows the raw stamped
+//   flags.chosenSEs, never the locally-mutated broadhead/Stun Round copy,
+//   so the caller must override chosenSpecialEffects on the merged ctx;
+//   (2) a null return from _ctxFromCardFlags must be handled without the
+//   opposed-SE resolver (or wound-consequence resolver) ever being called.
+// =============================================================================
+
+/** Mirrors the handler's chosenSEs construction (mythras.mjs ~L1124-1139). */
+function injectAmmoTraitSEs(flags, damage) {
+  const chosenSEs = [...(flags.chosenSEs ?? [])];
+  if (flags.broadhead && damage > 0 && !chosenSEs.includes('bleed')) {
+    chosenSEs.push('bleed');
+  }
+  const stunRoundActive = flags.stunRound && !chosenSEs.includes('stunLocation');
+  if (stunRoundActive) {
+    chosenSEs.push('stunLocation');
+  }
+  return { chosenSEs, stunRoundActive };
+}
+
+describe('mythras.mjs Apply Damage handler — ctx construction', () => {
+  function standardWorld() {
+    const weapon  = { id: 'weapon1', name: 'Longsword' };
+    const attacker = makeCtxActor('attacker1', 'Attacker', [weapon]);
+    const defender = makeCtxActor('defender1', 'Defender', []);
+    return { world: { actors: new Map([['attacker1', attacker], ['defender1', defender]]), tokens: [] } };
+  }
+
+  test('broadhead auto-bleed: chosenSpecialEffects on the merged ctx reflects the injected copy, not the raw flag', () => {
+    const { world } = standardWorld();
+    const flags = { broadhead: true, chosenSEs: [] };
+    const { chosenSEs } = injectAmmoTraitSEs(flags, /* damage */ 5);
+    expect(chosenSEs).toEqual(['bleed']);
+
+    const outcomeMsg = makeOutcomeMsg({ chosenSEs: [] }); // raw flag stays empty
+    const baseCtx = ctxFromCardFlags(outcomeMsg, {}, world);
+    const merged = { ...baseCtx, chosenSpecialEffects: chosenSEs };
+
+    expect(merged.chosenSpecialEffects).toEqual(['bleed']);
+    expect(baseCtx.chosenSpecialEffects).toEqual([]); // the helper alone never sees the injection
+  });
+
+  test('Stun Round auto-stunLocation: chosenSpecialEffects on the merged ctx reflects the injected copy', () => {
+    const { world } = standardWorld();
+    const flags = { stunRound: true, chosenSEs: [] };
+    const { chosenSEs, stunRoundActive } = injectAmmoTraitSEs(flags, 0); // fires even at 0 damage
+    expect(chosenSEs).toEqual(['stunLocation']);
+    expect(stunRoundActive).toBe(true);
+
+    const outcomeMsg = makeOutcomeMsg({ chosenSEs: [] });
+    const baseCtx = ctxFromCardFlags(outcomeMsg, {}, world);
+    const merged = { ...baseCtx, chosenSpecialEffects: chosenSEs };
+
+    expect(merged.chosenSpecialEffects).toEqual(['stunLocation']);
+  });
+
+  test('both ammo traits together: injected copy carries both, raw flag carries neither', () => {
+    const flags = { broadhead: true, stunRound: true, chosenSEs: ['trip'] };
+    const { chosenSEs } = injectAmmoTraitSEs(flags, 5);
+    expect(chosenSEs).toEqual(['trip', 'bleed', 'stunLocation']);
+  });
+
+  test('a null ctx from _ctxFromCardFlags is handled without reaching the opposed-SE resolver', () => {
+    const emptyWorld = { actors: new Map(), tokens: [] }; // nobody resolves
+    const outcomeMsg = makeOutcomeMsg();
+    const baseCtx = ctxFromCardFlags(outcomeMsg, {}, emptyWorld);
+    expect(baseCtx).toBeNull();
+
+    let resolverCalled = false;
+    if (!baseCtx) {
+      // error path — mirrors the handler's console.error + ui.notifications.error
+    } else {
+      resolverCalled = true; // would call CombatEngine._resolveOpposedSEs
+    }
+    expect(resolverCalled).toBe(false);
+  });
+
+  test('a null ctx from _ctxFromCardFlags is handled without reaching the wound-consequence resolver', () => {
+    const emptyWorld = { actors: new Map(), tokens: [] };
+    const outcomeMsg = makeOutcomeMsg();
+    const baseCtx = ctxFromCardFlags(outcomeMsg, {}, emptyWorld);
+    expect(baseCtx).toBeNull();
+
+    let resolverCalled = false;
+    if (!baseCtx) {
+      // error path
+    } else {
+      resolverCalled = true; // would call CombatEngine._resolveWoundConsequences
+    }
+    expect(resolverCalled).toBe(false);
+  });
+
+  test('a resolvable ctx merged with semiCtxForWound-shaped overrides carries the wound-local fields', () => {
+    const { world } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg();
+    const baseCtx = ctxFromCardFlags(outcomeMsg, {}, world);
+    const semiCtxForWound = {
+      woundLevel: 'serious',
+      newCurrent: -2,
+      maxHp: 8,
+      locationType: 'limb',
+      hitLocationLabel: 'Right Arm',
+      enduranceRequired: true,
+      damageAfterArmour: 10,
+    };
+    const woundCtx = { ...baseCtx, ...semiCtxForWound, chosenSpecialEffects: [] };
+
+    // Wound-local fields win over whatever the helper would have derived/defaulted.
+    expect(woundCtx.woundLevel).toBe('serious');
+    expect(woundCtx.newCurrent).toBe(-2);
+    expect(woundCtx.maxHp).toBe(8);
+    expect(woundCtx.locationType).toBe('limb');
+    expect(woundCtx.hitLocationLabel).toBe('Right Arm');
+    expect(woundCtx.enduranceRequired).toBe(true);
+    expect(woundCtx.damageAfterArmour).toBe(10);
+    // Fields _resolveWoundConsequences also reads, supplied by the helper
+    // (not in the prompt's field list, confirmed by reading the function):
+    expect(woundCtx.attackerSkillTotal).toBe(90); // from makeOutcomeFlags' default
+    expect(woundCtx.chatMessageId).toBe('msg1');  // was never set at all pre-Batch-2
+  });
+});
