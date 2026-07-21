@@ -1089,34 +1089,7 @@ function _onRenderChatMessage(message, html) {
       const actor      = _resolveActor(actorId);
       if (!actor || isNaN(damage)) return;
 
-      const locItem = CombatEngine._getItem(actor, locationId);
-      let semiCtxForWound = null;
-      if (locItem) {
-        // Schema: system.hp = max, system.current = current, system.wound = wound string
-        const maxHp      = locItem.system.hp ?? 4;
-        const currentHp  = locItem.system.current ?? maxHp;
-        const newCurrent = currentHp - damage;
-        // Wound severity per rules pp.31-32: use cumulative newCurrent thresholds,
-        // not single-blow damage size.
-        const { CombatEngine: CE } = await import('./module/combat/CombatEngine.js');
-        const woundLevel = CE._woundLevel(damage, maxHp, newCurrent);
-        await locItem.update({ 'system.current': newCurrent, 'system.wound': woundLevel });
-        ui.notifications.info(
-          `Applied ${damage} to ${actor.name}'s ${locLabel}. Current HP: ${newCurrent}. Wound: ${woundLevel}.`
-        );
-        // Build wound ctx for later consequence resolution
-        semiCtxForWound = {
-          woundLevel,
-          newCurrent,
-          maxHp,
-          locationType:    CE._classifyLocation(locItem.name),
-          hitLocationLabel: locLabel,
-          enduranceRequired: newCurrent <= 0,
-          damageAfterArmour: damage
-        };
-      } else {
-        ui.notifications.warn(`Hit location item not found on ${actor?.name}.`);
-      }
+      const { CombatEngine } = await import('./module/combat/CombatEngine.js');
 
       // ── Resolve opposed SEs (Bleed, Trip, etc.) using flags from the outcome message ──
       const outcomeMsg = game.messages.get(btn.dataset.messageId);
@@ -1131,74 +1104,84 @@ function _onRenderChatMessage(message, html) {
       }
 
       // Stun Round ammo trait: auto-adds Stun Location on any hit (flag stamped at
-      // Roll Damage time). Passes rawDamage as the stun duration so the Endurance
-      // roll fires even when finalDamage is 0 after armour reduction.
+      // Roll Damage time; `damage` here already arrives as 0 for Stun Round shots —
+      // computed that way at Roll Damage time, same as the Full Auto path).
       const stunRoundActive = flags.stunRound && !chosenSEs.includes('stunLocation');
       if (stunRoundActive) {
         chosenSEs.push('stunLocation');
       }
 
-      // Registry-driven: any SE with phase:'opposed' fires through _resolveOpposedSEs.
-      // requiresDamage and requiresFumble gates are enforced inside the dispatcher.
-      const hasOpposedSE = chosenSEs.some(
-        id => CONFIG.MYTHRAS.specialEffects.find(e => e.id === id)?.phase === 'opposed'
-      );
-
       // Fields _ctxFromCardFlags cannot know — it is deliberately DOM-
       // independent, so extraction from the button's dataset happens here.
       const extras = { hitLocationId: locationId ?? null, hitLocationLabel: locLabel, damage, rawDamage };
+      const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
 
-      if (hasOpposedSE) {
-        try {
-          const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-          const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
-          if (!baseCtx) {
-            console.error('Mythras Imperative | Opposed SE failed: could not rehydrate ctx from outcome card', { messageId: btn.dataset.messageId });
-            ui.notifications.error('Special Effect roll failed — check console for details.');
-          } else {
-            const minimalCtx = {
-              ...baseCtx,
-              // Derived, not stamped — _ctxFromCardFlags cannot compute this.
-              locationType:         CombatEngine._classifyLocation(locLabel ?? ''),
-              // NOT the raw flags.chosenSEs _ctxFromCardFlags read: this is the
-              // locally mutated copy with broadhead/Stun Round auto-injection
-              // applied above. Must override the helper's passthrough or both
-              // ammo traits silently stop working.
-              chosenSpecialEffects: chosenSEs,
-              chatMessageId:        btn.dataset.messageId ?? null   // outcome card — player has seen it
-            };
-            await CombatEngine._resolveOpposedSEs(minimalCtx, stunRoundActive ? rawDamage : damage);
-          }
-        } catch (err) {
-          console.error('Mythras Imperative | Opposed SE failed:', err);
-          ui.notifications.error('Special Effect roll failed — check console for details.');
-        }
+      if (!baseCtx) {
+        console.error('Mythras Imperative | Apply Damage failed: could not rehydrate ctx from outcome card', { messageId: btn.dataset.messageId });
+        ui.notifications.error('Apply Damage failed — check console for details.');
+        return;
       }
 
-      // ── Resolve wound consequences (Endurance roll for Serious/Major) ─────────
-      if (semiCtxForWound?.enduranceRequired) {
-        try {
-          const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-          const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
-          if (!baseCtx) {
-            console.error('Mythras Imperative | Wound consequence failed: could not rehydrate ctx from outcome card', { messageId: btn.dataset.messageId });
-            ui.notifications.error('Wound consequence roll failed — check console for details.');
-          } else {
-            const woundCtx = {
-              ...baseCtx,
-              // Computed after the damage write, above — the helper cannot know
-              // these; they override its (absent/derived) versions of the same
-              // fields: woundLevel, newCurrent, maxHp, locationType,
-              // hitLocationLabel, enduranceRequired, damageAfterArmour.
-              ...semiCtxForWound,
-              chosenSpecialEffects: chosenSEs
-            };
-            await CombatEngine._resolveWoundConsequences(woundCtx);
-          }
-        } catch (err) {
-          console.error('Mythras Imperative | Wound consequence failed:', err);
-          ui.notifications.error('Wound consequence roll failed — check console for details.');
+      // _applyDamage's internal SE dispatch (_resolveOpposedSEs) passes the
+      // SAME `damage` argument to every chosen SE's requiresDamage gate AND
+      // its resolver call. Stun Round's HP damage is 0, but stunLocation
+      // (requiresDamage: true) needs the pre-armour rawDamage as its
+      // duration — a single shared argument can't satisfy both, so it is
+      // excluded from the dispatched set here and resolved directly after,
+      // mirroring the Full Auto path's identical bypass (CombatEngine.js
+      // ~L1490-1492 — Full Auto never puts 'stunLocation' in
+      // chosenSpecialEffects for its own _applyDamage call either).
+      const dispatchedSEs = stunRoundActive ? chosenSEs.filter(id => id !== 'stunLocation') : chosenSEs;
+
+      // Read the location's current HP before the write, so the applied-
+      // damage notification below reflects what actually landed — which
+      // may differ from `damage` if a damageHooks consumer reduced it.
+      const locItem = CombatEngine._getItem(actor, locationId);
+      const beforeCurrent = locItem ? (locItem.system.current ?? locItem.system.hp ?? null) : null;
+
+      try {
+        const ctx = {
+          ...baseCtx,
+          // Derived, not stamped — _ctxFromCardFlags cannot compute this.
+          locationType:         CombatEngine._classifyLocation(locLabel ?? ''),
+          // NOT the raw flags.chosenSEs _ctxFromCardFlags read: this is the
+          // locally mutated copy with broadhead/Stun Round auto-injection
+          // applied above (minus stunLocation, excluded just above). Must
+          // override the helper's passthrough or both ammo traits silently
+          // stop working.
+          chosenSpecialEffects: dispatchedSEs,
+          chatMessageId:        btn.dataset.messageId ?? null   // outcome card — player has seen it
+        };
+
+        // The chokepoint: writes system.current/system.wound (through
+        // damageHooks first), then resolves opposed SEs, wound consequences
+        // (Serious/Major Endurance), and the vampiric-trait drain — all in
+        // one call. Confirmed by reading _applyDamage in full before this
+        // batch: it performs exactly these four steps, in this order, and
+        // none of them were previously reachable in Semi-Auto except the
+        // first (via the direct write this replaces).
+        await CombatEngine._applyDamage(ctx, damage);
+
+        if (stunRoundActive && rawDamage > 0) {
+          await CombatEngine._resolveStunLocationSE(ctx, rawDamage);
         }
+
+        // _applyDamage mutates ctx.newCurrent only when it actually wrote
+        // (damage, post-damageHooks, ended up > 0 and the location resolved).
+        // If a damageHooks consumer (e.g. a power granting damage immunity)
+        // reduced damage to 0, or the location didn't resolve, ctx.newCurrent
+        // stays unset — report "no damage" rather than a stale/wrong number.
+        if (typeof ctx.newCurrent === 'number' && beforeCurrent !== null) {
+          const appliedDamage = beforeCurrent - ctx.newCurrent;
+          ui.notifications.info(
+            `Applied ${appliedDamage} to ${actor.name}'s ${locLabel}. Current HP: ${ctx.newCurrent}. Wound: ${ctx.woundLevel}.`
+          );
+        } else {
+          ui.notifications.info(`No damage applied to ${actor.name}'s ${locLabel}.`);
+        }
+      } catch (err) {
+        console.error('Mythras Imperative | Apply Damage failed:', err);
+        ui.notifications.error('Apply Damage failed — check console for details.');
       }
 
       btn.disabled = true;

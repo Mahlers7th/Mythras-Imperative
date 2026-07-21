@@ -2848,6 +2848,26 @@ export class CombatEngine {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // _resolveStunLocationSE — direct invocation of the Stun Location SE
+  // resolver, bypassing _resolveOpposedSEs' requiresDamage gate.
+  //
+  // Damage-chokepoint fix, Batch 3. Needed because _applyDamage's dispatch
+  // loop (_resolveOpposedSEs) passes the SAME `damage` argument to every
+  // chosen SE's requiresDamage check and its resolver call. Stun Round
+  // ammo deals 0 HP damage by design (the write must use 0), but
+  // stunLocation (requiresDamage: true) needs its duration to be the
+  // pre-armour raw damage, not 0 — so it cannot go through the shared
+  // dispatch loop at all when damage is 0; the gate would silently skip it.
+  //
+  // Mirrors the Full Auto path's identical bypass verbatim (~L1490-1492:
+  // Full Auto never puts 'stunLocation' in chosenSpecialEffects for its own
+  // _applyDamage call either — it always resolves it separately, the same
+  // pattern this method now gives semi-auto).
+  // -------------------------------------------------------------------------
+  static async _resolveStunLocationSE(ctx, duration, forcesFail = false) {
+    return SE_RESOLVERS['stunLocation'](ctx, duration, forcesFail);
+  }
 
   // -------------------------------------------------------------------------
   // _resolveAccidentalInjury

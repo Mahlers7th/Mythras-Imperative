@@ -1379,12 +1379,27 @@ describe('CombatEngine._ctxFromCardFlags', () => {
 //   DOM click callback with game.messages/ui.notifications dependencies and
 //   is not unit-tested directly (same reason CombatEngine.js itself is
 //   mirrored throughout this file). This mirrors just the two behaviours
-//   Batch 2 changes: (1) the ammo-trait chosenSEs injection must survive
-//   the swap to _ctxFromCardFlags — the helper only knows the raw stamped
-//   flags.chosenSEs, never the locally-mutated broadhead/Stun Round copy,
-//   so the caller must override chosenSpecialEffects on the merged ctx;
-//   (2) a null return from _ctxFromCardFlags must be handled without the
-//   opposed-SE resolver (or wound-consequence resolver) ever being called.
+//   Batch 2 changes, still valid under Batch 3: (1) the ammo-trait chosenSEs
+//   injection must survive the swap to _ctxFromCardFlags — the helper only
+//   knows the raw stamped flags.chosenSEs, never the locally-mutated
+//   broadhead/Stun Round copy, so the caller must override
+//   chosenSpecialEffects on the built ctx; (2) a null return from
+//   _ctxFromCardFlags must be handled without the chokepoint ever being
+//   called.
+//
+//   Batch 3 (batch3 section of damage-chokepoint-prompt.md) additions: the
+//   handler no longer builds separate minimalCtx/woundCtx objects — one ctx
+//   goes into CombatEngine._applyDamage(ctx, damage), which now does the
+//   write, opposed-SE resolution, wound consequences, and the vampiric
+//   drain internally. Two things the single call can't replicate on its
+//   own, both covered below: (a) Stun Round's stunLocation SE needs a
+//   different damage value than the HP write, so it is excluded from the
+//   dispatched set and resolved separately (mirrors the Full Auto path's
+//   identical bypass); (b) _applyDamage posts no user-facing notification
+//   at all (Full Auto instead updates a chat card) — the semi-auto handler
+//   now builds its own "Applied N.../No damage applied" notification from
+//   ctx.newCurrent after the call, since a damageHooks consumer may have
+//   reduced the actual applied amount below what was originally rolled.
 // =============================================================================
 
 /** Mirrors the handler's chosenSEs construction (mythras.mjs ~L1124-1139). */
@@ -1472,32 +1487,88 @@ describe('mythras.mjs Apply Damage handler — ctx construction', () => {
     expect(resolverCalled).toBe(false);
   });
 
-  test('a resolvable ctx merged with semiCtxForWound-shaped overrides carries the wound-local fields', () => {
+  test('the built ctx carries the fields _resolveWoundConsequences reads, sourced from the helper (Batch 3: no manual semiCtxForWound merge — _applyDamage sets woundLevel/newCurrent/maxHp/locationType/enduranceRequired on ctx itself)', () => {
     const { world } = standardWorld();
     const outcomeMsg = makeOutcomeMsg();
     const baseCtx = ctxFromCardFlags(outcomeMsg, {}, world);
-    const semiCtxForWound = {
-      woundLevel: 'serious',
-      newCurrent: -2,
-      maxHp: 8,
-      locationType: 'limb',
-      hitLocationLabel: 'Right Arm',
-      enduranceRequired: true,
-      damageAfterArmour: 10,
-    };
-    const woundCtx = { ...baseCtx, ...semiCtxForWound, chosenSpecialEffects: [] };
+    const ctx = { ...baseCtx, locationType: 'limb', chosenSpecialEffects: [] };
 
-    // Wound-local fields win over whatever the helper would have derived/defaulted.
-    expect(woundCtx.woundLevel).toBe('serious');
-    expect(woundCtx.newCurrent).toBe(-2);
-    expect(woundCtx.maxHp).toBe(8);
-    expect(woundCtx.locationType).toBe('limb');
-    expect(woundCtx.hitLocationLabel).toBe('Right Arm');
-    expect(woundCtx.enduranceRequired).toBe(true);
-    expect(woundCtx.damageAfterArmour).toBe(10);
-    // Fields _resolveWoundConsequences also reads, supplied by the helper
-    // (not in the prompt's field list, confirmed by reading the function):
-    expect(woundCtx.attackerSkillTotal).toBe(90); // from makeOutcomeFlags' default
-    expect(woundCtx.chatMessageId).toBe('msg1');  // was never set at all pre-Batch-2
+    expect(ctx.locationType).toBe('limb');
+    // Fields _resolveWoundConsequences reads that are NOT in the prompt's
+    // 8-field list (confirmed by reading the function fully for Batch 3):
+    expect(ctx.attackerSkillTotal).toBe(90); // from makeOutcomeFlags' default
+    expect(ctx.chatMessageId).toBe('msg1');  // was never set at all pre-Batch-2
+    // woundLevel/newCurrent/maxHp/enduranceRequired are NOT present here —
+    // _applyDamage mutates them onto this same ctx object at call time, not
+    // supplied ahead of time by _ctxFromCardFlags or this construction step.
+    expect(ctx.woundLevel).toBeUndefined();
+    expect(ctx.newCurrent).toBeUndefined();
+  });
+
+  // ── Batch 3: Stun Round SE dispatch exclusion ─────────────────────────────
+  // Mirrors the handler's `dispatchedSEs` construction (mythras.mjs, just
+  // before the _applyDamage call).
+  function excludeStunLocationIfActive(chosenSEs, stunRoundActive) {
+    return stunRoundActive ? chosenSEs.filter(id => id !== 'stunLocation') : chosenSEs;
+  }
+
+  test('Stun Round active: stunLocation is excluded from the dispatched set (would otherwise be silently gated out at damage=0)', () => {
+    const flags = { stunRound: true, chosenSEs: ['trip'] };
+    const { chosenSEs, stunRoundActive } = injectAmmoTraitSEs(flags, 0);
+    expect(chosenSEs).toEqual(['trip', 'stunLocation']);
+
+    const dispatched = excludeStunLocationIfActive(chosenSEs, stunRoundActive);
+    expect(dispatched).toEqual(['trip']);
+    expect(dispatched).not.toContain('stunLocation');
+  });
+
+  test('Stun Round inactive: chosenSEs pass through the dispatch step unchanged, stunLocation included if separately chosen', () => {
+    const flags = { chosenSEs: ['stunLocation', 'bleed'] }; // e.g. genuinely chosen, not ammo-injected
+    const { chosenSEs, stunRoundActive } = injectAmmoTraitSEs(flags, 5);
+    expect(stunRoundActive).toBeFalsy(); // flags.stunRound absent
+
+    const dispatched = excludeStunLocationIfActive(chosenSEs, stunRoundActive);
+    expect(dispatched).toEqual(['stunLocation', 'bleed']); // untouched — the exclusion is Stun-Round-specific
+  });
+
+  // ── Batch 3: applied-damage notification decision ─────────────────────────
+  // Mirrors the handler's post-_applyDamage notification branch. ctx.newCurrent
+  // is only set by the real _applyDamage when damage (post-damageHooks) ended
+  // up > 0 AND the hit location resolved — this mirror models exactly that
+  // observable contract without re-implementing _applyDamage itself.
+  function describeAppliedDamage(ctxAfter, beforeCurrent, defenderName, locLabel) {
+    if (typeof ctxAfter.newCurrent === 'number' && beforeCurrent !== null) {
+      const appliedDamage = beforeCurrent - ctxAfter.newCurrent;
+      return `Applied ${appliedDamage} to ${defenderName}'s ${locLabel}. Current HP: ${ctxAfter.newCurrent}. Wound: ${ctxAfter.woundLevel}.`;
+    }
+    return `No damage applied to ${defenderName}'s ${locLabel}.`;
+  }
+
+  test('normal hit: reports the actual applied delta (beforeCurrent - ctx.newCurrent), not the pre-hook rolled damage', () => {
+    const ctxAfter = { newCurrent: 3, woundLevel: 'minor' };
+    const msg = describeAppliedDamage(ctxAfter, /* beforeCurrent */ 7, 'Goblin', 'Chest');
+    expect(msg).toBe(`Applied 4 to Goblin's Chest. Current HP: 3. Wound: minor.`);
+  });
+
+  test('a damageHooks consumer reducing damage below what was rolled is reflected in the applied figure', () => {
+    // e.g. a hook halves 10 rolled damage to 5 before the write — the
+    // notification must show 5 (what landed), not 10 (what was rolled).
+    const ctxAfter = { newCurrent: 5, woundLevel: 'none' };
+    const msg = describeAppliedDamage(ctxAfter, /* beforeCurrent */ 10, 'Hero', 'Head');
+    expect(msg).toBe(`Applied 5 to Hero's Head. Current HP: 5. Wound: none.`);
+  });
+
+  test('damage fully suppressed by a damageHooks consumer: reports "no damage", not a stale or zero-looking write', () => {
+    // ctx.newCurrent is never set — _applyDamage's write block only runs
+    // when damage (post-hooks) is > 0.
+    const ctxAfter = {};
+    const msg = describeAppliedDamage(ctxAfter, /* beforeCurrent */ 10, 'Hero', 'Head');
+    expect(msg).toBe(`No damage applied to Hero's Head.`);
+  });
+
+  test('hit location did not resolve: reports "no damage" rather than throwing on a null beforeCurrent', () => {
+    const ctxAfter = {};
+    const msg = describeAppliedDamage(ctxAfter, /* beforeCurrent */ null, 'Hero', 'Head');
+    expect(msg).toBe(`No damage applied to Hero's Head.`);
   });
 });
