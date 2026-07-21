@@ -21,6 +21,7 @@ import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js'
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import { weaponBaseMax }              from './module/utils/combat-math.js';
+import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
 import {
   resolveEntangleBreakFree,
   resolveGripBreakFree,
@@ -264,7 +265,31 @@ Hooks.once('ready', () => {
   // syncHitLocationHP is the sole writer of hit-location item system.hp (max).
   // Exposed so a module can force a resync after a batched flag write that
   // the updateActor guard may not observe as a single change event.
-  game.system.api = Object.freeze({ syncHitLocationHP });
+  //
+  // determineOutcome/shiftGrade/GRADE_ORDER/applyDifficulty/DIFFICULTY_GRADES
+  // (v1.4.260+): the canonical unopposed skill grader and its grade-scaling
+  // toolkit, from module/utils/roll-math.js. Exposed so modules building
+  // roll-gated mechanics (Destined's effect layer) read the system's real
+  // grading rules instead of reimplementing crit/fumble bands independently
+  // -- reimplementing them was exactly what produced this system's own
+  // semi-auto damage-chokepoint drift, and the same drift already happened
+  // once module-side before this promotion (Destined's roll-gating-prompt-v2
+  // batch, v1.9.54, which reached in via a hardcoded relative import before
+  // this contract existed). Pure functions and a frozen constant -- no
+  // state, safe to expose. combat-math.js's determineOutcome is a duplicate
+  // of this one (not exposed here; roll-math.js is the canonical home) --
+  // see the system's own known-issues for that dedup, separate from this
+  // batch. resolveOpposedRoll/resolveDifferential (combat-math.js) are NOT
+  // exposed here either -- a decision for whenever the first opposed-boost
+  // family needs them.
+  game.system.api = Object.freeze({
+    syncHitLocationHP,
+    determineOutcome,
+    shiftGrade,
+    GRADE_ORDER,
+    applyDifficulty,
+    DIFFICULTY_GRADES,
+  });
 
   // ── Settings migration ────────────────────────────────────────────────────
   // If an old stored value ('automated', 'gmOnly') is present from a previous
