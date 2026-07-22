@@ -17,6 +17,11 @@
 // mirrored) so the item-label -> camelCase-key derivation itself is under
 // test, not just the hook-application contract downstream of it.
 import { locationNameToKey } from '../module/utils/hit-location.js';
+// weaponBaseMax is likewise pure and already fully tested in
+// combat-math.test.js — imported for real rather than mirrored, so the
+// _getEffectiveArmourAt tests below exercise the actual piercing-reduction
+// math, not a second copy of it.
+import { weaponBaseMax } from '../module/utils/combat-math.js';
 
 // ---------------------------------------------------------------------------
 // Re-implementations of the two inline application patterns, kept byte-for-byte
@@ -405,6 +410,149 @@ describe('armourBonusHooks — _applySunder non-sunderable layer', () => {
     const { carryOver, recordedReduction } = applySunder({ bonus: 6, damage: 4 });
     expect(carryOver).toBe(0);
     expect(recordedReduction).toBe(0);
+  });
+});
+
+// =============================================================================
+// _getEffectiveArmourAt / _resolveAmmoTraits — the armour-unification batch
+// (system-batch-armour-unification-prompt.md). The SOLE chokepoint for
+// effective armour (raw AP + Bodkin/Armour Piercing reduction), unifying
+// three previously-independent copies of this arithmetic. weaponBaseMax is
+// imported for real (already tested in combat-math.test.js) rather than
+// mirrored, per this file's existing convention for pure Foundry-free utils.
+// =============================================================================
+
+/**
+ * Mirror of CombatEngine._getEffectiveArmourAt. Takes a stubbed
+ * getArmourAtFn(defender, locationId) => number in place of the real
+ * _getArmourAt static method, per the batch prompt's own test-design note
+ * ("test it directly, with a stubbed _getArmourAt").
+ */
+function getEffectiveArmourAt(getArmourAtFn, defender, locationId, { bypassArmour = false, ammoTraits = [], weapon = null } = {}) {
+  if (bypassArmour) return 0;
+  const base = getArmourAtFn(defender, locationId);
+  if (base <= 0) return 0;
+  const traits = Array.isArray(ammoTraits) ? ammoTraits : [];
+  const hasPiercing = traits.includes('bodkin') || traits.includes('armourpiercing');
+  if (!hasPiercing) return base;
+  const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
+  return Math.max(0, base - reduction);
+}
+
+/** Mirror of CombatEngine._resolveAmmoTraits, with world items injected as `world.items`. */
+function resolveAmmoTraits(attacker, weapon, world = {}) {
+  const loadedId = weapon?.system?.loadedAmmoId;
+  if (!loadedId) return [];
+  const worldItems = world.items ?? new Map();
+  const ammoItem = attacker?.items?.get(loadedId) ?? worldItems.get(loadedId) ?? null;
+  if (!ammoItem || ammoItem.type !== 'ammo') return [];
+  return Array.from(ammoItem.system.traits ?? []).map(t => t.key?.toLowerCase?.() ?? t.name?.toLowerCase?.() ?? '');
+}
+
+describe('CombatEngine._getEffectiveArmourAt', () => {
+  const highBase = () => 10;
+  const zeroBase = () => 0;
+
+  test('bypassArmour wins over everything, even high base AP and piercing traits', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      bypassArmour: true,
+      ammoTraits: ['bodkin'],
+      weapon: { system: { damage: '2d6' } },
+    });
+    expect(result).toBe(0);
+  });
+
+  test('base AP 0 returns 0, no piercing arithmetic attempted', () => {
+    const result = getEffectiveArmourAt(zeroBase, {}, 'loc1', { ammoTraits: ['bodkin'] });
+    expect(result).toBe(0);
+  });
+
+  test('no piercing traits returns base AP unchanged', () => {
+    expect(getEffectiveArmourAt(highBase, {}, 'loc1', { ammoTraits: [] })).toBe(10);
+    expect(getEffectiveArmourAt(highBase, {}, 'loc1', {})).toBe(10);
+  });
+
+  test('bodkin present reduces by ceil(weaponBaseMax / 2)', () => {
+    // 1d10 -> weaponBaseMax 10 -> ceil(10/2) = 5 -> 10 - 5 = 5
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'],
+      weapon: { system: { damage: '1d10' } },
+    });
+    expect(result).toBe(5);
+  });
+
+  test('armourpiercing present gives an identical result to bodkin', () => {
+    const withBodkin = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'], weapon: { system: { damage: '1d10' } },
+    });
+    const withAP = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['armourpiercing'], weapon: { system: { damage: '1d10' } },
+    });
+    expect(withAP).toBe(withBodkin);
+  });
+
+  test('both bodkin and armourpiercing present: reduction applied once, not twice', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin', 'armourpiercing'],
+      weapon: { system: { damage: '1d10' } },
+    });
+    expect(result).toBe(5); // same as either alone, not 10 - 5 - 5
+  });
+
+  test('reduction exceeding base AP clamps to 0, never negative', () => {
+    // 2d12 -> weaponBaseMax 24 -> ceil(24/2) = 12, base is only 10
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'],
+      weapon: { system: { damage: '2d12' } },
+    });
+    expect(result).toBe(0);
+  });
+
+  test('missing weapon does not throw, degrades to no reduction attempted safely', () => {
+    expect(() => getEffectiveArmourAt(highBase, {}, 'loc1', { ammoTraits: ['bodkin'] })).not.toThrow();
+  });
+
+  test('missing weapon.system.damage does not throw', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'], weapon: {},
+    });
+    expect(() => result).not.toThrow();
+    expect(result).toBeGreaterThanOrEqual(0);
+  });
+
+  test('ammoTraits undefined or non-array does not throw, treated as no piercing', () => {
+    expect(getEffectiveArmourAt(highBase, {}, 'loc1', { ammoTraits: undefined })).toBe(10);
+    expect(getEffectiveArmourAt(highBase, {}, 'loc1', { ammoTraits: 'bodkin' })).toBe(10);
+  });
+});
+
+describe('CombatEngine._resolveAmmoTraits', () => {
+  function makeAmmoItem(type, traits) {
+    return { type, system: { traits: traits.map(key => ({ key })) } };
+  }
+
+  test('no loaded ammo returns []', () => {
+    const weapon = { system: {} };
+    expect(resolveAmmoTraits({ items: new Map() }, weapon)).toEqual([]);
+  });
+
+  test('a non-ammo item in loadedAmmoId returns [] (the type guard)', () => {
+    const weapon = { system: { loadedAmmoId: 'item1' } };
+    const attacker = { items: new Map([['item1', makeAmmoItem('weapon', ['bodkin'])]]) };
+    expect(resolveAmmoTraits(attacker, weapon)).toEqual([]);
+  });
+
+  test('a valid ammo item returns lowercased trait keys', () => {
+    const weapon = { system: { loadedAmmoId: 'item1' } };
+    const attacker = { items: new Map([['item1', makeAmmoItem('ammo', ['Bodkin', 'Broadhead'])]]) };
+    expect(resolveAmmoTraits(attacker, weapon)).toEqual(['bodkin', 'broadhead']);
+  });
+
+  test('ammo resolved from world items when not on the attacker', () => {
+    const weapon = { system: { loadedAmmoId: 'item1' } };
+    const attacker = { items: new Map() };
+    const world = { items: new Map([['item1', makeAmmoItem('ammo', ['stunRound'])]]) };
+    expect(resolveAmmoTraits(attacker, weapon, world)).toEqual(['stunround']);
   });
 });
 

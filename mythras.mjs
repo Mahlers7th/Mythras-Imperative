@@ -20,7 +20,6 @@ import { ArmourSheet }                from './module/sheets/ArmourSheet.js';
 import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js';
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
-import { weaponBaseMax }              from './module/utils/combat-math.js';
 import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
 import {
   resolveEntangleBreakFree,
@@ -1598,6 +1597,11 @@ async function _onSemiAutoRollDamage(ev, message) {
     // If parry failed/fumbled: no reduction, parryNote stays ''
   }
 
+  // Ammo trait resolution is a single shared path (CombatEngine._resolveAmmoTraits,
+  // with its type === 'ammo' guard) — reused below for Broadhead/Stun Round
+  // stamping instead of a second, divergent re-fetch.
+  const ammoTraits = isRangedShot ? CombatEngine._resolveAmmoTraits(attacker, weapon) : [];
+
   // Read location from the parent outcome card (stamped by Roll Hit Location)
   let locationId    = null;
   let locationLabel = 'Unknown';
@@ -1609,29 +1613,22 @@ async function _onSemiAutoRollDamage(ev, message) {
       const locLblMatch = parentMsg.content.match(/data-location-label="([^"]*)"/);
       locationId    = locIdMatch?.[1]  || null;
       locationLabel = locLblMatch?.[1] || 'Unknown';
-      if (locationId && !bypassArmour) {
+      if (locationId) {
         // Single armour chokepoint: natural (hit-location) AP + worn armour +
-        // module armourBonusHooks (Inherent / Power Armour), minus sunder.
-        armourAP = CombatEngine._getArmourAt(defender, locationId);
+        // module armourBonusHooks (Inherent / Power Armour) minus sunder,
+        // with Bodkin/Armour Piercing ammo-trait reduction applied on top.
+        // bypassArmour is handled inside the chokepoint (short-circuits to 0).
+        armourAP = CombatEngine._getEffectiveArmourAt(defender, locationId, {
+          bypassArmour,
+          ammoTraits,
+          weapon,
+        });
       }
     }
   }
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
-  // ── Bodkin ammo trait (semi-auto) ────────────────────────────────────────
-  // Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
-  if (isRangedShot && !bypassArmour && armourAP > 0) {
-    const ammoItem2 = attacker.items?.get(weapon.system.loadedAmmoId)
-                   ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
-    const ammoTraits2 = Array.from(ammoItem2?.system?.traits ?? [])
-      .map(t => (t.key ?? t.name ?? '').toLowerCase());
-    if (ammoTraits2.includes('bodkin') || ammoTraits2.includes('armourpiercing')) {
-      const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
-      armourAP = Math.max(0, armourAP - reduction);
-    }
-  }
-
   let finalDamage    = Math.max(0, damageAfterParry - armourAP);
   let sunderResult   = null;
   const sunderChosen = chosenSEs0.includes('sunder');
@@ -1672,18 +1669,14 @@ async function _onSemiAutoRollDamage(ev, message) {
   // the exact same proven path used when Bleed is chosen as a normal SE. This keeps
   // a single code path for Bleed and fixes broadhead never resolving in semi-auto.
   if (isRangedShot) {
-    const ammoItemBH = attacker.items?.get(weapon.system.loadedAmmoId)
-                    ?? game.items.get(weapon.system.loadedAmmoId) ?? null;
-    const ammoTraitsBH = Array.from(ammoItemBH?.system?.traits ?? [])
-      .map(t => (t.key ?? t.name ?? '').toLowerCase());
-    if (ammoTraitsBH.includes('broadhead') && outcomeMsg2) {
+    if (ammoTraits.includes('broadhead') && outcomeMsg2) {
       await outcomeMsg2.setFlag('mythras-imperative', 'broadhead', true);
     }
     // ── Stun Round ammo trait ─────────────────────────────────────────────
     // Triggers Stun Location on any hit regardless of HP damage. Stamp flag so
     // the Apply Damage handler injects 'stunLocation' and passes rawDamage as
     // the stun duration (since finalDamage may be 0 after armour).
-    if (ammoTraitsBH.includes('stunround') && outcomeMsg2) {
+    if (ammoTraits.includes('stunround') && outcomeMsg2) {
       await outcomeMsg2.setFlag('mythras-imperative', 'stunRound', true);
     }
   }

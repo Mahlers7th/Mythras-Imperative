@@ -1444,20 +1444,16 @@ export class CombatEngine {
     }
     ctx.damageAfterParry = damageAfterParry;
 
-    // Armour
+    // Armour — sole chokepoint, see _getEffectiveArmourAt (Bodkin/Armour
+    // Piercing ammo traits reduce AP before damage; Bypass Armour wins over
+    // everything).
     const bypassArmour    = ctx.chosenSpecialEffects.includes('bypassArmour');
     const sunderChosen    = ctx.chosenSpecialEffects.includes('sunder');
-    // ── Bodkin ammo trait — AP reduction ─────────────────────────────────────
-    // Reduces effective armour AP by ceil(weaponBaseMax / 2) before damage.
-    // Only applies when Bypass Armour is not already in effect.
-    const hasBodkin = (ctx.ammoTraits ?? []).includes('bodkin');
-    const hasArmourPiercing = (ctx.ammoTraits ?? []).includes('armourpiercing');
-    let effectiveAP = bypassArmour ? 0 : CombatEngine._getArmourAt(defender, ctx.hitLocationId);
-    if ((hasBodkin || hasArmourPiercing) && !bypassArmour && effectiveAP > 0) {
-      const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
-      effectiveAP     = Math.max(0, effectiveAP - reduction);
-    }
-    const armourPoints = effectiveAP;
+    const armourPoints = CombatEngine._getEffectiveArmourAt(defender, ctx.hitLocationId, {
+      bypassArmour,
+      ammoTraits: ctx.ammoTraits,
+      weapon,
+    });
 
     if (sunderChosen && !bypassArmour && armourPoints > 0) {
       // ── Sunder (rules p.46) ──────────────────────────────────────────────
@@ -1571,9 +1567,19 @@ export class CombatEngine {
         }
       }
 
-      // Armour — applies to every round
+      // Armour — bypassArmour is per-round (SEs apply to the first round
+      // only, mirroring roundCtx.chosenSpecialEffects below); ammo traits
+      // are a property of the ammunition, not a special effect, so they
+      // apply on every round. Previously this called _getArmourAt directly
+      // with no piercing branch at all — burst fire with Bodkin/Armour
+      // Piercing ammo silently ignored the AP reduction. Fixed by routing
+      // through the same chokepoint Full Auto and semi-auto use.
       const bypassArmour = firstRound && ctx.chosenSpecialEffects.includes('bypassArmour');
-      const armourPoints = bypassArmour ? 0 : CombatEngine._getArmourAt(defender, hitLocationId);
+      const armourPoints = CombatEngine._getEffectiveArmourAt(defender, hitLocationId, {
+        bypassArmour,
+        ammoTraits: ctx.ammoTraits,
+        weapon,
+      });
       const finalDamage  = Math.max(0, damageAfterParry - armourPoints);
 
       // Apply damage and record wound level
@@ -2249,6 +2255,69 @@ export class CombatEngine {
       }, 0);
 
     return Math.max(0, naturalAP - naturalReduction) + Math.max(0, wornAP - wornReduction) + armourBonus;
+  }
+
+  // -------------------------------------------------------------------------
+  // _getEffectiveArmourAt — the SOLE chokepoint for effective armour (raw AP
+  // composition + piercing). Unifies three previously-independent copies of
+  // this arithmetic (Full Auto, Burst Fire, semi-auto Roll Damage), one of
+  // which (Burst Fire) had no piercing branch at all — see CHANGELOG for the
+  // resulting bug fix. Raw AP composition itself is untouched: this wraps
+  // _getArmourAt, it does not reimplement it.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Effective armour AP at a hit location: raw AP from `_getArmourAt`, with
+   * Bodkin/Armour Piercing ammo-trait reduction applied on top. This is the
+   * sole chokepoint for effective armour — every damage-resolution path
+   * calls this, never `_getArmourAt` directly when piercing could apply.
+   * Pure and synchronous: no writes, no chat, no notifications.
+   * @param {Actor} defender
+   * @param {string} locationId
+   * @param {object} [opts]
+   * @param {boolean} [opts.bypassArmour=false] - Bypass Armour SE; wins over
+   *   everything else and short-circuits to 0 before any other computation.
+   * @param {string[]} [opts.ammoTraits=[]] - lowercased ammo trait keys for
+   *   this shot (see `_resolveAmmoTraits`); non-array/undefined treated as [].
+   * @param {Item|null} [opts.weapon=null] - the attacking weapon, for its
+   *   damage formula (`weaponBaseMax`); missing/malformed degrades to no
+   *   piercing reduction rather than throwing.
+   * @returns {number} AP to subtract from damage, >= 0.
+   */
+  static _getEffectiveArmourAt(defender, locationId, { bypassArmour = false, ammoTraits = [], weapon = null } = {}) {
+    if (bypassArmour) return 0;
+
+    const base = CombatEngine._getArmourAt(defender, locationId);
+    if (base <= 0) return 0;
+
+    const traits = Array.isArray(ammoTraits) ? ammoTraits : [];
+    const hasPiercing = traits.includes('bodkin') || traits.includes('armourpiercing');
+    if (!hasPiercing) return base;
+
+    const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
+    return Math.max(0, base - reduction);
+  }
+
+  /**
+   * Resolve the lowercased ammo-trait keys for a weapon's currently loaded
+   * ammo, or `[]` if there is none (or it isn't a genuine `ammo`-type item).
+   * The sole ammo-trait resolution path — `_buildContext` (Full Auto/Burst)
+   * and the semi-auto Roll Damage handler (mythras.mjs) both call this
+   * instead of re-implementing the lookup; the semi-auto handler previously
+   * had two independent re-implementations of its own (one for piercing, one
+   * for Broadhead/Stun Round), one of which had no `type === 'ammo'` guard
+   * and would diverge from this on a non-ammo item in `loadedAmmoId`.
+   * @param {Actor} attacker
+   * @param {Item} weapon
+   * @returns {string[]}
+   */
+  static _resolveAmmoTraits(attacker, weapon) {
+    const loadedId = weapon?.system?.loadedAmmoId;
+    if (!loadedId) return [];
+    // Ammo may live on the attacker or in the world items
+    const ammoItem = attacker?.items?.get(loadedId) ?? game.items.get(loadedId) ?? null;
+    if (!ammoItem || ammoItem.type !== 'ammo') return [];
+    return Array.from(ammoItem.system.traits ?? []).map(t => t.key?.toLowerCase?.() ?? t.name?.toLowerCase?.() ?? '');
   }
 
   // -------------------------------------------------------------------------
@@ -3819,17 +3888,10 @@ export class CombatEngine {
         : [],
 
       // Ammo traits — populated from the ammo item loaded into this weapon.
-      // Each entry is { id, name } referencing a trait item with category 'ammo'.
       // The engine reads these during damage resolution for Bodkin, Broadhead, etc.
       // Resolved at exchange start so the loaded ammo can't change mid-exchange.
-      ammoTraits: (() => {
-        const loadedId = weapon?.system?.loadedAmmoId;
-        if (!loadedId) return [];
-        // Ammo may live on the attacker or in the world items
-        const ammoItem = attacker.items?.get(loadedId) ?? game.items.get(loadedId) ?? null;
-        if (!ammoItem || ammoItem.type !== 'ammo') return [];
-        return Array.from(ammoItem.system.traits ?? []).map(t => t.key?.toLowerCase?.() ?? t.name?.toLowerCase?.() ?? '');
-      })(),
+      // Sole resolution path is _resolveAmmoTraits — see its JSDoc.
+      ammoTraits: CombatEngine._resolveAmmoTraits(attacker, weapon),
 
       // ── Difficulty & modifiers ──────────────────────────────────────────
       // Standard by default. Charge sets 'hard'. Modules may override.
