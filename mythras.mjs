@@ -30,7 +30,11 @@ import {
   resolveImpaleYank,
   resolveDamageWeapon,
 } from './module/combat/effects/index.js';
-import { CombatSocket }               from './module/combat/CombatSocket.js';
+// runSEDialog + this helpers.js applyFatigueToSkill (NOT the same-named,
+// narrower re-export at line ~40 below -- see requestSkillCheck's own
+// comment for why the distinction matters).
+import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
+import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
 
 // ---------------------------------------------------------------------------
@@ -288,6 +292,7 @@ Hooks.once('ready', () => {
     GRADE_ORDER,
     applyDifficulty,
     DIFFICULTY_GRADES,
+    requestSkillCheck,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -571,6 +576,109 @@ export function syncHitLocationHP(actor) {
   return actor.updateEmbeddedDocuments('Item', updates).then(() => {
     console.log(`Mythras Imperative | Synced hit location HP for ${actor.name} (CON+SIZ=${conSiz})`);
   });
+}
+
+// ---------------------------------------------------------------------------
+// REQUEST SKILL CHECK — general-purpose "target rolls a skill, tell me the
+// grade" API, exposed on game.system.api so a module never needs a
+// cross-package import to ask for this. Drives the new `seType: 'skillCheck'`
+// case in runSEDialog (module/combat/effects/helpers.js) via the exact same
+// three-way routing resolveGripBreakFree already uses (see grip.js):
+// semi+!GM-mode goes out over CombatSocket.seChallenge to the actor's owning
+// player (or the GM for an NPC, via _findDefenderUserId's existing
+// player-else-GM rule); semi+GM-mode runs the dialog locally; manual/full
+// are both fully automated with no dialog at all, matching
+// resolveGripBreakFree's own undifferentiated else-branch exactly (read
+// directly from source, not assumed) -- they auto-roll the actor's best
+// available named skill.
+//
+// NOTE on applyFatigueToSkill: there are two functions with this exact name
+// and signature in this codebase. module/utils/fatigue.js's version (the one
+// re-exported near the top of this file for external consumers) considers
+// fatigue only. module/combat/effects/helpers.js's version -- imported here
+// as applyFatigueToSkillSE -- also floors the result against active
+// impale/entangle grades, and is the one every existing SE resolver
+// (including Grip, this function's routing template) actually uses. Using
+// the wrong one would silently under-penalise a skill option for an
+// impaled/entangled actor. Confirmed by reading both files and grip.js's own
+// import line, not assumed from the shared name -- flagged as real drift in
+// the batch report, not fixed here (out of scope; the two functions may be
+// intentionally different, or may not be -- a decision for whoever touches
+// this next).
+// ---------------------------------------------------------------------------
+export async function requestSkillCheck(actor, {
+  skillNames      = ['Endurance'],
+  difficulty      = null,
+  title           = 'Skill Check',
+  prompt          = '',
+  lastCardId      = null,
+  allowGMOverride = false
+} = {}) {
+  const noSkillResult = {
+    chosenSkillName: null, chosenSkillTotal: null, chosenSkillRaw: null,
+    roll: null, grade: null, succeeds: false,
+    cancelled: true, gmOverride: false, reason: 'no-skill'
+  };
+  if (!actor) return noSkillResult;
+
+  // Resolve skillNames -> skillOptions off the actor's own skill items.
+  // Order preserved; missing names silently skipped (not an error -- the
+  // GM's skill substitution list will often name skills a given actor
+  // doesn't have).
+  const skillOptions = [];
+  for (const name of skillNames) {
+    const item = Array.from(actor.items).find(i => i.type === 'skill' && i.name === name);
+    if (!item) continue;
+    const rawTotal = item.system.total ?? 0;
+    skillOptions.push({ name, rawTotal, total: applyFatigueToSkillSE(rawTotal, actor) });
+  }
+  if (skillOptions.length === 0) return noSkillResult;
+
+  const isSemi   = game.settings.get('mythras-imperative', 'automationLevel') === 'semi';
+  const isGMMode = game.settings.get('mythras-imperative', 'gmMode') ?? false;
+
+  const payload = {
+    seType: 'skillCheck',
+    title, prompt, difficulty, allowGMOverride,
+    defenderName: actor.name,
+    skillOptions,
+    lastCardId
+  };
+
+  if (isSemi && !isGMMode) {
+    const targetUserId = _findDefenderUserId(actor);
+    const exchangeId   = foundry.utils.randomID(16);
+    const response      = await CombatSocket.seChallenge(exchangeId, payload, targetUserId);
+    // seChallenge resolves null on a 5-minute socket timeout (CombatSocket.js) --
+    // surfaced here as cancelled:true, never left for the caller to hang on
+    // or misread as a pass.
+    if (!response) {
+      return {
+        chosenSkillName: null, chosenSkillTotal: null, chosenSkillRaw: null,
+        roll: null, grade: null, succeeds: false,
+        cancelled: true, gmOverride: false, reason: 'timeout'
+      };
+    }
+    return response;
+  }
+
+  if (isSemi && isGMMode) {
+    return runSEDialog(payload);
+  }
+
+  // manual / full -- both fully automated, no dialog, matching
+  // resolveGripBreakFree's else-branch: auto-picks the best available skill
+  // and rolls it unopposed.
+  const best = skillOptions.reduce((a, b) => (b.total > a.total ? b : a));
+  const roll = new Roll('1d100');
+  await roll.evaluate();
+  const target    = difficulty ? applyDifficulty(best.total, difficulty) : best.total;
+  const grade     = determineOutcome(roll.total, target, best.total);
+  const succeeds  = grade === 'critical' || grade === 'success';
+  return {
+    chosenSkillName: best.name, chosenSkillTotal: best.total, chosenSkillRaw: best.rawTotal,
+    roll: roll.total, grade, succeeds, cancelled: false, gmOverride: false
+  };
 }
 
 // ---------------------------------------------------------------------------

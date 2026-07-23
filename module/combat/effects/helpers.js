@@ -11,6 +11,7 @@
 
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
 import { getFatigueSkillGrade } from '../../utils/fatigue.js';
+import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
 
 const NS = 'mythras-imperative';
 
@@ -297,7 +298,8 @@ export async function runSEDialog(data) {
   const T = 'systems/mythras-imperative/templates/dialogs';
   const { seType, attackerName, defenderName, attackRoll,
           attackerSkillTotal, defenderSkill, defenderTotal,
-          defenderRaw, skillOptions, tripIsOffensive, sizeNote } = data;
+          defenderRaw, skillOptions, tripIsOffensive, sizeNote,
+          title, prompt, difficulty, allowGMOverride } = data;
 
   // Wait for the preceding chat card to finish rendering so the player can
   // read the dice outcome before a resistance dialog appears on top of it.
@@ -1027,6 +1029,88 @@ export async function runSEDialog(data) {
         default: 'confirm',
         classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve(null); }
+      }).render(true);
+    });
+  }
+
+  // ── Generic Skill Check ────────────────────────────────────────────────
+  // Fully payload-driven, no knowledge of any specific power/boost -- the
+  // seType a module's game.system.api.requestSkillCheck routes to when it
+  // needs to run its dialog locally (semi-auto + GM-mode) or on whichever
+  // client receives it over the socket (semi-auto, non-GM-mode). Modeled on
+  // gripChooseSkill's skill-button idiom, but deliberately does NOT
+  // short-circuit a single-option list the way gripChooseSkill does -- this
+  // case rolls, so the chooser must see the target number and (optionally)
+  // the GM-override button even when there's only one skill to pick.
+  if (seType === 'skillCheck') {
+    const dialogTitle  = title || 'Skill Check';
+    // GM-override visibility is enforced here, at the point the dialog
+    // actually renders -- not by the caller deciding in advance. This
+    // dialog can render on genuinely different clients depending on
+    // routing (the owning player's client in semi+non-GM-mode for a PC,
+    // the GM's client otherwise), and game.user.isGM is correct on
+    // whichever client it lands on either way. Gating on the caller's
+    // intent instead would require requestSkillCheck to predict which
+    // client will end up rendering it, which it cannot do reliably.
+    const showOverride = !!allowGMOverride && !!game.user.isGM;
+
+    const content = await renderTemplate(`${T}/se-choose-skill.hbs`, {
+      title: dialogTitle,
+      subtitle: defenderName,
+      showAttackRow: false,
+      note: prompt || ''
+    });
+
+    return new Promise(resolve => {
+      let resolved = false;
+      const btns = {};
+      for (const sk of skillOptions) {
+        btns[sk.name] = {
+          icon: '<i class="fas fa-dice-d10"></i>',
+          label: `${sk.name} (${sk.total}%)`,
+          callback: async () => {
+            resolved = true;
+            const roll = new Roll('1d100');
+            await roll.evaluate();
+            const target   = difficulty ? applyDifficulty(sk.total, difficulty) : sk.total;
+            const grade    = determineOutcome(roll.total, target, sk.total);
+            const succeeds = grade === 'critical' || grade === 'success';
+            resolve({
+              chosenSkillName: sk.name, chosenSkillTotal: sk.total,
+              chosenSkillRaw: sk.rawTotal ?? sk.total,
+              roll: roll.total, grade, succeeds,
+              cancelled: false, gmOverride: false
+            });
+          }
+        };
+      }
+      if (showOverride) {
+        btns.gmOverride = {
+          icon: '<i class="fas fa-user-shield"></i>',
+          label: 'No Check Needed',
+          callback: () => {
+            resolved = true;
+            resolve({
+              chosenSkillName: null, chosenSkillTotal: null, chosenSkillRaw: null,
+              roll: null, grade: null, succeeds: true,
+              cancelled: false, gmOverride: true
+            });
+          }
+        };
+      }
+      new Dialog({
+        title: dialogTitle,
+        content,
+        buttons: btns,
+        default: skillOptions[0]?.name,
+        classes: ['dialog', 'mi-dialog'],
+        close: () => {
+          if (!resolved) resolve({
+            chosenSkillName: null, chosenSkillTotal: null, chosenSkillRaw: null,
+            roll: null, grade: null, succeeds: false,
+            cancelled: true, gmOverride: false
+          });
+        }
       }).render(true);
     });
   }
