@@ -15,7 +15,7 @@ Chris directs all architecture/design and is the sole live tester. Claude reads,
 
 1. `node --check <file>` on every touched `.js`/`.mjs`. **Insufficient alone** — passes on syntactically valid JS with undefined objects.
 2. Runtime import smoke test with mocked Foundry globals (`Hooks`, `CONFIG.MYTHRAS`, `game`, `foundry`, `Dialog`, `Actor`, `Item`). Top-level DataModel schema defs fail under minimal mocks — extract the function and `node -e` test its logic instead.
-3. `npm test` (Jest). Suite is currently **259 tests** on pure utility modules (`combat-math.js`, `char-math.js`, `roll-math.js`). Keep it green; add tests for new pure logic.
+3. `npm test` (Jest). Suite is currently **343 tests** (`combat-math.js`, `char-math.js`, `roll-math.js`, and `tests/extension-hooks.test.js`'s mirror-style coverage of Foundry-coupled `CombatEngine`/`CharacterData` call sites — see that file's header for the mirroring convention). Keep it green; add tests for new pure logic.
 4. Package **only after** the above pass.
 
 When a regression is silent (no Foundry error, no `node --check` failure): **diff against the last known-good build immediately.** Dropped declarations leave valid JS that fails only at runtime. Prefer iterative rollback over forward-patching. Exported item JSON from the running game is more diagnostic than static analysis.
@@ -31,6 +31,7 @@ When a regression is silent (no Foundry error, no `node --check` failure): **dif
 - `game.i18n.localize()` cannot run during `init` (i18n not ready in v14).
 - `Dialog` callbacks are **not awaited** — use a synchronously-set `resolved` flag in every button callback to guard async races.
 - All condition writes go through `_applyStatusToActor`; all opposed-roll results post a chat card via `_postOpposedSEResult` regardless of automation mode.
+- **Effective armour AP (raw AP + Bodkin/Armour Piercing ammo reduction) is `CombatEngine._getEffectiveArmourAt` — never call `_getArmourAt` directly when piercing could apply, and never re-derive ammo traits inline.** (v1.4.261.) Three independent copies of this arithmetic existed before that batch and had drifted from each other — Burst Fire's copy had no piercing branch at all, a real player-facing bug. Ammo-trait lookup is likewise `CombatEngine._resolveAmmoTraits` — the semi-auto Roll Damage handler alone had two separate re-implementations of its own. See `extension-point-api-updated.md`'s `armourBonusHooks` entry and this repo's `CHANGELOG.md` v1.4.261 entry for the full account.
 
 ## Extension-point / boundary contract
 

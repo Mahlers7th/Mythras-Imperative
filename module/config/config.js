@@ -162,6 +162,58 @@ export const MYTHRAS = {
   armourBonusHooks: [],
 
   // -----------------------------------------------------------------------
+  // AP REDUCTION HOOKS
+  //   apReductionHook : (attacker, defender, locationId, weapon) => number
+  //   Called when the CombatEngine resolves effective AP at a hit location,
+  //   AFTER _getArmourAt has summed natural + worn + armourBonusHooks, and
+  //   AFTER the built-in ammo-trait piercing (Bodkin / Armour Piercing) has
+  //   been applied. Return a non-negative integer of AP to REMOVE at that
+  //   location (e.g. Destined's Blast Armor Piercing boost). Multiple hooks
+  //   stack additively. Effective AP is clamped to a minimum of 0 after all
+  //   reductions. `locationId` is the canonical camelCase location key
+  //   ('head', 'chest', 'rightArm', ...) — the same vocabulary armourBonusHooks
+  //   uses, not a raw document id.
+  //
+  //   This is a LATE, read-time hook — it never mutates stored AP, so the
+  //   location's persistent system.ap is untouched and the reduction is
+  //   recomputed each time damage is resolved. It is the mirror of
+  //   armourBonusHooks: bonuses add, reductions subtract.
+  //
+  //   Bypass Armour (a special effect) is resolved BEFORE hooks run and
+  //   short-circuits to 0 AP, so hooks are not consulted at all in that case.
+  //   There is deliberately NO immunity return value — hooks return numbers
+  //   only. A negative, NaN, or non-numeric return is treated as 0.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns non-negative AP to remove at the location; additive-stacking */
+  apReductionHooks: [],
+
+  // -----------------------------------------------------------------------
+  // ATTACK RESOLVED HOOKS
+  //   attackResolvedHook : (ctx) => void
+  //   Called once per resolved combat attack roll, AFTER the outcome (hit,
+  //   miss, fumble, critical) is determined and the outcome card has been
+  //   posted (or, for a Full Auto target folded into a consolidated card,
+  //   after the point an individual card would have posted) — REGARDLESS OF
+  //   OUTCOME. Fires on a miss exactly as it does on a hit. Full Auto against
+  //   multiple targets fires once per target (each target is a distinct
+  //   resolved attack roll); Burst Fire's internal rounds do not re-fire it
+  //   (they are a single attack roll, resolved once). Does not fire for
+  //   vehicle-defender attacks, which use a separate resolution path.
+  //
+  //   For modules that hold per-shot state which must be consumed or cleared
+  //   when a shot resolves (e.g. Destined's Blast Armor Piercing, which is
+  //   paid for at activation and lasts exactly one attack, hit or miss).
+  //
+  //   Return value is ignored. A hook that throws is caught and logged; it
+  //   cannot abort attack resolution. Do not use this to modify the attack —
+  //   it fires too late. Use rollHooks.preRoll for that.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each is called once per resolved attack roll (hit or miss); return value ignored */
+  attackResolvedHooks: [],
+
+  // -----------------------------------------------------------------------
   // DAMAGE MODIFIER OFFSET HOOKS
   //   damageModOffsetHook : (actor) => number
   //   Called during prepareDerivedData when the Damage Modifier is resolved,

@@ -27,6 +27,7 @@
 
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
 import { classifyLocation, getImpaleGrade, weaponBaseMax } from '../utils/combat-math.js';
+import { locationNameToKey } from '../utils/hit-location.js';
 import {
   waitForCard,
   runSEDialog,
@@ -973,6 +974,18 @@ export class CombatEngine {
     const chatMsg = isFullAutoConsolidated ? null : await CombatEngine._postOutcomeCard(ctx);
     ctx.chatMessageId = chatMsg?.id ?? null;
 
+    // ── Attack Resolved hook — fires once per resolved attack roll, hit or
+    // miss, regardless of full-auto/burst/semi-auto. Placed here (not inside
+    // _postOutcomeCard) so it still fires for a Full Auto target folded into
+    // a consolidated card, where _postOutcomeCard above is skipped entirely.
+    // Every call path into _afterDefenceResolved reaches this line exactly
+    // once per invocation — see CHANGELOG for the full accounting across
+    // single-target, Full Auto per-target, and Burst Fire.
+    for (const hook of (CONFIG.MYTHRAS?.attackResolvedHooks ?? [])) {
+      try { hook(ctx); }
+      catch (err) { console.error('Mythras | attackResolvedHook error:', err); }
+    }
+
     // ── Step 11b: Special Effect selection ───────────────────────────────────
     // Full-auto: SEs are suppressed on targets 2+ (rules p.50 — only the first
     // hit of the first target in a burst or full-auto spray can benefit from SEs).
@@ -1453,6 +1466,7 @@ export class CombatEngine {
       bypassArmour,
       ammoTraits: ctx.ammoTraits,
       weapon,
+      attacker,
     });
 
     if (sunderChosen && !bypassArmour && armourPoints > 0) {
@@ -1579,6 +1593,7 @@ export class CombatEngine {
         bypassArmour,
         ammoTraits: ctx.ammoTraits,
         weapon,
+        attacker,
       });
       const finalDamage  = Math.max(0, damageAfterParry - armourPoints);
 
@@ -2263,28 +2278,36 @@ export class CombatEngine {
   // this arithmetic (Full Auto, Burst Fire, semi-auto Roll Damage), one of
   // which (Burst Fire) had no piercing branch at all — see CHANGELOG for the
   // resulting bug fix. Raw AP composition itself is untouched: this wraps
-  // _getArmourAt, it does not reimplement it.
+  // _getArmourAt, it does not reimplement it. Since the ap-reduction-hooks
+  // batch, also the sole consumer of apReductionHooks (config.js) — the
+  // additive-stacking mirror of armourBonusHooks, applied AFTER the built-in
+  // ammo-trait piercing.
   // -------------------------------------------------------------------------
 
   /**
    * Effective armour AP at a hit location: raw AP from `_getArmourAt`, with
-   * Bodkin/Armour Piercing ammo-trait reduction applied on top. This is the
-   * sole chokepoint for effective armour — every damage-resolution path
-   * calls this, never `_getArmourAt` directly when piercing could apply.
-   * Pure and synchronous: no writes, no chat, no notifications.
+   * Bodkin/Armour Piercing ammo-trait reduction and module `apReductionHooks`
+   * applied on top, in that order. This is the sole chokepoint for effective
+   * armour — every damage-resolution path calls this, never `_getArmourAt`
+   * directly when piercing could apply. Pure and synchronous: no writes, no
+   * chat, no notifications.
    * @param {Actor} defender
    * @param {string} locationId
    * @param {object} [opts]
    * @param {boolean} [opts.bypassArmour=false] - Bypass Armour SE; wins over
-   *   everything else and short-circuits to 0 before any other computation.
+   *   everything else and short-circuits to 0 before any other computation,
+   *   including `apReductionHooks` — hooks are not consulted at all.
    * @param {string[]} [opts.ammoTraits=[]] - lowercased ammo trait keys for
    *   this shot (see `_resolveAmmoTraits`); non-array/undefined treated as [].
    * @param {Item|null} [opts.weapon=null] - the attacking weapon, for its
-   *   damage formula (`weaponBaseMax`); missing/malformed degrades to no
-   *   piercing reduction rather than throwing.
+   *   damage formula (`weaponBaseMax`) and passed through to `apReductionHooks`;
+   *   missing/malformed degrades to no piercing reduction rather than throwing.
+   * @param {Actor|null} [opts.attacker=null] - passed through to
+   *   `apReductionHooks` (e.g. a boost paid for by the attacker, not the
+   *   defender being hit). Not used by this function's own arithmetic.
    * @returns {number} AP to subtract from damage, >= 0.
    */
-  static _getEffectiveArmourAt(defender, locationId, { bypassArmour = false, ammoTraits = [], weapon = null } = {}) {
+  static _getEffectiveArmourAt(defender, locationId, { bypassArmour = false, ammoTraits = [], weapon = null, attacker = null } = {}) {
     if (bypassArmour) return 0;
 
     const base = CombatEngine._getArmourAt(defender, locationId);
@@ -2292,10 +2315,27 @@ export class CombatEngine {
 
     const traits = Array.isArray(ammoTraits) ? ammoTraits : [];
     const hasPiercing = traits.includes('bodkin') || traits.includes('armourpiercing');
-    if (!hasPiercing) return base;
+    const afterPiercing = hasPiercing
+      ? Math.max(0, base - Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2))
+      : base;
 
-    const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
-    return Math.max(0, base - reduction);
+    // Module AP reduction hooks (e.g. Destined's Blast Armor Piercing boost).
+    // Additive-stacking, mirroring armourBonusHooks' reduce idiom exactly —
+    // see config.js's apReductionHooks doc block for the full contract.
+    // locKey resolution skipped entirely when no hooks are registered, so
+    // this stays a no-op with no modules loaded, not just a zero result.
+    const hookList = CONFIG.MYTHRAS?.apReductionHooks ?? [];
+    let hookReduction = 0;
+    if (hookList.length > 0) {
+      const locItem = CombatEngine._getItem(defender, locationId);
+      const locKey  = locItem ? locationNameToKey(locItem.system.label ?? locItem.name ?? '') : null;
+      hookReduction = hookList.reduce((sum, fn) => {
+        try { return sum + Math.max(0, Number(fn(attacker, defender, locKey, weapon)) || 0); }
+        catch (err) { console.error('Mythras | apReductionHook error:', err); return sum; }
+      }, 0);
+    }
+
+    return Math.max(0, afterPiercing - hookReduction);
   }
 
   /**

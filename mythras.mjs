@@ -1540,12 +1540,25 @@ async function _onSemiAutoRollDamage(ev, message) {
   // stamp this on the button at card-build time (the SE choice is stored in flags, not HTML).
   // This is the same pattern used by circumventParry and enhanceParry below.
   // ── Ammo decrement (semi-auto) ───────────────────────────────────────────
-  // For bow/sling (loadedAmmoId set): fire clears the nocked state (system.ammo 1 -> 0).
-  // The quiver (ammoItem.quantity) is only decremented by the Reload button (nocking).
-  // For firearms (no loadedAmmoId): system.ammo is decremented in CombatEngine at
-  // initiation time (before _postOutcomeCard), so no action needed here.
+  // For bow/sling (non-firearm, loadedAmmoId set): fire clears the nocked
+  // state (system.ammo 1 -> 0). The quiver (ammoItem.quantity) is only
+  // decremented by the Reload button (nocking).
+  // For firearms: system.ammo is decremented in CombatEngine at initiation
+  // time (before _postOutcomeCard), so no action needed here — REGARDLESS of
+  // whether loadedAmmoId is also set. A firearm with an ammoType configured
+  // (WeaponSheet.js's Reload picker) sets loadedAmmoId too, purely so the
+  // engine can read the loaded ammo item's traits (Bodkin, Broadhead, Stun
+  // Round — see _resolveAmmoTraits below); its ammo count is a real
+  // multi-round magazine (ammoMax can be >>1), not a single nock, so
+  // loadedAmmoId alone is NOT a reliable "this is a bow" signal. Previously
+  // this block zeroed a firearm's entire magazine on every single semi-auto
+  // shot whenever ammoType was configured — confirmed live (a rifle losing
+  // all its ammo on one shot) and fixed by checking the same 'firearm'
+  // weapon trait WeaponSheet.js's Reload logic already uses to distinguish
+  // the two ammo models.
   const isRangedShot = (outcomeFlags0.isRanged ?? false) && weapon?.system?.loadedAmmoId;
-  if (isRangedShot) {
+  const isFirearm    = !!weapon?.system?.traits?.includes('firearm');
+  if (isRangedShot && !isFirearm) {
     const currentNocked = weapon.system.ammo ?? 0;
     if (currentNocked > 0) {
       await weapon.update({ 'system.ammo': 0 });
@@ -1622,6 +1635,7 @@ async function _onSemiAutoRollDamage(ev, message) {
           bypassArmour,
           ammoTraits,
           weapon,
+          attacker,
         });
       }
     }

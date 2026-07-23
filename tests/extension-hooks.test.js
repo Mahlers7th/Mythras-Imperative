@@ -23,6 +23,19 @@ import { locationNameToKey } from '../module/utils/hit-location.js';
 // math, not a second copy of it.
 import { weaponBaseMax } from '../module/utils/combat-math.js';
 
+/**
+ * Minimal call-recording spy — this project's Jest/ESM setup does not expose
+ * a `jest` global (confirmed: no prior test file in either repo uses
+ * `jest.fn`), so spies are hand-rolled rather than introducing a new
+ * dependency on framework mocking.
+ */
+function makeSpy(impl = () => undefined) {
+  const calls = [];
+  const spy = (...args) => { calls.push(args); return impl(...args); };
+  spy.calls = calls;
+  return spy;
+}
+
 // ---------------------------------------------------------------------------
 // Re-implementations of the two inline application patterns, kept byte-for-byte
 // faithful to the call sites:
@@ -426,17 +439,35 @@ describe('armourBonusHooks — _applySunder non-sunderable layer', () => {
  * Mirror of CombatEngine._getEffectiveArmourAt. Takes a stubbed
  * getArmourAtFn(defender, locationId) => number in place of the real
  * _getArmourAt static method, per the batch prompt's own test-design note
- * ("test it directly, with a stubbed _getArmourAt").
+ * ("test it directly, with a stubbed _getArmourAt"). Since the
+ * ap-reduction-hooks batch: `hooks` (mirrors CONFIG.MYTHRAS.apReductionHooks)
+ * and `resolveLocKeyFn` (mirrors the real function's _getItem +
+ * locationNameToKey derivation) are likewise injected rather than reaching
+ * for real Foundry globals.
  */
-function getEffectiveArmourAt(getArmourAtFn, defender, locationId, { bypassArmour = false, ammoTraits = [], weapon = null } = {}) {
+function getEffectiveArmourAt(getArmourAtFn, defender, locationId, {
+  bypassArmour = false, ammoTraits = [], weapon = null, attacker = null,
+  hooks = [], resolveLocKeyFn = () => null,
+} = {}) {
   if (bypassArmour) return 0;
   const base = getArmourAtFn(defender, locationId);
   if (base <= 0) return 0;
   const traits = Array.isArray(ammoTraits) ? ammoTraits : [];
   const hasPiercing = traits.includes('bodkin') || traits.includes('armourpiercing');
-  if (!hasPiercing) return base;
-  const reduction = Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2);
-  return Math.max(0, base - reduction);
+  const afterPiercing = hasPiercing
+    ? Math.max(0, base - Math.ceil(weaponBaseMax(weapon?.system?.damage ?? '') / 2))
+    : base;
+
+  let hookReduction = 0;
+  if (hooks.length > 0) {
+    const locKey = resolveLocKeyFn(defender, locationId);
+    hookReduction = hooks.reduce((sum, fn) => {
+      try { return sum + Math.max(0, Number(fn(attacker, defender, locKey, weapon)) || 0); }
+      catch (err) { return sum; }
+    }, 0);
+  }
+
+  return Math.max(0, afterPiercing - hookReduction);
 }
 
 /** Mirror of CombatEngine._resolveAmmoTraits, with world items injected as `world.items`. */
@@ -553,6 +584,177 @@ describe('CombatEngine._resolveAmmoTraits', () => {
     const attacker = { items: new Map() };
     const world = { items: new Map([['item1', makeAmmoItem('ammo', ['stunRound'])]]) };
     expect(resolveAmmoTraits(attacker, weapon, world)).toEqual(['stunround']);
+  });
+});
+
+// =============================================================================
+// apReductionHooks — system-batch-ap-reduction-hooks-prompt.md. Additive-
+// stacking, mirroring armourBonusHooks, consumed inside _getEffectiveArmourAt
+// AFTER the built-in Bodkin/Armour Piercing reduction and BEFORE the final
+// clamp. Deliberately no immunity return value (design decision 2) — hooks
+// return numbers only, and a negative/NaN/non-numeric contributes 0.
+// =============================================================================
+
+describe('CombatEngine._getEffectiveArmourAt — apReductionHooks (additive-stacking)', () => {
+  const highBase = () => 10;
+  const zeroBase = () => 0;
+  const locKeyStub = () => 'chest';
+
+  test('no hooks registered → identical to pre-batch behaviour (regression guard)', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'], weapon: { system: { damage: '1d10' } }, hooks: [],
+    });
+    expect(result).toBe(5); // same as the plain Bodkin test above
+  });
+
+  test('one hook returning 2 reduces effective AP by 2', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => 2], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(8);
+  });
+
+  test('two hooks returning 2 and 3 stack additively → reduced by 5', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => 2, () => 3], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(5);
+  });
+
+  test('a hook and Bodkin both present: built-in piercing applies first, then the hook', () => {
+    // base 10, Bodkin (1d10 -> ceil(10/2)=5) -> 5, then hook -2 -> 3
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      ammoTraits: ['bodkin'], weapon: { system: { damage: '1d10' } },
+      hooks: [() => 2], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(3);
+  });
+
+  test('reduction exceeding base AP clamps to 0, never negative', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => 50], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(0);
+  });
+
+  test('a hook returning a negative contributes 0, cannot add armour', () => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => -5], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(10); // unchanged, not 15
+  });
+
+  test.each([
+    ['NaN', NaN], ['null', null], ['undefined', undefined], ['a string', 'oops'], ['an object', {}],
+  ])('a hook returning %s contributes 0 and does not throw', (_label, badValue) => {
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => badValue], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(10);
+  });
+
+  test('a throwing hook is caught, contributes 0, other hooks still sum correctly', () => {
+    const throwing = () => { throw new Error('boom'); };
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      hooks: [() => 2, throwing, () => 3], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(5); // 2 + 3, throwing contributes 0
+  });
+
+  test('bypassArmour: true — hooks are not consulted at all, result 0', () => {
+    const hookSpy = makeSpy(() => 2);
+    const result = getEffectiveArmourAt(highBase, {}, 'loc1', {
+      bypassArmour: true, hooks: [hookSpy], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(0);
+    expect(hookSpy.calls.length).toBe(0);
+  });
+
+  test('base AP 0 — hooks are not consulted at all, result 0', () => {
+    const hookSpy = makeSpy(() => 2);
+    const result = getEffectiveArmourAt(zeroBase, {}, 'loc1', {
+      hooks: [hookSpy], resolveLocKeyFn: locKeyStub,
+    });
+    expect(result).toBe(0);
+    expect(hookSpy.calls.length).toBe(0);
+  });
+
+  test('locKey resolution is skipped entirely when no hooks are registered (no wasted work)', () => {
+    const locKeySpy = makeSpy(() => 'chest');
+    getEffectiveArmourAt(highBase, {}, 'loc1', { hooks: [], resolveLocKeyFn: locKeySpy });
+    expect(locKeySpy.calls.length).toBe(0);
+  });
+
+  test('attacker is passed through to each hook, alongside defender/locKey/weapon', () => {
+    const attacker = { id: 'atk1' };
+    const defender = { id: 'def1' };
+    const weapon = { system: { damage: '1d6' } };
+    const hookSpy = makeSpy(() => 1);
+    getEffectiveArmourAt(highBase, defender, 'loc1', {
+      attacker, weapon, hooks: [hookSpy], resolveLocKeyFn: locKeyStub,
+    });
+    expect(hookSpy.calls).toEqual([[attacker, defender, 'chest', weapon]]);
+  });
+});
+
+// =============================================================================
+// attackResolvedHooks — system-batch-ap-reduction-hooks-prompt.md. Fires once
+// per resolved combat attack roll (hit or miss), for modules that hold
+// per-shot state to consume/clear (e.g. Destined's Blast Armor Piercing).
+// The full "fires once per attack activation, including on Full Auto/Burst"
+// control-flow claim is a property of _afterDefenceResolved's call graph
+// (verified by reading source — see CHANGELOG), not something this pure
+// loop-consumption mirror can prove; mocking the full attack-resolution
+// control flow for that would be disproportionate to what a unit test can
+// usefully assert, so that property is live-verified per the batch's own
+// acceptance criteria instead.
+// =============================================================================
+
+/** Mirror of the attackResolvedHooks consumption loop in _afterDefenceResolved. */
+function fireAttackResolvedHooks(hooks, ctx) {
+  for (const hook of hooks) {
+    try { hook(ctx); }
+    catch (err) { /* swallowed in production via console.error */ }
+  }
+}
+
+describe('attackResolvedHooks', () => {
+  test('fires on a hit', () => {
+    const hookSpy = makeSpy();
+    fireAttackResolvedHooks([hookSpy], { attackOutcome: 'success' });
+    expect(hookSpy.calls).toEqual([[{ attackOutcome: 'success' }]]);
+  });
+
+  test('fires on a miss — the load-bearing case', () => {
+    const hookSpy = makeSpy();
+    fireAttackResolvedHooks([hookSpy], { attackOutcome: 'failure' });
+    expect(hookSpy.calls).toEqual([[{ attackOutcome: 'failure' }]]);
+  });
+
+  test('fires on a fumble and a critical too — outcome-agnostic', () => {
+    const hookSpy = makeSpy();
+    fireAttackResolvedHooks([hookSpy], { attackOutcome: 'fumble' });
+    fireAttackResolvedHooks([hookSpy], { attackOutcome: 'critical' });
+    expect(hookSpy.calls.length).toBe(2);
+  });
+
+  test('a throwing hook is caught and does not abort resolution; later hooks still run', () => {
+    const throwing = () => { throw new Error('boom'); };
+    const laterSpy = makeSpy();
+    expect(() => fireAttackResolvedHooks([throwing, laterSpy], { attackOutcome: 'success' })).not.toThrow();
+    expect(laterSpy.calls.length).toBe(1);
+  });
+
+  test('empty/undefined hook list is a no-op', () => {
+    expect(() => fireAttackResolvedHooks([], { attackOutcome: 'success' })).not.toThrow();
+  });
+
+  test('each hook in the array fires exactly once per call (the mirror\'s own idempotency)', () => {
+    const a = makeSpy();
+    const b = makeSpy();
+    fireAttackResolvedHooks([a, b], { attackOutcome: 'success' });
+    expect(a.calls.length).toBe(1);
+    expect(b.calls.length).toBe(1);
   });
 });
 
