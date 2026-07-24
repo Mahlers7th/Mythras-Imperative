@@ -856,6 +856,295 @@ describe('attackResolvedHooks', () => {
 });
 
 // =============================================================================
+// _runFullAutoSingleTarget vehicle dispatch — system-batch-fullauto-vehicle-
+// prompt.md (v1.4.265). Before this batch, _runFullAutoSingleTarget had no
+// defender?.type === 'vehicle' check at all, so a vehicle targeted by Full
+// Auto silently fell through to generic-actor resolution (CombatSocket
+// challenge, humanoid hit-location fallback, then a discarded damage write —
+// see the batch prompt's own "traced end to end" section). v1.4.265 adds a
+// vehicle branch at the top of the function, mirroring _runDialog's ~L758
+// branch, before any of the other four exit paths (surprised/zero-AP/GM
+// mode/socket) are reached.
+//
+// _runFullAutoSingleTarget itself is Foundry-coupled (Roll, CombatSocket,
+// Dialog) and not import-safe under Jest, same as the rest of this file's
+// convention — these are pure mirrors of its *branch-selection* order, not
+// its branch bodies. They cannot and do not prove real control flow (socket
+// timing, actual roll resolution); that's covered by the batch's live
+// acceptance criteria instead.
+// =============================================================================
+
+/**
+ * Mirror of _runFullAutoSingleTarget's branch-dispatch order (v1.4.265):
+ * vehicle check first, then the four pre-existing exit paths in source order.
+ * Each branch is recorded via a callback rather than executed for real.
+ */
+function dispatchFullAutoSingleTarget(ctx, gmMode, branches) {
+  if (ctx.defender?.type === 'vehicle') { branches.vehicle(ctx); return; }
+  if (ctx.defenderSurprised) { branches.surprised(ctx); return; }
+  const defAP = ctx.defender?.system?.attributes?.actionPoints;
+  if (defAP && typeof defAP.value === 'number' && defAP.value <= 0) { branches.zeroAP(ctx); return; }
+  if (gmMode) { branches.gmMode(ctx); return; }
+  branches.socket(ctx);
+}
+
+/** Byte-for-byte mirror of _accumulateFullAutoResult. */
+function accumulateFullAutoResult(ctx) {
+  const results = ctx._fullAutoResults;
+  if (!Array.isArray(results)) return;
+  results.push({
+    defenderName:    ctx.defender?.name ?? '?',
+    attackRoll:      ctx.attackResult ?? null,
+    defenceRoll:     ctx.defenceResult ?? null,
+    attackOutcome:   ctx.attackOutcome ?? 'failure',
+    defenceType:     ctx.defenceType ?? 'none',
+    defenceOutcome:  ctx.defenceOutcome ?? 'none',
+    defenceWeapon:   ctx.defenceWeapon?.name ?? null,
+    roundsAllocated: ctx.roundsPerTarget ?? 3,
+    roundsHit:       ctx.roundsHit ?? 0,
+    roundsRollVal:   ctx.roundsRoll?.total ?? null,
+    burstResults:    ctx.burstResults ?? [],
+    chosenSEs:       ctx.chosenSpecialEffects ?? [],
+    seWinner:        ctx.seWinner ?? 'none',
+  });
+}
+
+describe('_runFullAutoSingleTarget vehicle dispatch (v1.4.265)', () => {
+  function makeBranchSpies() {
+    return {
+      vehicle:   makeSpy(),
+      surprised: makeSpy(),
+      zeroAP:    makeSpy(),
+      gmMode:    makeSpy(),
+      socket:    makeSpy(),
+    };
+  }
+
+  test('defender.type === "vehicle" selects the vehicle branch, not generic defender logic', () => {
+    const branches = makeBranchSpies();
+    const ctx = { defender: { type: 'vehicle' } };
+    dispatchFullAutoSingleTarget(ctx, false, branches);
+    expect(branches.vehicle.calls.length).toBe(1);
+    expect(branches.surprised.calls.length).toBe(0);
+    expect(branches.zeroAP.calls.length).toBe(0);
+    expect(branches.gmMode.calls.length).toBe(0);
+    expect(branches.socket.calls.length).toBe(0);
+  });
+
+  test('the vehicle branch is checked before the surprised shortcut — vehicle wins even if defenderSurprised is set', () => {
+    const branches = makeBranchSpies();
+    const ctx = { defender: { type: 'vehicle' }, defenderSurprised: true };
+    dispatchFullAutoSingleTarget(ctx, false, branches);
+    expect(branches.vehicle.calls.length).toBe(1);
+    expect(branches.surprised.calls.length).toBe(0);
+  });
+
+  test('regression — non-vehicle defender: surprised shortcut unchanged', () => {
+    const branches = makeBranchSpies();
+    const ctx = { defender: { type: 'character' }, defenderSurprised: true };
+    dispatchFullAutoSingleTarget(ctx, false, branches);
+    expect(branches.surprised.calls.length).toBe(1);
+    expect(branches.vehicle.calls.length).toBe(0);
+    expect(branches.zeroAP.calls.length).toBe(0);
+    expect(branches.gmMode.calls.length).toBe(0);
+    expect(branches.socket.calls.length).toBe(0);
+  });
+
+  test('regression — non-vehicle defender: zero-AP shortcut unchanged', () => {
+    const branches = makeBranchSpies();
+    const ctx = {
+      defender: { type: 'character', system: { attributes: { actionPoints: { value: 0 } } } }
+    };
+    dispatchFullAutoSingleTarget(ctx, false, branches);
+    expect(branches.zeroAP.calls.length).toBe(1);
+    expect(branches.surprised.calls.length).toBe(0);
+    expect(branches.gmMode.calls.length).toBe(0);
+    expect(branches.socket.calls.length).toBe(0);
+  });
+
+  test('regression — non-vehicle defender: GM mode branch unchanged', () => {
+    const branches = makeBranchSpies();
+    const ctx = { defender: { type: 'character', system: { attributes: {} } } };
+    dispatchFullAutoSingleTarget(ctx, true, branches);
+    expect(branches.gmMode.calls.length).toBe(1);
+    expect(branches.socket.calls.length).toBe(0);
+  });
+
+  test('regression — non-vehicle defender: falls through to socket challenge unchanged', () => {
+    const branches = makeBranchSpies();
+    const ctx = { defender: { type: 'character', system: { attributes: {} } } };
+    dispatchFullAutoSingleTarget(ctx, false, branches);
+    expect(branches.socket.calls.length).toBe(1);
+    expect(branches.gmMode.calls.length).toBe(0);
+  });
+
+  test('a vehicle target still receives a row via _accumulateFullAutoResult — the consolidated card is not missing it', () => {
+    const results = [];
+    const ctx = {
+      defender: { type: 'vehicle', name: 'APC' },
+      attackOutcome: 'success',
+      defenceType: 'none',
+      defenceOutcome: 'none',
+      roundsPerTarget: 3,
+      roundsHit: 1, // stamped by the vehicle branch from the actual outcome
+      chosenSpecialEffects: [],
+      _fullAutoResults: results
+    };
+    accumulateFullAutoResult(ctx);
+    expect(results.length).toBe(1);
+    expect(results[0].defenderName).toBe('APC');
+    expect(results[0].attackOutcome).toBe('success');
+    // roundsHit reflects the single-application outcome, not the generic
+    // default of 0 — a hit must not render as "All rounds missed".
+    expect(results[0].roundsHit).toBe(1);
+  });
+
+  test('a vehicle miss accumulates roundsHit: 0 — the summary row does not falsely claim a hit', () => {
+    const results = [];
+    const ctx = {
+      defender: { type: 'vehicle', name: 'APC' },
+      attackOutcome: 'failure',
+      defenceType: 'none',
+      defenceOutcome: 'none',
+      roundsPerTarget: 3,
+      roundsHit: 0,
+      chosenSpecialEffects: [],
+      _fullAutoResults: results
+    };
+    accumulateFullAutoResult(ctx);
+    expect(results[0].roundsHit).toBe(0);
+    expect(results[0].attackOutcome).toBe('failure');
+  });
+});
+
+// =============================================================================
+// Multi-round vehicle damage — fullauto-vehicle-followup-questions.md /
+// v1.4.266. Candidate (B): one attack roll, 1dN rounds hit (N = the declared
+// burst size), each hitting round independently resolved through
+// shields → hull → structure with its own 1d10 System Component roll.
+// Rulebook citation: Mythras Imperative p.50 "Full-Automatic" — "Those
+// targets who are hit suffer a random number of rounds as per Burst Fire" —
+// written about targets generally, no personnel-only qualifier, and the
+// Vehicles chapter states no exception. Confirmed identical wording in both
+// the project-local and OneDrive rulebook copies (see chat report). Destined
+// (main + Companion) does not modify the base Burst/Full-Automatic mechanic
+// and has no vehicle-specific override.
+//
+// _resolveVehicleAttack/_applyVehicleDamage are Foundry-coupled (Roll,
+// game.actors, ChatMessage) and not import-safe under Jest, same as the rest
+// of this file's convention. These are pure mirrors of the new branch
+// selection and per-round loop/snapshot logic only — not the real rolls,
+// actor updates, or card HTML. Real control flow (shield depletion actually
+// persisting via sequential awaited game.actors updates, the card rendering
+// correctly) is live-verified per the batch's acceptance criteria.
+// =============================================================================
+
+/**
+ * Mirror of _resolveVehicleAttack's post-v1.4.266 damage-resolution branch
+ * selection (which path runs, given attackerScored/automationLevel/isBurstFire).
+ */
+function vehicleDamageBranch(attackerScored, automationLevel, isBurstFire) {
+  if (!attackerScored) return 'none';
+  if (automationLevel === 'full') {
+    return isBurstFire ? 'burst' : 'single';
+  }
+  return 'semiManualSingle';
+}
+
+/**
+ * Mirror of the per-round loop in _resolveVehicleAttack's burst branch:
+ * calls applyRound(ctx, null) roundsHit times, snapshotting the round-shaped
+ * fields it mutates onto ctx into a fresh array entry each time — mirroring
+ * ctx.vehicleDamageRounds. chatMsg is always null in the per-round call,
+ * exactly as the real loop suppresses _applyVehicleDamage's own per-call
+ * card update so it never runs mid-loop.
+ */
+function runVehicleBurstLoop(roundsHit, ctx, applyRound) {
+  const vehicleDamageRounds = [];
+  for (let i = 0; i < roundsHit; i++) {
+    applyRound(ctx, null);
+    vehicleDamageRounds.push({
+      round:           i + 1,
+      rawDamage:       ctx.rawDamage,
+      structureDamage: ctx.structureDamage,
+    });
+  }
+  return vehicleDamageRounds;
+}
+
+describe('vehicle multi-round damage branch selection (v1.4.266)', () => {
+  test('a miss takes no damage branch, regardless of automation level or burst', () => {
+    expect(vehicleDamageBranch(false, 'full', true)).toBe('none');
+    expect(vehicleDamageBranch(false, 'semi', false)).toBe('none');
+  });
+
+  test('full automation + Burst/Full-Auto declared → multi-round burst branch', () => {
+    expect(vehicleDamageBranch(true, 'full', true)).toBe('burst');
+  });
+
+  test('full automation + no burst declared → single-application branch (unchanged v1.4.265 behaviour)', () => {
+    expect(vehicleDamageBranch(true, 'full', false)).toBe('single');
+  });
+
+  test('semi automation, even with Burst/Full-Auto declared, stays single-application — the button click model is unchanged', () => {
+    expect(vehicleDamageBranch(true, 'semi', true)).toBe('semiManualSingle');
+  });
+
+  test('manual automation, even with Burst/Full-Auto declared, stays single-application', () => {
+    expect(vehicleDamageBranch(true, 'manual', true)).toBe('semiManualSingle');
+  });
+});
+
+describe('vehicle multi-round damage loop (v1.4.266)', () => {
+  test('calls the per-round damage application exactly roundsHit times', () => {
+    const applyRound = makeSpy();
+    const ctx = { rawDamage: 0, structureDamage: 0 };
+    runVehicleBurstLoop(3, ctx, applyRound);
+    expect(applyRound.calls.length).toBe(3);
+  });
+
+  test('every per-round call passes chatMsg=null — the card is never updated mid-loop', () => {
+    const applyRound = makeSpy();
+    const ctx = { rawDamage: 0, structureDamage: 0 };
+    runVehicleBurstLoop(2, ctx, applyRound);
+    for (const call of applyRound.calls) {
+      expect(call[1]).toBeNull();
+    }
+  });
+
+  test('roundsHit: 0 (theoretical) is a no-op — no rounds recorded, no calls made', () => {
+    const applyRound = makeSpy();
+    const ctx = {};
+    const rounds = runVehicleBurstLoop(0, ctx, applyRound);
+    expect(rounds.length).toBe(0);
+    expect(applyRound.calls.length).toBe(0);
+  });
+
+  test('each round snapshot is captured before the next call overwrites ctx — no shared-reference corruption', () => {
+    // Mirrors the real bug this loop must avoid: _applyVehicleDamage
+    // overwrites ctx.rawDamage/ctx.structureDamage in place each call, so a
+    // naive "read ctx after the loop" approach would only ever see the last
+    // round's numbers for every entry.
+    let call = 0;
+    const applyRound = (ctx) => {
+      call += 1;
+      ctx.rawDamage       = call * 10;
+      ctx.structureDamage = call;
+    };
+    const ctx = { rawDamage: 0, structureDamage: 0 };
+    const rounds = runVehicleBurstLoop(3, ctx, applyRound);
+    expect(rounds).toEqual([
+      { round: 1, rawDamage: 10, structureDamage: 1 },
+      { round: 2, rawDamage: 20, structureDamage: 2 },
+      { round: 3, rawDamage: 30, structureDamage: 3 },
+    ]);
+    // ctx itself still only reflects the last round, as the real fields do —
+    // callers must read the snapshot array, not ctx, for per-round history.
+    expect(ctx.rawDamage).toBe(30);
+  });
+});
+
+// =============================================================================
 // damageModOffsetHooks
 //   Signed step shifts summed on top of the manual dmOffset. Used by Destined
 //   Enhanced Strength / Enhanced Body. The actor's STR is never touched.

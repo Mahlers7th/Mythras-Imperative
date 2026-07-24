@@ -494,6 +494,32 @@ export class CombatEngine {
   static async _runFullAutoSingleTarget(ctx) {
     const { attacker, defender } = ctx;
 
+    // ── Vehicle defender — mirrors _runDialog's ~L758 branch. Vehicles cannot
+    // parry, evade, or respond; defence is always 'none'. _resolveVehicleAttack
+    // is reused completely unmodified: it is a full, independent resolution
+    // path (own attack roll, own outcome card, own damage button/auto-resolve
+    // per automationLevel) whose shields/hull/structure/system-roll model has
+    // no equivalent in the consolidated card's hit-location/wound template.
+    // A vehicle target in a Full Auto/Burst spray therefore gets its own full
+    // card — same as a single-shot vehicle attack — posted alongside the
+    // consolidated card covering any personnel targets in the same spray,
+    // rather than folding vehicle damage detail into that template (which
+    // would be new vehicle-shaped card rendering, not a routing fix).
+    if (defender?.type === 'vehicle') {
+      ctx.defenceType        = 'none';
+      ctx.defenderSkillTotal = 0;
+      ctx.defenceOutcome     = 'none';
+      await CombatEngine._resolveVehicleAttack(ctx);
+      // ctx.roundsHit is stamped by _resolveVehicleAttack itself (v1.4.266):
+      // 0 on a miss, the real 1dN burst roll on a full-automation hit, or 1
+      // on a semi/manual-automation hit (only one damage application is
+      // possible there — a single button click). No summary-row placeholder
+      // needed here any more; the real damage detail lives on the vehicle's
+      // own card either way.
+      CombatEngine._accumulateFullAutoResult(ctx);
+      return;
+    }
+
     // ── Surprised / zero-AP shortcuts ────────────────────────────────────────
     if (ctx.defenderSurprised) {
       ctx.defenceType        = 'none';
@@ -2380,17 +2406,26 @@ export class CombatEngine {
   //       Shield strength drops to zero (collapses) and the excess hits the hull.
   //   • Maximise Damage and Bypass Armour SEs apply normally.
   //     Bypass Armour treats hull as 0 (and ignores shields).
-  //   • KNOWN GAP — Full-Auto / Burst Fire against a vehicle does NOT reach this
-  //     function. The vehicle branch (`defender?.type === 'vehicle'`) lives only
-  //     in `_runDialog`, ~L758. `_runFullAutoSingleTarget` (~L494) is a separate,
-  //     independent reimplementation of `_runDialog`'s defender-resolution logic
-  //     — it does not call `_runDialog` and has no vehicle check of its own — so
-  //     a vehicle targeted via Full Auto/Burst falls through to generic-actor
-  //     resolution instead (including a `CombatSocket` defence challenge a
-  //     vehicle can't answer). Confirmed by reading `_runFullAutoSingleTarget`
-  //     in full (system-batch-vehicle-attack-resolved-prompt.md, v1.4.264).
-  //     Not fixed as of v1.4.264 — out of scope for that batch; flagged here so
-  //     this file's own comment stops asserting otherwise.
+  //   • Full-Auto / Burst Fire (v1.4.265): `_runFullAutoSingleTarget` (~L494)
+  //     has its own vehicle branch (mirroring `_runDialog`'s ~L758 branch)
+  //     that calls this function, once per vehicle target in the spray. Each
+  //     vehicle target gets its own full outcome card, same as a single-shot
+  //     vehicle attack, posted alongside the consolidated card that covers
+  //     any personnel targets in the same spray. Before v1.4.264/v1.4.265
+  //     this function was unreachable on the Full Auto/Burst path entirely
+  //     (silent no-op — see CHANGELOG v1.4.264).
+  //   • Multi-round damage (v1.4.266, full automation only): when
+  //     `ctx.isBurstFire` and `automationLevel === 'full'`, this rolls
+  //     1dN rounds hit (N = the declared burst size — Mythras Imperative
+  //     p.50 "Full-Automatic"/"Burst", which addresses targets generally
+  //     with no personnel-only qualifier; Destined does not override it —
+  //     see CHANGELOG v1.4.266) and resolves each hitting round
+  //     independently through `_applyVehicleDamage` (shields → hull →
+  //     structure, its own 1d10 System Component roll per round). In
+  //     semi/manual automation the card's single "Roll Vehicle Damage"
+  //     button is unchanged and still applies exactly one damage roll per
+  //     click regardless of declared rounds — per-round semi-auto buttons
+  //     are a separate follow-up, not implemented here.
   //
   // System Component Damage table (1d10):
   //   1 → cargo   2 → comms   3 → controls   4 → drive   5 → crew
@@ -2447,9 +2482,68 @@ export class CombatEngine {
       catch (err) { console.error('Mythras | attackResolvedHook error:', err); }
     }
 
-    // Full automation: also resolve damage immediately (button still shown for reference)
+    // ── Damage resolution ──────────────────────────────────────────────────
+    // ctx.roundsHit is always stamped here (0 on a miss) so a caller building
+    // a Full Auto consolidated-card summary row (_accumulateFullAutoResult)
+    // never has to guess it — see _runFullAutoSingleTarget's vehicle branch.
+    ctx.roundsHit = 0;
+
     if (attackerScored && CombatEngine.automationLevel === 'full') {
-      await CombatEngine._applyVehicleDamage(ctx, chatMsg);
+      if (ctx.isBurstFire) {
+        // v1.4.266 — multi-round vehicle damage (candidate B, Mythras
+        // Imperative p.50 "Full-Automatic"/"Burst": rounds hit is 1dN,
+        // N = the declared burst size; the Vehicles chapter states no
+        // exception to it, and Destined's own Vehicles chapter/weapon Traits
+        // don't modify the base rule either — see CHANGELOG v1.4.266).
+        // Each hitting round is independently resolved through
+        // shields → hull → structure with its own 1d10 System Component
+        // roll, by calling _applyVehicleDamage — completely unmodified —
+        // once per round with chatMsg suppressed, so its internal
+        // _updateVehicleCardWithDamage call (which replaces, not appends,
+        // the card's single result block) never runs mid-loop. Verified
+        // safe to call sequentially: _applyVehicleDamage re-reads
+        // defender.system.toObject() fresh at the top of every call, and
+        // each baseActor.update() is awaited before the next round begins,
+        // so shield depletion and Structure loss correctly compound and
+        // shields do not regenerate between rounds of the same burst.
+        // Only full automation gets this treatment — semi/manual automation
+        // still shows a single "Roll Vehicle Damage" button that applies one
+        // damage roll per click, unchanged; giving that button per-round
+        // resolution too is a separate follow-up, not this batch.
+        const burstDie   = ctx.roundsPerTarget ?? 3;
+        const roundsRoll = new Roll(`1d${burstDie}`);
+        await roundsRoll.evaluate();
+        const roundsHit  = roundsRoll.total;
+
+        const vehicleDamageRounds = [];
+        for (let i = 0; i < roundsHit; i++) {
+          await CombatEngine._applyVehicleDamage(ctx, null);
+          vehicleDamageRounds.push({
+            round:              i + 1,
+            rawDamage:          ctx.rawDamage,
+            shieldAbsorb:       ctx.shieldAbsorb,
+            damageAfterShields: ctx.damageAfterShields,
+            penetrating:        ctx.penetrating,
+            structureDamage:    ctx.structureDamage,
+            systemRoll:         ctx.systemRoll,
+            systemResult:       ctx.systemResult,
+          });
+        }
+
+        ctx.roundsHit           = roundsHit;
+        ctx.roundsRoll          = roundsRoll;
+        ctx.vehicleDamageRounds = vehicleDamageRounds;
+
+        if (chatMsg) await CombatEngine._updateVehicleCardWithBurstDamage(chatMsg, ctx);
+      } else {
+        ctx.roundsHit = 1;
+        await CombatEngine._applyVehicleDamage(ctx, chatMsg);
+      }
+    } else if (attackerScored) {
+      // Semi/manual automation: the card's single "Roll Vehicle Damage"
+      // button will apply exactly one damage roll, whatever the declared
+      // burst size — so exactly one round is the honest count here too.
+      ctx.roundsHit = 1;
     }
   }
 
@@ -2754,6 +2848,102 @@ export class CombatEngine {
       newContent = newContent.replace(placeholder, resultBlock);
     } else {
       // Strip old result block and append fresh
+      newContent = newContent.replace(/<div class="mi-veh-combat-result">[\s\S]*?<\/div>\s*<\/div>/, '') + resultBlock + '</div>';
+    }
+    await chatMsg.update({ content: newContent });
+  }
+
+  // -------------------------------------------------------------------------
+  // _updateVehicleCardWithBurstDamage — multi-round vehicle damage (v1.4.266).
+  // Renders every entry in ctx.vehicleDamageRounds as its own shields/hull/
+  // structure/system block, plus a "N of M rounds hit" header, in a single
+  // chatMsg.update() call — unlike _updateVehicleCardWithDamage (which this
+  // function does not call and does not modify), this is never called more
+  // than once per attack, so there is no risk of it destructively replacing
+  // an earlier round's result the way calling _updateVehicleCardWithDamage
+  // N times on the same card would.
+  // -------------------------------------------------------------------------
+
+  static async _updateVehicleCardWithBurstDamage(chatMsg, ctx) {
+    if (!chatMsg) return;
+
+    const rounds = ctx.vehicleDamageRounds ?? [];
+
+    const roundBlocks = rounds.map(r => {
+      const shieldLine = r.shieldAbsorb > 0
+        ? `<div class="mi-veh-dmg-row"><span class="mi-veh-dmg-label">Shields</span><span class="mi-veh-dmg-val mi-muted">absorbed ${r.shieldAbsorb}</span></div>`
+        : '';
+
+      const hullLine = r.penetrating > 0
+        ? `<div class="mi-veh-dmg-row mi-veh-dmg-penetrate">
+             <span class="mi-veh-dmg-label">Hull</span>
+             <span class="mi-veh-dmg-val"><strong>Penetrated!</strong> ${r.damageAfterShields} → ${r.penetrating} damage to Structure</span>
+           </div>`
+        : `<div class="mi-veh-dmg-row mi-veh-dmg-stopped">
+             <span class="mi-veh-dmg-label">Hull</span>
+             <span class="mi-veh-dmg-val mi-muted">Stopped — damage (${r.damageAfterShields}) did not exceed Hull</span>
+           </div>`;
+
+      let sysLine = '';
+      if (r.structureDamage > 0) {
+        const structLine = `<div class="mi-veh-dmg-row"><span class="mi-veh-dmg-label">Structure</span><span class="mi-veh-dmg-val mi-muted">(−${r.structureDamage})</span></div>`;
+        if (r.systemResult) {
+          const stateClass = r.systemResult.destroyed ? 'mi-veh-sys-state-destroyed' : 'mi-veh-sys-state-damaged';
+          const stateLabel = r.systemResult.destroyed ? 'Destroyed' : `${r.systemResult.current}/${r.systemResult.hp} remaining`;
+          sysLine = `${structLine}
+            <div class="mi-veh-dmg-row mi-veh-dmg-system">
+              <span class="mi-veh-dmg-label">System (1d10: ${r.systemRoll})</span>
+              <span class="mi-veh-dmg-val"><strong>${r.systemResult.label}</strong> — <span class="${stateClass}">${stateLabel}</span></span>
+            </div>`;
+        } else if (r.systemRoll !== null) {
+          sysLine = `${structLine}
+            <div class="mi-veh-dmg-row mi-veh-dmg-system">
+              <span class="mi-veh-dmg-label">System (1d10: ${r.systemRoll})</span>
+              <span class="mi-veh-dmg-val mi-muted">No system affected</span>
+            </div>`;
+        } else {
+          sysLine = structLine;
+        }
+      }
+
+      return `
+        <div class="mi-veh-dmg-round">
+          <div class="mi-veh-dmg-row mi-veh-dmg-raw">
+            <span class="mi-veh-dmg-label">Round ${r.round} — Damage Roll</span>
+            <span class="mi-veh-dmg-val">${r.rawDamage}</span>
+          </div>
+          ${shieldLine}
+          ${hullLine}
+          ${sysLine}
+        </div>`;
+    }).join('');
+
+    // Final Structure total shown once, after all rounds have applied —
+    // re-read fresh rather than summed client-side, since _applyVehicleDamage
+    // is the sole writer of system.structure.value.
+    const { defender } = ctx;
+    const vObjFresh = defender.system.toObject ? defender.system.toObject() : { ...defender.system };
+    const structNow = vObjFresh.structure?.value ?? '?';
+    const structMax = vObjFresh.structure?.max   ?? '?';
+
+    const resultBlock = `
+      <div class="mi-veh-combat-result">
+        <div class="mi-veh-dmg-row mi-veh-dmg-burst-header">
+          <span class="mi-veh-dmg-label">${rounds.length} of ${ctx.roundsPerTarget ?? 3} rounds hit</span>
+          <span class="mi-veh-dmg-val mi-muted">(1d${ctx.roundsPerTarget ?? 3}: ${ctx.roundsRoll?.total ?? '—'})</span>
+        </div>
+        ${roundBlocks}
+        <div class="mi-veh-dmg-row mi-veh-dmg-total">
+          <span class="mi-veh-dmg-label">Structure</span>
+          <span class="mi-veh-dmg-val">${structNow} / ${structMax}</span>
+        </div>
+      </div>`;
+
+    let newContent = chatMsg.content;
+    const placeholder = `<div class="mi-veh-combat-result" id="mi-veh-result-${chatMsg.id}"></div>`;
+    if (newContent.includes(placeholder)) {
+      newContent = newContent.replace(placeholder, resultBlock);
+    } else {
       newContent = newContent.replace(/<div class="mi-veh-combat-result">[\s\S]*?<\/div>\s*<\/div>/, '') + resultBlock + '</div>';
     }
     await chatMsg.update({ content: newContent });
