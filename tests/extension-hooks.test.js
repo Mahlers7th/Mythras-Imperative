@@ -756,6 +756,103 @@ describe('attackResolvedHooks', () => {
     expect(a.calls.length).toBe(1);
     expect(b.calls.length).toBe(1);
   });
+
+  // ---------------------------------------------------------------------
+  // Vehicle-defender path — system-batch-vehicle-attack-resolved-prompt.md.
+  // _resolveVehicleAttack now fires this same loop (v1.4.264). These tests
+  // pin the *ctx contract* on that path (attacker/weapon present, no
+  // hitLocationId, defender may be a vehicle actor) using the same pure
+  // loop mirror above — they cannot and do not prove "fires exactly once
+  // per vehicle attack" or the Full Auto per-target control-flow property;
+  // that's a call-graph claim about CombatEngine, live-verified per the
+  // batch's acceptance criteria instead.
+  //
+  // The weapon-filtered consumer shape below mirrors Destined's real
+  // attackResolvedHooks consumer (clearArmorPiercingOnAttackResolved):
+  // it declines unless ctx.weapon.getFlag('destined-module', 'blast') is set.
+  // ---------------------------------------------------------------------
+
+  function makeBlastWeapon(isBlast) {
+    return { getFlag: (ns, key) => (ns === 'destined-module' && key === 'blast' && isBlast) ? true : undefined };
+  }
+
+  function makeWeaponFilteredConsumer(onRun) {
+    return (ctx) => {
+      const blastFlag = ctx?.weapon?.getFlag?.('destined-module', 'blast');
+      if (!blastFlag) return;
+      onRun(ctx);
+    };
+  }
+
+  test('vehicle ctx carrying attacker + weapon — a weapon-filtered consumer runs', () => {
+    const ran = makeSpy();
+    const consumer = makeWeaponFilteredConsumer(ran);
+    const vehicleDefender = { type: 'vehicle' };
+    const ctx = {
+      attacker: { id: 'atk1' },
+      defender: vehicleDefender,
+      weapon: makeBlastWeapon(true),
+      attackOutcome: 'success'
+    };
+    fireAttackResolvedHooks([consumer], ctx);
+    expect(ran.calls.length).toBe(1);
+  });
+
+  test('vehicle ctx on a miss — still fires (a charge spent at a vehicle clears)', () => {
+    const ran = makeSpy();
+    const consumer = makeWeaponFilteredConsumer(ran);
+    const ctx = {
+      attacker: { id: 'atk1' },
+      defender: { type: 'vehicle' },
+      weapon: makeBlastWeapon(true),
+      attackOutcome: 'failure'
+    };
+    fireAttackResolvedHooks([consumer], ctx);
+    expect(ran.calls.length).toBe(1);
+  });
+
+  test('vehicle ctx has no hitLocationId — a consumer reading it must not throw', () => {
+    const consumer = (ctx) => {
+      // Mirrors a consumer that reads hitLocationId defensively rather than
+      // assuming it exists — the vehicle path never sets it.
+      const loc = ctx.hitLocationId ?? null;
+      expect(loc).toBeNull();
+    };
+    const ctx = {
+      attacker: { id: 'atk1' },
+      defender: { type: 'vehicle' },
+      weapon: makeBlastWeapon(true),
+      attackOutcome: 'success'
+      // hitLocationId intentionally absent
+    };
+    expect(() => fireAttackResolvedHooks([consumer], ctx)).not.toThrow();
+  });
+
+  test('a non-Blast weapon against a vehicle — weapon-filtered consumer declines', () => {
+    const ran = makeSpy();
+    const consumer = makeWeaponFilteredConsumer(ran);
+    const ctx = {
+      attacker: { id: 'atk1' },
+      defender: { type: 'vehicle' },
+      weapon: makeBlastWeapon(false), // melee swing, no blast flag
+      attackOutcome: 'success'
+    };
+    fireAttackResolvedHooks([consumer], ctx);
+    expect(ran.calls.length).toBe(0);
+  });
+
+  test('a throwing consumer on the vehicle path is caught and cannot abort vehicle damage resolution; later hooks still run', () => {
+    const throwing = () => { throw new Error('boom'); };
+    const laterSpy = makeSpy();
+    const ctx = {
+      attacker: { id: 'atk1' },
+      defender: { type: 'vehicle' },
+      weapon: makeBlastWeapon(true),
+      attackOutcome: 'success'
+    };
+    expect(() => fireAttackResolvedHooks([throwing, laterSpy], ctx)).not.toThrow();
+    expect(laterSpy.calls.length).toBe(1);
+  });
 });
 
 // =============================================================================

@@ -198,8 +198,19 @@ export const MYTHRAS = {
   //   OUTCOME. Fires on a miss exactly as it does on a hit. Full Auto against
   //   multiple targets fires once per target (each target is a distinct
   //   resolved attack roll); Burst Fire's internal rounds do not re-fire it
-  //   (they are a single attack roll, resolved once). Does not fire for
-  //   vehicle-defender attacks, which use a separate resolution path.
+  //   (they are a single attack roll, resolved once).
+  //
+  //   Also fires for vehicle-defender attacks, from _resolveVehicleAttack, at
+  //   the equivalent point (after the outcome card, before damage). It did
+  //   NOT fire on this path before v1.4.264, which leaked per-shot charges
+  //   against vehicle targets. Consumers must tolerate a vehicle defender:
+  //   ctx.defender may be a vehicle actor with hull/shields/structure instead
+  //   of hit locations, and ctx.hitLocationId is absent on this path.
+  //   ctx.attacker and ctx.weapon are present on both paths. Vehicles never
+  //   consult apReductionHooks (no _getEffectiveArmourAt call on this path),
+  //   so an AP-style charge can only be cleared here, never spent — this is
+  //   rules-correct (Destined p.83: cost is paid regardless of outcome) but a
+  //   real consequence for future boost authors to know about.
   //
   //   For modules that hold per-shot state which must be consumed or cleared
   //   when a shot resolves (e.g. Destined's Blast Armor Piercing, which is

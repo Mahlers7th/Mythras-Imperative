@@ -2380,9 +2380,17 @@ export class CombatEngine {
   //       Shield strength drops to zero (collapses) and the excess hits the hull.
   //   • Maximise Damage and Bypass Armour SEs apply normally.
   //     Bypass Armour treats hull as 0 (and ignores shields).
-  //   • Full-Auto / Burst Fire: each round is resolved independently via
-  //     _runFullAutoSingleTarget, which calls _runDialog per target. The vehicle
-  //     branch fires each time, so multi-round attacks work automatically.
+  //   • KNOWN GAP — Full-Auto / Burst Fire against a vehicle does NOT reach this
+  //     function. The vehicle branch (`defender?.type === 'vehicle'`) lives only
+  //     in `_runDialog`, ~L758. `_runFullAutoSingleTarget` (~L494) is a separate,
+  //     independent reimplementation of `_runDialog`'s defender-resolution logic
+  //     — it does not call `_runDialog` and has no vehicle check of its own — so
+  //     a vehicle targeted via Full Auto/Burst falls through to generic-actor
+  //     resolution instead (including a `CombatSocket` defence challenge a
+  //     vehicle can't answer). Confirmed by reading `_runFullAutoSingleTarget`
+  //     in full (system-batch-vehicle-attack-resolved-prompt.md, v1.4.264).
+  //     Not fixed as of v1.4.264 — out of scope for that batch; flagged here so
+  //     this file's own comment stops asserting otherwise.
   //
   // System Component Damage table (1d10):
   //   1 → cargo   2 → comms   3 → controls   4 → drive   5 → crew
@@ -2428,6 +2436,16 @@ export class CombatEngine {
     // after posting the card so the result appears without a click.
     const chatMsg = await CombatEngine._postVehicleOutcomeCard(ctx, attackerScored);
     ctx.chatMessageId = chatMsg?.id ?? null;
+
+    // ── Attack Resolved hook — vehicle path equivalent of the Step 11a firing
+    // site in _afterDefenceResolved. Fires once per resolved attack roll, hit
+    // or miss, before damage resolution. See config.js attackResolvedHooks doc
+    // for the ctx contract on this path (no hitLocationId, defender may be a
+    // vehicle actor).
+    for (const hook of (CONFIG.MYTHRAS?.attackResolvedHooks ?? [])) {
+      try { hook(ctx); }
+      catch (err) { console.error('Mythras | attackResolvedHook error:', err); }
+    }
 
     // Full automation: also resolve damage immediately (button still shown for reference)
     if (attackerScored && CombatEngine.automationLevel === 'full') {
