@@ -557,6 +557,143 @@ describe('CombatEngine._getEffectiveArmourAt', () => {
   });
 });
 
+// =============================================================================
+// game.system.api.getArmourAt (system-batch-expose-armour-prompt.md, v1.4.267)
+//   A thin wrapper over CombatEngine._getArmourAt, exposed on
+//   game.system.api so modules can read BASE armour (natural + worn +
+//   armourBonusHooks, minus sunder — NOT effective armour) without reaching
+//   into CombatEngine internals. mythras.mjs is Foundry-coupled like
+//   CombatEngine.js, so this mirrors the wrapper's own contract with the
+//   real _getArmourAt injected, per this file's established convention.
+// =============================================================================
+
+/** Mirror of mythras.mjs's exported getArmourAt wrapper. Named getArmourAtApi
+ * to avoid colliding with the unrelated _getArmourAt-return mirror above. */
+function getArmourAtApi(getArmourAtFn, defender, locationId) {
+  try {
+    const result = getArmourAtFn(defender, locationId);
+    return Number.isFinite(result) ? Math.max(0, result) : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+describe('game.system.api.getArmourAt', () => {
+  test('delegates to _getArmourAt and returns its value', () => {
+    const spy = makeSpy(() => 7);
+    expect(getArmourAtApi(spy, { id: 'd1' }, 'chest')).toBe(7);
+    expect(spy.calls).toEqual([[{ id: 'd1' }, 'chest']]);
+  });
+
+  test('does not duplicate _getArmourAt logic — same defender/locationId in, same number out', () => {
+    const fn = (defender, locationId) => (defender.id === 'd1' && locationId === 'head' ? 5 : 0);
+    expect(getArmourAtApi(fn, { id: 'd1' }, 'head')).toBe(5);
+    expect(getArmourAtApi(fn, { id: 'd1' }, 'chest')).toBe(0);
+  });
+
+  test('a missing actor causing the underlying call to throw is caught, returns 0, never throws', () => {
+    const throwing = () => { throw new TypeError("Cannot read properties of null (reading 'items')"); };
+    expect(() => getArmourAtApi(throwing, null, 'head')).not.toThrow();
+    expect(getArmourAtApi(throwing, null, 'head')).toBe(0);
+  });
+
+  test('a missing/unknown locationId that _getArmourAt resolves to 0 returns 0, not a throw', () => {
+    const fn = () => 0;
+    expect(getArmourAtApi(fn, {}, 'not-a-real-location')).toBe(0);
+    expect(getArmourAtApi(fn, {}, undefined)).toBe(0);
+  });
+
+  test('never negative: a negative result is clamped to 0', () => {
+    expect(getArmourAtApi(() => -3, {}, 'loc')).toBe(0);
+  });
+
+  test('non-finite results (NaN, undefined, Infinity) are treated as 0', () => {
+    expect(getArmourAtApi(() => NaN, {}, 'loc')).toBe(0);
+    expect(getArmourAtApi(() => undefined, {}, 'loc')).toBe(0);
+    expect(getArmourAtApi(() => Infinity, {}, 'loc')).toBe(0);
+  });
+
+  test('returns a finite non-negative number for a normal in-range result', () => {
+    expect(getArmourAtApi(() => 12, {}, 'chest')).toBe(12);
+  });
+});
+
+// =============================================================================
+// ctx.baseArmourPoints stamp (system-batch-expose-armour-prompt.md, v1.4.267)
+//   Stamped at each in-engine damage-resolution site so a damageHooks
+//   consumer can read the defender's BASE armour (pre-piercing, pre-hook-
+//   reduction) as of attack time, distinct from ctx's existing armourPoints
+//   local (effective armour). The critical invariant is ORDERING: the stamp
+//   must happen before _applySunder's flag write, or a sundered attack would
+//   report post-sunder armour and defeat the field's purpose. CombatEngine.js
+//   is Foundry-coupled and mirrored throughout this file, so this exercises
+//   the ordering contract and the burst-fire per-round location, not a real
+//   CombatEngine import.
+// =============================================================================
+
+describe('ctx.baseArmourPoints stamp — ordering relative to _applySunder', () => {
+  // A stateful stand-in for the real _getArmourAt: it reads mutable armour
+  // state, and a real _applySunder call would mutate that state (the
+  // sunderedAP flag write) as a side effect. Calling the "getArmourAt" side
+  // BEFORE the "applySunder" side must see the pre-mutation value.
+  function makeStatefulArmourSource(initialAP) {
+    let currentAP = initialAP;
+    return {
+      getArmourAt: () => currentAP,
+      applySunder(damage) { currentAP = Math.max(0, currentAP - damage); },
+    };
+  }
+
+  test('full auto: stamping before the sunder branch captures pre-sunder armour', () => {
+    const src = makeStatefulArmourSource(5);
+    const ctx = {};
+    // Mirrors the real call order in _resolveFullAutoDamage: the stamp
+    // happens immediately after _getEffectiveArmourAt, BEFORE the
+    // `if (sunderChosen ...)` branch that can call _applySunder.
+    ctx.baseArmourPoints = src.getArmourAt();
+    src.applySunder(10); // Sunder chosen this attack — mutates armour state
+    expect(ctx.baseArmourPoints).toBe(5);
+  });
+
+  test('full auto: reversing the order (stamp after sunder) would leak the post-sunder value — proves the test can fail', () => {
+    const src = makeStatefulArmourSource(5);
+    src.applySunder(10); // sunder runs first — wrong order
+    const ctx = {};
+    ctx.baseArmourPoints = src.getArmourAt();
+    expect(ctx.baseArmourPoints).toBe(0); // demonstrates why placement is load-bearing
+  });
+
+  test('full auto: stamped on the normal (non-sunder) path too, not only when Sunder is chosen', () => {
+    const src = makeStatefulArmourSource(3);
+    const ctx = {};
+    ctx.baseArmourPoints = src.getArmourAt();
+    expect(ctx.baseArmourPoints).toBe(3);
+  });
+});
+
+describe('ctx.baseArmourPoints stamp — burst fire per-round location', () => {
+  test('each round stamps baseArmourPoints from that round\'s own hit location, not a shared/outer one', () => {
+    const armourByLocation = { head: 6, chest: 2, leftArm: 0 };
+    const getArmourAtFn = (defender, locationId) => armourByLocation[locationId] ?? 0;
+
+    // Mirrors the per-round loop in _resolveBurstDamage: each round rolls
+    // its own hitLocationId and the stamp must use THAT round's value.
+    const rounds = [{ hitLocationId: 'head' }, { hitLocationId: 'chest' }, { hitLocationId: 'leftArm' }];
+    const roundCtxs = rounds.map(r => ({
+      ...r,
+      baseArmourPoints: getArmourAtFn({}, r.hitLocationId),
+    }));
+
+    expect(roundCtxs.map(c => c.baseArmourPoints)).toEqual([6, 2, 0]);
+  });
+
+  test('a round striking an unarmoured location stamps 0, not undefined', () => {
+    const getArmourAtFn = () => 0;
+    const roundCtx = { hitLocationId: 'leftLeg', baseArmourPoints: getArmourAtFn({}, 'leftLeg') };
+    expect(roundCtx.baseArmourPoints).toBe(0);
+  });
+});
+
 describe('CombatEngine._resolveAmmoTraits', () => {
   function makeAmmoItem(type, traits) {
     return { type, system: { traits: traits.map(key => ({ key })) } };
@@ -1899,7 +2036,7 @@ function ctxFromCardFlags(outcomeMsg, extras = {}, world = {}) {
   const defender  = resolveActorById(flags.defenderId, world);
   if (!attacker || !defender) return null;
 
-  const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0 } = extras;
+  const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0, baseArmourPoints = undefined } = extras;
 
   return {
     attacker,
@@ -1930,6 +2067,7 @@ function ctxFromCardFlags(outcomeMsg, extras = {}, world = {}) {
     locationType:         classifyLocationStub(hitLocationLabel),
     damage,
     rawDamage,
+    baseArmourPoints,
     damageRoll:           null,
     chatMessageId:        outcomeMsg?.id ?? null,
   };
@@ -2021,7 +2159,7 @@ describe('CombatEngine._ctxFromCardFlags', () => {
   test('full rehydration from a representative flag set', () => {
     const { world, attacker, defender, weapon, shield, atkStyle, defStyle } = standardWorld();
     const outcomeMsg = makeOutcomeMsg();
-    const extras = { hitLocationId: 'loc-head', hitLocationLabel: 'Head', damage: 6, rawDamage: 9 };
+    const extras = { hitLocationId: 'loc-head', hitLocationLabel: 'Head', damage: 6, rawDamage: 9, baseArmourPoints: 4 };
 
     const ctx = ctxFromCardFlags(outcomeMsg, extras, world);
 
@@ -2043,6 +2181,7 @@ describe('CombatEngine._ctxFromCardFlags', () => {
       hitLocationId: 'loc-head', hitLocationLabel: 'Head',
       locationType: 'head',
       damage: 6, rawDamage: 9,
+      baseArmourPoints: 4,
       damageRoll: null,
       chatMessageId: 'msg1',
     });
@@ -2097,6 +2236,23 @@ describe('CombatEngine._ctxFromCardFlags', () => {
     expect(ctx.hitLocationLabel).toBe('');
     expect(ctx.damage).toBe(0);
     expect(ctx.rawDamage).toBe(0);
+  });
+
+  // baseArmourPoints (v1.4.267+): unlike hitLocationId/damage/rawDamage, this
+  // has no zero-ish default — a genuinely unstamped path (a semi-auto card
+  // built before v1.4.267, or any future extras caller that doesn't have it)
+  // must come through as undefined, not 0, so a damageHooks consumer can tell
+  // "unknown" apart from "no armour".
+  test('baseArmourPoints defaults to undefined when extras omits it', () => {
+    const { world } = standardWorld();
+    const ctx = ctxFromCardFlags(makeOutcomeMsg(), {}, world);
+    expect(ctx.baseArmourPoints).toBeUndefined();
+  });
+
+  test('baseArmourPoints passes through from extras, including 0 (fully sundered/no armour)', () => {
+    const { world } = standardWorld();
+    const ctx = ctxFromCardFlags(makeOutcomeMsg(), { baseArmourPoints: 0 }, world);
+    expect(ctx.baseArmourPoints).toBe(0);
   });
 
   test('idempotent: re-running against the same inputs yields an equal result', () => {
@@ -2191,6 +2347,33 @@ describe('mythras.mjs Apply Damage handler — ctx construction', () => {
     const flags = { broadhead: true, stunRound: true, chosenSEs: ['trip'] };
     const { chosenSEs } = injectAmmoTraitSEs(flags, 5);
     expect(chosenSEs).toEqual(['trip', 'bleed', 'stunLocation']);
+  });
+
+  // Mirrors the handler's data-base-armour-points parse (mythras.mjs, Roll
+  // Damage -> Apply Damage handoff, v1.4.267): parseInt on a missing/absent
+  // dataset attribute yields NaN, which must become undefined (matching
+  // _ctxFromCardFlags's own default), not leak NaN into the ctx.
+  function parseBaseArmourPoints(datasetValue) {
+    const raw = parseInt(datasetValue, 10);
+    return Number.isFinite(raw) ? raw : undefined;
+  }
+
+  test('data-base-armour-points parses to a number when present, including 0', () => {
+    expect(parseBaseArmourPoints('4')).toBe(4);
+    expect(parseBaseArmourPoints('0')).toBe(0);
+  });
+
+  test('data-base-armour-points absent (older cached card) parses to undefined, not NaN', () => {
+    expect(parseBaseArmourPoints(undefined)).toBeUndefined();
+    expect(parseBaseArmourPoints('')).toBeUndefined();
+  });
+
+  test('the parsed value flows through extras into the rehydrated ctx', () => {
+    const { world } = standardWorld();
+    const outcomeMsg = makeOutcomeMsg();
+    const baseArmourPoints = parseBaseArmourPoints('4');
+    const ctx = ctxFromCardFlags(outcomeMsg, { baseArmourPoints }, world);
+    expect(ctx.baseArmourPoints).toBe(4);
   });
 
   test('a null ctx from _ctxFromCardFlags is handled without reaching the opposed-SE resolver', () => {

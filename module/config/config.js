@@ -96,6 +96,27 @@ export const MYTHRAS = {
   //   explicitly excluded even though typeof NaN === 'number' — an
   //   unfiltered NaN would propagate into system.current and corrupt a hit
   //   location.
+  //
+  //   ctx.baseArmourPoints (v1.4.267+): the defender's BASE armour AP at the
+  //   struck location -- natural + worn + armourBonusHooks, minus sunder --
+  //   as of ATTACK TIME, before ammo-trait piercing or apReductionHooks are
+  //   applied (i.e. _getArmourAt's output, not _getEffectiveArmourAt's). It
+  //   is stamped by the engine BEFORE _applySunder can run, specifically so
+  //   a sundered attack's hook still sees the armour it actually faced
+  //   rather than the post-sunder value. Calling game.system.api.getArmourAt
+  //   from inside a hook instead would return post-sunder armour on a
+  //   sundered attack -- use ctx.baseArmourPoints for the in-pipeline value.
+  //
+  //   Stamped on the Full Auto and Burst Fire paths (Burst Fire per round,
+  //   using that round's own hit location) and on the semi-auto Roll
+  //   Damage -> Apply Damage flow (carried across the two user interactions
+  //   via the Apply Damage button's dataset, the same way hitLocationId/
+  //   damage/rawDamage already are). NOT stamped for vehicle defenders
+  //   (_applyVehicleDamage does not fire damageHooks at all; vehicles have
+  //   Hull, not hit-location armour -- not applicable there). May be
+  //   `undefined` on any path that doesn't stamp it (including a semi-auto
+  //   card built before v1.4.267, if one is somehow still live) -- hooks
+  //   must handle `undefined` and must not assume a missing value means 0.
   // -----------------------------------------------------------------------
 
   /** @type {Function[]} Each may return a new (composed) damage number, false to suppress entirely, or decline */

@@ -1495,6 +1495,11 @@ export class CombatEngine {
       attacker,
     });
 
+    // Base armour (pre-piercing, pre-hook-reduction) for damageHooks consumers
+    // -- see config.js's damageHooks doc. Stamped BEFORE _applySunder can run
+    // below, so a sundered attack still carries the armour it actually faced.
+    ctx.baseArmourPoints = CombatEngine._getArmourAt(defender, ctx.hitLocationId);
+
     if (sunderChosen && !bypassArmour && armourPoints > 0) {
       // ── Sunder (rules p.46) ──────────────────────────────────────────────
       // Damage after parry hits the armour AP first.
@@ -1623,6 +1628,14 @@ export class CombatEngine {
       });
       const finalDamage  = Math.max(0, damageAfterParry - armourPoints);
 
+      // Base armour (pre-piercing, pre-hook-reduction) for damageHooks
+      // consumers -- see config.js's damageHooks doc. Uses THIS round's
+      // hitLocationId, not the outer ctx's -- burst fire rolls a fresh
+      // location per round. Burst fire has no Sunder branch, so there is no
+      // ordering hazard here, but the field is computed the same way as the
+      // other two stamp sites for consistency.
+      const baseArmourPoints = CombatEngine._getArmourAt(defender, hitLocationId);
+
       // Apply damage and record wound level
       // Build a minimal per-round ctx for _applyDamage
       const roundCtx = {
@@ -1633,6 +1646,7 @@ export class CombatEngine {
         rawDamage,
         damageAfterParry,
         damageAfterArmour: finalDamage,
+        baseArmourPoints,
         parryReduction,
         woundLevel: null,
         damageRoll,
@@ -3005,10 +3019,14 @@ export class CombatEngine {
   // message entirely.
   // @param {ChatMessage|{flags: object, id: string}} outcomeMsg - the
   //   resolved outcome-card message, or a flags-shaped stand-in for tests
-  // @param {{hitLocationId?: string, hitLocationLabel?: string, damage?: number, rawDamage?: number}} [extras] -
-  //   the four fields that live on the Apply Damage button's OWN dataset,
-  //   set later at damage-resolution time — NOT part of the outcome card's
-  //   attack-time flags, so they cannot be read from outcomeMsg
+  // @param {{hitLocationId?: string, hitLocationLabel?: string, damage?: number, rawDamage?: number, baseArmourPoints?: number}} [extras] -
+  //   the fields that live on the Apply Damage button's OWN dataset, set
+  //   later at damage-resolution time — NOT part of the outcome card's
+  //   attack-time flags, so they cannot be read from outcomeMsg.
+  //   baseArmourPoints (v1.4.267+) is stamped by the Roll Damage handler,
+  //   which computes it the same way as the other two stamp sites (see
+  //   config.js's damageHooks doc); undefined if that handler's button was
+  //   never rendered (finalDamage 0 with no Stun Round in play).
   // @returns {object|null} a full ctx object, or null if outcomeMsg has no
   //   resolvable flags, or if the attacker/defender cannot be resolved
   //   (e.g. the outcome message, an actor, or defenderId itself was
@@ -3022,7 +3040,7 @@ export class CombatEngine {
     const defender  = CombatEngine._resolveActorById(flags.defenderId);
     if (!attacker || !defender) return null;
 
-    const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0 } = extras;
+    const { hitLocationId = null, hitLocationLabel = '', damage = 0, rawDamage = 0, baseArmourPoints = undefined } = extras;
 
     return {
       attacker,
@@ -3053,6 +3071,7 @@ export class CombatEngine {
       locationType:         CombatEngine._classifyLocation(hitLocationLabel),
       damage,
       rawDamage,
+      baseArmourPoints,
       damageRoll:           null,
       chatMessageId:        outcomeMsg?.id ?? null,
     };

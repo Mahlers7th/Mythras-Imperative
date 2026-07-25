@@ -285,6 +285,10 @@ Hooks.once('ready', () => {
   // batch. resolveOpposedRoll/resolveDifferential (combat-math.js) are NOT
   // exposed here either -- a decision for whenever the first opposed-boost
   // family needs them.
+  //
+  // getArmourAt (v1.4.267+): thin wrapper over CombatEngine._getArmourAt --
+  // see its own doc block above for the base-vs-effective distinction and
+  // why _getEffectiveArmourAt is deliberately NOT exposed here.
   game.system.api = Object.freeze({
     syncHitLocationHP,
     determineOutcome,
@@ -293,6 +297,7 @@ Hooks.once('ready', () => {
     applyDifficulty,
     DIFFICULTY_GRADES,
     requestSkillCheck,
+    getArmourAt,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -576,6 +581,39 @@ export function syncHitLocationHP(actor) {
   return actor.updateEmbeddedDocuments('Item', updates).then(() => {
     console.log(`Mythras Imperative | Synced hit location HP for ${actor.name} (CON+SIZ=${conSiz})`);
   });
+}
+
+// ---------------------------------------------------------------------------
+// GET ARMOUR AT — thin read-only wrapper over CombatEngine._getArmourAt,
+// exposed so modules can read an actor's armour without reaching into
+// CombatEngine internals (forbidden by the module's own standing
+// discipline) or reimplementing the natural+worn+armourBonusHooks-minus-
+// sunder arithmetic module-side, which would recreate the three-
+// independent-copies drift _getEffectiveArmourAt was built to eliminate.
+//
+// Returns BASE armour at the location -- natural + worn + armourBonusHooks,
+// minus sunder -- NOT effective armour: no ammo piercing, no
+// apReductionHooks, no Bypass Armour. Reflects armour AT CALL TIME. Since
+// _applySunder persists its reduction (defender.setFlag('sunderedAP', ...))
+// before CombatEngine._applyDamage's damageHooks fire, calling this from
+// inside a damageHooks consumer on a sundered attack returns POST-sunder
+// armour, not the armour the attack actually faced. Consumers inside
+// damageHooks that need the value as of attack time should read
+// ctx.baseArmourPoints (stamped by CombatEngine before _applySunder runs;
+// see config.js's damageHooks doc) instead of calling this.
+//
+// Deliberately does NOT expose _getEffectiveArmourAt: effective armour is
+// the output of a chokepoint that already consults apReductionHooks, and
+// handing it back to the hooks that feed it invites a feedback loop.
+// ---------------------------------------------------------------------------
+export function getArmourAt(defender, locationId) {
+  try {
+    const result = CombatEngine._getArmourAt(defender, locationId);
+    return Number.isFinite(result) ? Math.max(0, result) : 0;
+  } catch (err) {
+    console.error('Mythras Imperative | getArmourAt error:', err);
+    return 0;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,6 +1256,11 @@ function _onRenderChatMessage(message, html) {
       const damage     = parseInt(btn.dataset.damage, 10);
       const rawDamage  = parseInt(btn.dataset.rawDamage, 10) || damage; // pre-armour damage for Bash
       const locLabel   = btn.dataset.locationLabel ?? '';
+      // baseArmourPoints (v1.4.267+): stamped by the Roll Damage handler onto
+      // this same button's dataset. NaN (attribute absent) becomes undefined,
+      // matching _ctxFromCardFlags's own default -- see its doc.
+      const baseArmourPointsRaw = parseInt(btn.dataset.baseArmourPoints, 10);
+      const baseArmourPoints    = Number.isFinite(baseArmourPointsRaw) ? baseArmourPointsRaw : undefined;
       const actor      = _resolveActor(actorId);
       if (!actor || isNaN(damage)) return;
 
@@ -1245,7 +1288,7 @@ function _onRenderChatMessage(message, html) {
 
       // Fields _ctxFromCardFlags cannot know — it is deliberately DOM-
       // independent, so extraction from the button's dataset happens here.
-      const extras = { hitLocationId: locationId ?? null, hitLocationLabel: locLabel, damage, rawDamage };
+      const extras = { hitLocationId: locationId ?? null, hitLocationLabel: locLabel, damage, rawDamage, baseArmourPoints };
       const baseCtx = CombatEngine._ctxFromCardFlags(outcomeMsg, extras);
 
       if (!baseCtx) {
@@ -1727,6 +1770,7 @@ async function _onSemiAutoRollDamage(ev, message) {
   let locationId    = null;
   let locationLabel = 'Unknown';
   let armourAP      = 0;
+  let baseArmourPoints = 0;
   if (messageId && messageId !== 'PENDING') {
     const parentMsg = game.messages.get(messageId);
     if (parentMsg) {
@@ -1745,6 +1789,13 @@ async function _onSemiAutoRollDamage(ev, message) {
           weapon,
           attacker,
         });
+        // Base armour (pre-piercing, pre-hook-reduction), for damageHooks
+        // consumers via ctx.baseArmourPoints -- see config.js's damageHooks
+        // doc. An additional call, computed here (before the Sunder block
+        // below can persist a reduction) and carried to the Apply Damage
+        // handler via the button's dataset, the same way locationId/
+        // locationLabel/damage/rawDamage already are.
+        baseArmourPoints = CombatEngine._getArmourAt(defender, locationId);
       }
     }
   }
@@ -1869,6 +1920,7 @@ async function _onSemiAutoRollDamage(ev, message) {
             data-damage="${finalDamage}"
             data-raw-damage="${rawDamage}"
             data-location-label="${locationLabel}"
+            data-base-armour-points="${baseArmourPoints}"
             data-message-id="${messageId ?? ''}">
             <i class="fas fa-heart-broken"></i> Apply ${finalDamage > 0 ? finalDamage : 'Stun'} to ${locationLabel}
           </button>
