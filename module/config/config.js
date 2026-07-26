@@ -135,6 +135,43 @@ export const MYTHRAS = {
   evasionHooks: [],
 
   // -----------------------------------------------------------------------
+  // RANGED PARRY ELIGIBILITY HOOKS
+  //   rangedParryEligibleHook : (weapon, actor) => boolean | undefined
+  //   Called by DefenderDialog._buildParryWeaponList, once per otherwise-
+  //   ineligible weapon, ONLY when building the Parry weapon list for a
+  //   ranged attack. Core rule (p.49): only shields may Parry a ranged
+  //   attack; every other weapon is filtered out before this hook is
+  //   consulted (a weapon a shield-trait check already accepts never reaches
+  //   this array). Return `true` to let that specific non-shield weapon
+  //   through anyway; return `undefined`/falsy to decline (the weapon stays
+  //   excluded). The FIRST truthy result wins for a given weapon; no
+  //   composing, no summing — same override shape as weaponDamageHooks/
+  //   weaponForceHooks, for the same reason (there's no sensible way to
+  //   "add" two booleans).
+  //
+  //   Read-time and re-evaluated every time the dialog builds its list —
+  //   hooks must be pure (no actor/item writes, no PP spend, no chat
+  //   output), exactly like weaponDamageHooks/weaponForceHooks. If a module
+  //   boost needs to spend a resource to grant this eligibility, spend it at
+  //   the point the player activates the boost (before the dialog ever
+  //   opens), and have the hook simply read whatever state that spend
+  //   recorded.
+  //
+  //   Added for Destined's Close Combat Attack "Ranged Parry" Boost: "The
+  //   hero spends 1 Power Point to use the weapon to Parry a ranged attack."
+  //   Without this hook, a character with both a shield AND a Close Combat
+  //   Attack weapon has no way to choose the CCA weapon over the shield for
+  //   a ranged Parry — the shield-only filter silently wins. (A character
+  //   with NO shield already sees every weapon as an option, via
+  //   _buildParryWeaponList's own "if no shields available, fall back to all
+  //   weapons" rule — this hook only changes anything when a shield is also
+  //   in play.)
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns true to let a non-shield weapon Parry a ranged attack, or undefined/falsy to decline */
+  rangedParryEligibleHooks: [],
+
+  // -----------------------------------------------------------------------
   // ACTION POINT BONUS HOOKS
   // apBonusHook : (actor) => number
   //   Called during prepareDerivedData AFTER the base AP max is computed
@@ -385,7 +422,7 @@ export const MYTHRAS = {
   // -----------------------------------------------------------------------
   // WEAPON DAMAGE / FORCE HOOKS  —  OVERRIDE (first-wins), not sum
   //   weaponDamageHook : (weapon, actor) => string | undefined
-  //   weaponForceHook  : (weapon, actor) => string | undefined
+  //   weaponForceHook  : (weapon, actor, role) => string | undefined
   //   Called by CombatEngine._getWeaponDamage / _getWeaponForce, the single
   //   chokepoint every damage-roll and parry-size read in the combat engine
   //   goes through. Return undefined to decline — the overwhelmingly common
@@ -415,6 +452,22 @@ export const MYTHRAS = {
   //   The resolver must be a function called at roll time with the prepared
   //   actor, never a getter on the item's own data model.
   //
+  //   `role` (weaponForceHooks only — weaponDamageHooks has no equivalent
+  //   third argument, since damage is never rolled on the defence side) is
+  //   either `'attack'` (the wielder is making an attack roll, or a Ward
+  //   Location passive block) or `'defense'` (the wielder is Parrying an
+  //   incoming attack) — CombatEngine.resolveParryReduction calls
+  //   _getWeaponForce twice per opposed roll, once per role, so a hook CAN
+  //   answer differently for the same (weapon, actor) pair depending on
+  //   which side of the roll it's being asked about. Added for Destined's
+  //   Close Combat Attack Poor Defense limit (weapon one Size smaller when
+  //   Parrying only) and Weapon Traits' Defensive trait (one Size larger
+  //   when Parrying only) — before this param existed there was no way to
+  //   distinguish the two call sites, since both pass the identical weapon
+  //   and actor. Existing hooks that ignore the third argument (Blast, core
+  //   Close Combat Attack) are unaffected — `role` is additive, not a
+  //   breaking change to the two-argument call shape.
+  //
   //   Range is deliberately NOT covered by a hook here — how ranged bands are
   //   stored/consumed has not been audited. Do not add one speculatively.
   // -----------------------------------------------------------------------
@@ -422,7 +475,7 @@ export const MYTHRAS = {
   /** @type {Function[]} Each returns a damage formula string to override `weapon.system.damage`, or undefined to decline */
   weaponDamageHooks: [],
 
-  /** @type {Function[]} Each returns a Force/Size code (S/M/L/H/E) to override `weapon.system.parrySize`, or undefined to decline */
+  /** @type {Function[]} Each returns a Force/Size code (S/M/L/H/E) to override `weapon.system.parrySize`, or undefined to decline. Receives (weapon, actor, role), role is 'attack' or 'defense' */
   weaponForceHooks: [],
 
   // -----------------------------------------------------------------------

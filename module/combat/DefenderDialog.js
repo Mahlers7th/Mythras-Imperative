@@ -410,8 +410,20 @@ function _buildParryWeaponList(actor, stylesByWeaponId, isRangedAttack = false) 
   // Ranged attacks: only shields may parry (rules p.49).
   // Shields are identified by the 'shield' trait on the weapon item.
   if (isRangedAttack) {
-    const shieldOnly = eligible.filter(w => (w.system.traits ?? []).includes('shield'));
-    // If no shields available fall back to all weapons so defender isn't locked out
+    const rangedParryEligibleHooks = CONFIG.MYTHRAS?.rangedParryEligibleHooks ?? [];
+    const shieldOnly = eligible.filter(w => {
+      if ((w.system.traits ?? []).includes('shield')) return true;
+      for (const fn of rangedParryEligibleHooks) {
+        try {
+          if (fn(w, actor)) return true;
+        } catch (err) {
+          console.error('Mythras | rangedParryEligibleHook error:', err);
+        }
+      }
+      return false;
+    });
+    // If no shields (or hook-granted weapons) available, fall back to all
+    // weapons so the defender isn't locked out.
     eligible = shieldOnly.length > 0 ? shieldOnly : eligible;
   }
 

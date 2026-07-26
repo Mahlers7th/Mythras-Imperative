@@ -1671,13 +1671,23 @@ describe('syncHitLocationHP — item label -> key derivation (real locationNameT
 // =============================================================================
 // weaponDamageHooks / weaponForceHooks
 //   weaponDamageHook : (weapon, actor) => string | undefined
-//   weaponForceHook  : (weapon, actor) => string | undefined
+//   weaponForceHook  : (weapon, actor, role) => string | undefined
 //   OVERRIDE (first-wins) hooks, not sum — the opposite pattern from every
 //   other hook array in this file. Consumed by CombatEngine._getWeaponDamage /
 //   _getWeaponForce, the single chokepoint every damage-roll and parry-size
 //   read in the combat engine goes through (module/combat/CombatEngine.js
-//   ~L4013-4038). Mirrored here byte-for-faithful, same approach as the rest
+//   ~L4481-4503). Mirrored here byte-for-faithful, same approach as the rest
 //   of this file for Foundry-coupled call sites.
+//
+//   `role` is the third argument to weaponForceHooks only ('attack' or
+//   'defense') — resolveParryReduction calls _getWeaponForce once per side of
+//   an opposed roll, passing 'defense' for the defender's Parry-size lookup
+//   and 'attack' for the attacker's Force lookup (also 'defense' for Ward
+//   Location's passive-block lookup), so a hook can answer differently for
+//   the identical (weapon, actor) pair depending which side asked. Added for
+//   Destined's Close Combat Attack Poor Defense limit / Weapon Traits
+//   Defensive trait, both of which shift Size only when Parrying, not when
+//   attacking.
 // =============================================================================
 
 /** Mirror of CombatEngine._getWeaponDamage. */
@@ -1692,10 +1702,10 @@ function getWeaponDamage(hooks, weapon, actor) {
 }
 
 /** Mirror of CombatEngine._getWeaponForce. */
-function getWeaponForce(hooks, weapon, actor) {
+function getWeaponForce(hooks, weapon, actor, role = null) {
   for (const fn of (hooks ?? [])) {
     try {
-      const result = fn(weapon, actor);
+      const result = fn(weapon, actor, role);
       if (result !== undefined) return result;
     } catch (err) { /* swallowed in production via console.error */ }
   }
@@ -1849,6 +1859,260 @@ describe('weaponForceHooks', () => {
     const second = getWeaponForce(hooks, weapon, makeActor());
     expect(first).toBe(second);
     expect(second).toBe('H');
+  });
+
+  describe('role param (attack vs defense)', () => {
+    test('a hook can answer differently for the identical (weapon, actor) pair depending on role', () => {
+      const weapon = makeWeapon({ category: 'melee', size: 'M' });
+      const actor = makeActor();
+      // e.g. Destined Poor Defense: one Size smaller only when Parrying
+      const hook = (w, a, role) => (role === 'defense' ? 'S' : undefined);
+      expect(getWeaponForce([hook], weapon, actor, 'defense')).toBe('S');
+      expect(getWeaponForce([hook], weapon, actor, 'attack')).toBe('M'); // declines, falls through to parrySize
+    });
+
+    test('role defaults to null when the caller omits it — a hook keying on role sees null, not "attack"', () => {
+      const weapon = makeWeapon({ category: 'melee', size: 'M' });
+      const hook = (w, a, role) => (role === 'defense' ? 'S' : undefined);
+      expect(getWeaponForce([hook], weapon, makeActor())).toBe('M');
+    });
+
+    test('a hook that ignores the third argument behaves identically regardless of role (backward compatible)', () => {
+      const weapon = makeWeapon({ category: 'melee', size: 'M' });
+      const hook = () => 'E';
+      expect(getWeaponForce([hook], weapon, makeActor(), 'attack')).toBe('E');
+      expect(getWeaponForce([hook], weapon, makeActor(), 'defense')).toBe('E');
+    });
+  });
+});
+
+// =============================================================================
+// CombatEngine.resolveWardReduction — Ward Location (core rules p.39)
+//   "Any blow which lands on that [warded] location has its damage
+//   automatically downgraded as per normal for a parrying weapon of its
+//   Size." Same S/M/L/H/E size-diff ladder as resolveParryReduction
+//   (_sizeDiffMultiplier, factored out and shared by both), but automatic —
+//   no Combat Style, no opposed roll — and only when this attack was NOT
+//   already actively Parried (defenceType !== 'parry'), per the judgment
+//   call documented on the real method (module/combat/CombatEngine.js).
+//   Mirrored here the same way as weaponForceHooks/resolveParryReduction
+//   above, since CombatEngine.js is Foundry-coupled.
+// =============================================================================
+
+function sizeDiffMultiplier(diff) {
+  if (diff <= 0) return { multiplier: 0, label: 'full' };
+  if (diff === 1) return { multiplier: 0.5, label: 'half' };
+  return { multiplier: 1, label: 'none' };
+}
+
+/** Mirror of CombatEngine.resolveWardReduction. */
+function resolveWardReduction(attackWeapon, defender, hitLocationId, defenceType, ctx = null, attackerActor = null) {
+  if (defenceType === 'parry') return { multiplier: 1, label: 'none' };
+  if (!defender || !hitLocationId) return { multiplier: 1, label: 'none' };
+
+  const locItem = defender.items.find(i => i.id === hitLocationId);
+  const locKey  = locItem ? locationNameToKey(locItem.system.label ?? locItem.name ?? '') : null;
+  const ward    = locKey ? defender.system?.wardedLocations?.[locKey] : null;
+  if (!ward?.warded || !ward.weaponId) return { multiplier: 1, label: 'none' };
+
+  const wardWeapon = defender.items.find(i => i.id === ward.weaponId);
+  if (!wardWeapon) return { multiplier: 1, label: 'none' };
+
+  const sizeOrder = { S: 0, M: 1, L: 2, H: 3, E: 4 };
+  const defSize   = sizeOrder[getWeaponForce([], wardWeapon, defender, 'defense')] ?? 1;
+  let   atkSize   = sizeOrder[getWeaponForce([], attackWeapon, attackerActor, 'attack')] ?? 1;
+  if (ctx?.isRanged && ctx?.rangeBand === 'long') {
+    atkSize = Math.max(0, atkSize - 1);
+  }
+
+  return sizeDiffMultiplier(atkSize - defSize);
+}
+
+function makeLocItem(id, label) {
+  return { id, system: { label } };
+}
+
+function makeDefender({ wardedLocations = {}, items = [] } = {}) {
+  return { system: { wardedLocations }, items };
+}
+
+describe('resolveWardReduction', () => {
+  test('active Parry short-circuits — Ward never applies on a Parried attack', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ size: 'S' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'E' });
+    expect(resolveWardReduction(atk, defender, 'loc1', 'parry')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('no defender or no hitLocationId — declines', () => {
+    const atk = makeWeapon();
+    expect(resolveWardReduction(atk, null, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+    expect(resolveWardReduction(atk, makeDefender(), null, 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('location not warded — declines', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: false, weaponId: '' } },
+      items: [makeLocItem('loc1', 'Chest')],
+    });
+    expect(resolveWardReduction(makeWeapon(), defender, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('warded but weaponId is empty — declines', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: '' } },
+      items: [makeLocItem('loc1', 'Chest')],
+    });
+    expect(resolveWardReduction(makeWeapon(), defender, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('ward weapon id no longer resolves to a real item — declines rather than throwing', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'deleted-item' } },
+      items: [makeLocItem('loc1', 'Chest')],
+    });
+    expect(resolveWardReduction(makeWeapon(), defender, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('a hit on an unwarded location on the same actor is unaffected', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc2', 'Right Arm'), { id: 'ward1', ...makeWeapon({ size: 'S' }) }],
+    });
+    expect(resolveWardReduction(makeWeapon(), defender, 'loc2', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('equal size — full block (multiplier 0)', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'M' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'M' });
+    expect(resolveWardReduction(atk, defender, 'loc1', 'none')).toEqual({ multiplier: 0, label: 'full' });
+  });
+
+  test('attacker one size larger — half damage', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'M' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'L' });
+    expect(resolveWardReduction(atk, defender, 'loc1', 'none')).toEqual({ multiplier: 0.5, label: 'half' });
+  });
+
+  test('attacker two or more sizes larger — no reduction', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'S' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'E' });
+    expect(resolveWardReduction(atk, defender, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+
+  test('defenceType other than parry (evade/acrobatics/none) all let Ward apply the same way', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'M' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'L' });
+    for (const defenceType of ['evade', 'acrobatics', 'none']) {
+      expect(resolveWardReduction(atk, defender, 'loc1', defenceType)).toEqual({ multiplier: 0.5, label: 'half' });
+    }
+  });
+
+  test('ranged Long-range Force step-down still applies to the attacking weapon inside Ward', () => {
+    const defender = makeDefender({
+      wardedLocations: { chest: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Chest'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'M' }) }],
+    });
+    // Ranged force 'H' at Long range steps down to 'L' -> diff 1 -> half, not 'none'.
+    const atk = makeWeapon({ category: 'ranged', force: 'H' });
+    const ctx = { isRanged: true, rangeBand: 'long' };
+    expect(resolveWardReduction(atk, defender, 'loc1', 'none', ctx)).toEqual({ multiplier: 0.5, label: 'half' });
+  });
+
+  test('real hit-location label -> camelCase key derivation (locationNameToKey), not a hand-picked key', () => {
+    const defender = makeDefender({
+      wardedLocations: { rightArm: { warded: true, weaponId: 'ward1' } },
+      items: [makeLocItem('loc1', 'Right Arm'), { id: 'ward1', ...makeWeapon({ category: 'melee', size: 'S' }) }],
+    });
+    const atk = makeWeapon({ category: 'melee', size: 'E' });
+    expect(resolveWardReduction(atk, defender, 'loc1', 'none')).toEqual({ multiplier: 1, label: 'none' });
+  });
+});
+
+// =============================================================================
+// rangedParryEligibleHooks
+//   rangedParryEligibleHook : (weapon, actor) => boolean | undefined
+//   Mirrors the ranged-attack shield-only filter inside
+//   DefenderDialog._buildParryWeaponList (module/combat/DefenderDialog.js):
+//   a weapon with the 'shield' trait always passes; otherwise the first
+//   hook to return truthy lets that weapon through too; if nothing survives
+//   the filter, ALL weapons fall back in (so the defender is never locked
+//   out) — that fallback is _buildParryWeaponList's own pre-existing rule,
+//   reproduced here so the hook-consultation branch is tested in context.
+// =============================================================================
+
+/** Mirror of the ranged-attack branch inside _buildParryWeaponList. */
+function filterForRangedParry(weapons, actor, hooks) {
+  const shieldOnly = weapons.filter(w => {
+    if ((w.system.traits ?? []).includes('shield')) return true;
+    for (const fn of (hooks ?? [])) {
+      try { if (fn(w, actor)) return true; } catch (err) { /* swallowed in production via console.error */ }
+    }
+    return false;
+  });
+  return shieldOnly.length > 0 ? shieldOnly : weapons;
+}
+
+function makeParryWeapon(id, { shield = false } = {}) {
+  return { id, name: id, system: { traits: shield ? ['shield'] : [] } };
+}
+
+describe('rangedParryEligibleHooks', () => {
+  test('a shield always passes, with no hooks registered', () => {
+    const shield = makeParryWeapon('w1', { shield: true });
+    const sword  = makeParryWeapon('w2');
+    expect(filterForRangedParry([shield, sword], {}, [])).toEqual([shield]);
+  });
+
+  test('no shield, no hooks: falls back to every weapon (pre-existing rule, not this hook)', () => {
+    const sword = makeParryWeapon('w1');
+    const axe   = makeParryWeapon('w2');
+    expect(filterForRangedParry([sword, axe], {}, [])).toEqual([sword, axe]);
+  });
+
+  test('a hook returning true lets one non-shield weapon through, excluding the rest', () => {
+    const shield = makeParryWeapon('shield', { shield: true });
+    const cca    = makeParryWeapon('cca');
+    const dagger = makeParryWeapon('dagger');
+    const hook = (w) => w.id === 'cca';
+    expect(filterForRangedParry([shield, cca, dagger], {}, [hook])).toEqual([shield, cca]);
+  });
+
+  test('a hook returning undefined for everything declines — falls back to shield-only (or all, if no shield)', () => {
+    const cca    = makeParryWeapon('cca');
+    const dagger = makeParryWeapon('dagger');
+    const hook = () => undefined;
+    expect(filterForRangedParry([cca, dagger], {}, [hook])).toEqual([cca, dagger]); // no shield -> fallback to all
+  });
+
+  test('first-wins semantics: a throwing hook does not poison the result; a later hook still grants eligibility', () => {
+    const cca = makeParryWeapon('cca');
+    const hooks = [
+      () => { throw new Error('bad rangedParryEligibleHook'); },
+      (w) => w.id === 'cca',
+    ];
+    expect(filterForRangedParry([cca], {}, hooks)).toEqual([cca]);
+  });
+
+  test('hooks receive the weapon and actor', () => {
+    const cca = makeParryWeapon('cca');
+    const actor = { id: 'actor1' };
+    const hook = (w, a) => a.id === 'actor1' && w.id === 'cca';
+    expect(filterForRangedParry([cca], actor, [hook])).toEqual([cca]);
   });
 });
 

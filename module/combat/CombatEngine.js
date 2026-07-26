@@ -1481,6 +1481,14 @@ export class CombatEngine {
     } else {
       ctx.parryReduction = 'none';
     }
+
+    // Ward Location (p.39) — automatic passive block for a warded location,
+    // mutually exclusive with an active Parry (see resolveWardReduction's doc).
+    const wardReduction = CombatEngine.resolveWardReduction(weapon, defender, ctx.hitLocationId, ctx.defenceType, ctx, attacker);
+    ctx.wardReduction = wardReduction.label;
+    if (wardReduction.multiplier < 1) {
+      damageAfterParry = Math.ceil(damageAfterParry * wardReduction.multiplier);
+    }
     ctx.damageAfterParry = damageAfterParry;
 
     // Armour — sole chokepoint, see _getEffectiveArmourAt (Bodkin/Armour
@@ -1612,6 +1620,19 @@ export class CombatEngine {
         }
       }
 
+      // Ward Location (p.39) — automatic passive block, checked every round
+      // against THAT round's own hitLocationId (a fresh roll each round).
+      // Active Parry only ever protects the first round (above), so only the
+      // first round's defenceType can suppress Ward's mutual exclusivity —
+      // later rounds always get Ward's benefit if they hit the warded location.
+      const wr = CombatEngine.resolveWardReduction(
+        weapon, defender, hitLocationId, firstRound ? ctx.defenceType : 'none', ctx, attacker
+      );
+      const wardReduction = wr.label;
+      if (wr.multiplier < 1) {
+        damageAfterParry = Math.ceil(damageAfterParry * wr.multiplier);
+      }
+
       // Armour — bypassArmour is per-round (SEs apply to the first round
       // only, mirroring roundCtx.chosenSpecialEffects below); ammo traits
       // are a property of the ammunition, not a special effect, so they
@@ -1648,6 +1669,7 @@ export class CombatEngine {
         damageAfterArmour: finalDamage,
         baseArmourPoints,
         parryReduction,
+        wardReduction,
         woundLevel: null,
         damageRoll,
         // Only first round uses SEs
@@ -1661,6 +1683,7 @@ export class CombatEngine {
         hitLocationLabel,
         rawDamage,
         parryReduction,
+        wardReduction,
         armourPoints,
         finalDamage,
         woundLevel:     roundCtx.woundLevel,
@@ -4490,10 +4513,10 @@ export class CombatEngine {
     return weapon.system.damage;
   }
 
-  static _getWeaponForce(weapon, actor) {
+  static _getWeaponForce(weapon, actor, role = null) {
     for (const fn of (CONFIG.MYTHRAS?.weaponForceHooks ?? [])) {
       try {
-        const result = fn(weapon, actor);
+        const result = fn(weapon, actor, role);
         if (result !== undefined) return result;
       } catch (err) {
         console.error('Mythras | weaponForceHook error:', err);
@@ -4518,7 +4541,7 @@ export class CombatEngine {
     const atkActor = attackerActor ?? ctx?.attacker ?? null;
     const defActor = defenderActor ?? ctx?.defender ?? null;
 
-    let defSize = sizeOrder[CombatEngine._getWeaponForce(defenceWeapon, defActor)] ?? 1;
+    let defSize = sizeOrder[CombatEngine._getWeaponForce(defenceWeapon, defActor, 'defense')] ?? 1;
 
     // Defensive Minded trait steps parry size up one when not attacking
     if (defenderStyle?.system.traits?.includes('defensiveMinded')) {
@@ -4536,18 +4559,85 @@ export class CombatEngine {
 
     // For ranged weapons, parrySize reads system.force (set by the WeaponData getter).
     // At Long range, force is reduced by one step (rules p.49).
-    let atkSize = sizeOrder[CombatEngine._getWeaponForce(attackWeapon, atkActor)] ?? 1;
+    let atkSize = sizeOrder[CombatEngine._getWeaponForce(attackWeapon, atkActor, 'attack')] ?? 1;
     if (ctx?.isRanged && ctx?.rangeBand === 'long') {
       atkSize = Math.max(0, atkSize - 1);
     }
 
     const diff = atkSize - defSize; // positive = attack weapon is larger / more forceful
+    return CombatEngine._sizeDiffMultiplier(diff);
+  }
 
+  /** Shared by resolveParryReduction and resolveWardReduction — p.40's size-diff ladder. */
+  static _sizeDiffMultiplier(diff) {
     if (diff <= 0) return { multiplier: 0,   label: 'full' };  // all blocked
     if (diff === 1) return { multiplier: 0.5, label: 'half' };  // half through
     return           { multiplier: 1,   label: 'none' };        // no reduction
   }
 
+  // -------------------------------------------------------------------------
+  // Ward Location damage reduction — core rules p.39
+  //
+  // "The character guards a particular Hit Location from being hit by
+  // dedicating one of his weapons to passively block the area. Any blow
+  // which lands on that location has its damage automatically downgraded
+  // as per normal for a parrying weapon of its Size. The cover continues
+  // until the dedicated weapon is used to attack or actively Parry."
+  //
+  // Same S/M/L/H/E size-diff multiplier as an active Parry
+  // (resolveParryReduction) but automatic: no opposed roll, no Reaction,
+  // no Combat Style (so no Defensive Minded / Unarmed Prowess bonuses —
+  // those are Combat Style traits, Ward is a bare weapon-Size rule).
+  //
+  // Judgment call: only applies when this attack was NOT already actively
+  // Parried (defenceType !== 'parry') — read as the passive fallback for a
+  // location the defender didn't actively defend, not a second reduction
+  // stacked on top of an active Parry. The rule's own "cover continues
+  // until the dedicated weapon is used ... to actively Parry" line supports
+  // this: using the weapon to actively Parry is what ENDS the ward, which
+  // only makes sense if the two are mutually exclusive on a given attack.
+  //
+  // NOT implemented here: the "cover ends when the dedicated weapon is used
+  // to attack or actively Parry" state-clearing — the GM/player must
+  // manually un-tick Ward on the sheet when that happens. Flagged, not
+  // solved, to keep this change bounded to the damage-reduction rule itself.
+  //
+  // `hitLocationId` is taken as an explicit argument, not read from `ctx`,
+  // because Burst Fire rolls a fresh hit location every round — its own
+  // per-round `hitLocationId` is not `ctx.hitLocationId`.
+  // -------------------------------------------------------------------------
+
+  /**
+   * @param {Item} attackWeapon
+   * @param {Actor} defender
+   * @param {string} hitLocationId - the struck location's Item id (not the camelCase locKey)
+   * @param {string} defenceType - ctx.defenceType for this attack ('parry'/'evade'/'acrobatics'/'none')
+   * @param {object} ctx - optional, only read for ctx.isRanged/ctx.rangeBand (Long-range Force step-down)
+   * @param {Actor} attackerActor - the actual wielder of attackWeapon; falls back to ctx?.attacker
+   * @returns {{multiplier:number, label:string}} same shape as resolveParryReduction; {multiplier:1, label:'none'} when Ward does not apply
+   */
+  static resolveWardReduction(attackWeapon, defender, hitLocationId, defenceType, ctx = null, attackerActor = null) {
+    if (defenceType === 'parry') return { multiplier: 1, label: 'none' };
+    if (!defender || !hitLocationId) return { multiplier: 1, label: 'none' };
+
+    const locItem = CombatEngine._getItem(defender, hitLocationId);
+    const locKey  = locItem ? locationNameToKey(locItem.system.label ?? locItem.name ?? '') : null;
+    const ward    = locKey ? defender.system?.wardedLocations?.[locKey] : null;
+    if (!ward?.warded || !ward.weaponId) return { multiplier: 1, label: 'none' };
+
+    const wardWeapon = CombatEngine._getItem(defender, ward.weaponId);
+    if (!wardWeapon) return { multiplier: 1, label: 'none' };
+
+    const atkActor  = attackerActor ?? ctx?.attacker ?? null;
+    const sizeOrder = { S: 0, M: 1, L: 2, H: 3, E: 4 };
+    const defSize   = sizeOrder[CombatEngine._getWeaponForce(wardWeapon, defender, 'defense')] ?? 1;
+    let   atkSize   = sizeOrder[CombatEngine._getWeaponForce(attackWeapon, atkActor, 'attack')] ?? 1;
+    if (ctx?.isRanged && ctx?.rangeBand === 'long') {
+      atkSize = Math.max(0, atkSize - 1);
+    }
+
+    return CombatEngine._sizeDiffMultiplier(atkSize - defSize);
+  }
 
   // -------------------------------------------------------------------------
   // Action Point management
@@ -4750,7 +4840,7 @@ export class CombatEngine {
       result.push({
         locKey,
         weaponId:   ward.weaponId,
-        weaponSize: wardWeapon ? CombatEngine._getWeaponForce(wardWeapon, defender) : 'M'
+        weaponSize: wardWeapon ? CombatEngine._getWeaponForce(wardWeapon, defender, 'defense') : 'M'
       });
     }
     return result;

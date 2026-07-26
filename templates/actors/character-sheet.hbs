@@ -392,7 +392,7 @@
             <select class="mi-ward-weapon {{#unless loc.warded}}mi-ward-weapon-hidden{{/unless}}" data-loc-id="{{loc.locKey}}">
               <option value="">— weapon —</option>
               {{#each ../wardWeapons as |wp|}}
-              <option value="{{wp.id}}" {{#if (eq wp.id ../loc.wardWeaponId)}}selected{{/if}}>{{wp.name}}</option>
+              <option value="{{wp.id}}" {{#if (eq wp.id loc.wardWeaponId)}}selected{{/if}}>{{wp.name}}</option>
               {{/each}}
             </select>
           </div>

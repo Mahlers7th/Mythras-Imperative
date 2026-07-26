@@ -1800,6 +1800,20 @@ async function _onSemiAutoRollDamage(ev, message) {
     }
   }
 
+  // Ward Location (p.39) — automatic passive block for a warded location,
+  // mutually exclusive with an active Parry (see CombatEngine.resolveWardReduction's
+  // own doc). defenceType comes straight off the button's own dataset (line
+  // ~1644), same source _onSemiAutoRollDamage already uses for the card's
+  // defence description below — no separate flags read needed.
+  let wardNote = '';
+  if (locationId) {
+    const wr = CombatEngine.resolveWardReduction(weapon, defender, locationId, defenceType, null, attacker);
+    if (wr.multiplier < 1) {
+      damageAfterParry = Math.ceil(damageAfterParry * wr.multiplier);
+      wardNote = wr.label === 'full' ? 'fully warded' : wr.label === 'half' ? 'half damage (warded)' : '';
+    }
+  }
+
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
   let finalDamage    = Math.max(0, damageAfterParry - armourAP);
@@ -1815,7 +1829,7 @@ async function _onSemiAutoRollDamage(ev, message) {
     }
   }
 
-  const parryText   = parryNote ? ` (${parryNote})` : '';
+  const parryText   = parryNote ? ` (${parryNote})` : wardNote ? ` (${wardNote})` : '';
   const armourText  = sunderResult
     ? ` vs ${sunderResult.totalApBefore} AP`
     : armourAP ? ` − ${armourAP} AP` : '';
