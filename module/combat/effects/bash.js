@@ -45,7 +45,20 @@ export async function resolveBash(ctx) {
     return;
   }
 
-  const knockbackMetres = Math.ceil(rawDamage / divisor);
+  // Multiplier hooks (e.g. Destined's Improvised Weapon Expertise doubles
+  // knockback for a Large-or-larger improvised weapon) — non-finite/
+  // non-positive results are ignored, default multiplier is 1.
+  let knockbackMultiplier = 1;
+  for (const hook of (CONFIG.MYTHRAS?.bashKnockbackMultiplierHooks ?? [])) {
+    try {
+      const result = hook(attacker, weapon);
+      if (Number.isFinite(result) && result > 0) knockbackMultiplier = result;
+    } catch (err) {
+      console.error('Mythras Imperative | bashKnockbackMultiplierHooks: hook threw', err);
+    }
+  }
+
+  const knockbackMetres = Math.ceil((rawDamage * knockbackMultiplier) / divisor);
 
   // ── SIZ check ────────────────────────────────────────────────────────────
   const attackerSIZ = attacker.system?.characteristics?.siz?.value ?? 0;

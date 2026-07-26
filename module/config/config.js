@@ -172,6 +172,70 @@ export const MYTHRAS = {
   rangedParryEligibleHooks: [],
 
   // -----------------------------------------------------------------------
+  // SPECIAL EFFECT ELIGIBILITY HOOKS
+  //   seEligibilityHook : (seId, ctx, isAttackerWinner) => boolean | undefined
+  //   Called by SpecialEffectDialog._filterSEs, once per hook, ONLY for a
+  //   specialEffects catalog entry that carries `gated: true`. Every other
+  //   entry (the overwhelming majority) is entirely unaffected by this array
+  //   and behaves exactly as before — `gated` opts a specific SE INTO this
+  //   extra check, it is not a universal filter.
+  //
+  //   For a gated SE, it is shown to the winner ONLY if at least one hook
+  //   returns exactly `true` for that (seId, ctx, isAttackerWinner) triple;
+  //   every other return (undefined, false, a truthy non-boolean) counts as
+  //   "no opinion" and the SE stays hidden unless some other hook grants it.
+  //   This is a default-DENY gate (opposite of weaponDamageHooks' "decline is
+  //   the common case") because a gated SE is, by construction, one the core
+  //   restriction switch above would otherwise show to everyone — the whole
+  //   point of `gated` is to narrow an already-eligible SE down to whichever
+  //   actor a module hook vouches for. All matching hooks are consulted (not
+  //   first-wins) so two independent modules could each grant the same SE to
+  //   different actors without fighting over which one "wins".
+  //
+  //   Read-time and re-evaluated every time the dialog builds its list —
+  //   hooks must be pure (no actor/item writes, no PP spend, no chat output),
+  //   the same contract as rangedParryEligibleHooks and weaponDamageHooks/
+  //   weaponForceHooks. `ctx` is the live combat context (ctx.attacker,
+  //   ctx.defender, ctx.weapon, ctx.defenceWeapon, ...); `isAttackerWinner`
+  //   tells the hook which side is asking, matching _filterSEs' own param.
+  //
+  //   Added for Destined's Combat Expert power: the base Mythras Imperative
+  //   `bleed` and `impale` Special Effects are catalog-wide (anyone with a
+  //   suitable weapon trait sees them), but Destined's own rules restrict
+  //   the equivalent effects to heroes who took the matching Expertise
+  //   (Bleeding Attack / Impaling Attack) — everyone else only ever sees
+  //   Destined's smaller "available to all combatants" SE list. Gating the
+  //   existing catalog entries (rather than forking them) means the
+  //   resolvers themselves (module/combat/effects/bleed, impale.js) need no
+  //   changes at all — only which actors ever get offered the choice.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns true to grant a `gated` SE to this winner, or undefined/falsy for no opinion */
+  seEligibilityHooks: [],
+
+  // -----------------------------------------------------------------------
+  // BASH KNOCKBACK MULTIPLIER HOOKS
+  //   bashKnockbackMultiplierHook : (attacker, weapon) => number
+  //   Called by the Bash Special Effect resolver (module/combat/effects/
+  //   bash.js) immediately before computing knockback distance, as a
+  //   multiplier on the raw (pre-parry, pre-armour) damage that feeds the
+  //   ÷2 (shield) / ÷3 (bludgeoning) knockback formula. Return a positive
+  //   number to scale the input damage (e.g. 2 to double it); the default
+  //   multiplier when no hook returns a positive finite number is 1 (no
+  //   change). Multiple hooks would multiply together, but the expected
+  //   pattern — like damageModOffsetHooks — is a single module hook owning
+  //   net resolution across whichever of its own powers/boosts apply.
+  //   Read-time and pure: no actor/item writes, no chat output.
+  //
+  //   Added for Destined's Combat Expert "Improvised Weapon Expertise",
+  //   whose text doubles effective damage for Knockback and the Bash Special
+  //   Effect when wielding an improvised weapon of Size Large or larger.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a positive multiplier applied to Bash's knockback input damage; non-finite/non-positive results are ignored */
+  bashKnockbackMultiplierHooks: [],
+
+  // -----------------------------------------------------------------------
   // ACTION POINT BONUS HOOKS
   // apBonusHook : (actor) => number
   //   Called during prepareDerivedData AFTER the base AP max is computed
@@ -759,7 +823,7 @@ export const MYTHRAS = {
   specialEffects: [
     // ── Attacker SEs ──────────────────────────────────────────────────────
     { id: 'bash',             label: 'MYTHRAS.SEBash',             who: 'attacker', restriction: 'shieldOrBludgeon',       phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'bash'             },
-    { id: 'bleed',            label: 'MYTHRAS.SEBleed',            who: 'attacker', restriction: 'cuttingOrFirearmCritical',phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: 'bleed'            },
+    { id: 'bleed',            label: 'MYTHRAS.SEBleed',            who: 'attacker', restriction: 'cuttingOrFirearmCritical',phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: 'bleed',    gated: true },
     { id: 'bypassArmour',     label: 'MYTHRAS.SEBypassArmour',     who: 'attacker', restriction: 'attackerCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
     { id: 'chooseLocation',   label: 'MYTHRAS.SEChooseLocation',   who: 'attacker', restriction: 'rangedNotClose',          phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
     { id: 'circumventCover',  label: 'MYTHRAS.SECircumventCover',  who: 'attacker', restriction: 'highTechFirearm',         phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: 'circumventCover'  },
@@ -770,7 +834,9 @@ export const MYTHRAS = {
     { id: 'entangle',         label: 'MYTHRAS.SEEntangle',         who: 'attacker', restriction: 'entanglingWeapon',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'entangle'         },
     { id: 'forceFailure',     label: 'MYTHRAS.SEForceFailure',     who: 'both',     restriction: 'opponentFumbles',         phase: 'none',           requiresDamage: false, requiresFumble: false, resolver: null                       },
     { id: 'grip',             label: 'MYTHRAS.SEGrip',             who: 'attacker', restriction: 'unarmed',                 phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'grip'             },
-    { id: 'impale',           label: 'MYTHRAS.SEImpale',           who: 'attacker', restriction: 'impalingWeapon',          phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: 'impale'           },
+    { id: 'impale',           label: 'MYTHRAS.SEImpale',           who: 'attacker', restriction: 'impalingWeapon',          phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: 'impale',   gated: true },
+    { id: 'impact',           label: 'MYTHRAS.SEImpact',           who: 'attacker', restriction: 'impalingWeapon',          phase: 'opposed',        requiresDamage: true,  requiresFumble: false, resolver: 'impact'           },
+    { id: 'pinObject',        label: 'MYTHRAS.SEPinObject',        who: 'attacker', restriction: 'impalingOrEntanglingWeapon', phase: 'opposed',    requiresDamage: false, requiresFumble: false, resolver: 'pinObject', gated: true },
     { id: 'marksman',         label: 'MYTHRAS.SEMarksman',         who: 'attacker', restriction: 'rangedWeapon',            phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
     { id: 'maximiseDamage',   label: 'MYTHRAS.SEMaximiseDamage',   who: 'attacker', restriction: 'attackerCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
     { id: 'overpenetrate',    label: 'MYTHRAS.SEOverpenetrate',    who: 'attacker', restriction: 'firearmsOnlyCritical',    phase: 'attackerScored', requiresDamage: false, requiresFumble: false, resolver: 'overpenetrate'    },

@@ -2755,3 +2755,147 @@ describe('mythras.mjs Apply Damage handler — ctx construction', () => {
     expect(msg).toBe(`No damage applied to Hero's Head.`);
   });
 });
+
+// =============================================================================
+// seEligibilityHooks
+//   seEligibilityHook : (seId, ctx, isAttackerWinner) => boolean | undefined
+//   Mirrors the `gated` branch added to SpecialEffectDialog._filterSEs
+//   (module/combat/SpecialEffectDialog.js): a catalog entry with no `gated`
+//   flag is entirely unaffected; a `gated: true` entry additionally requires
+//   at least one hook to return exactly `true` for that (seId, ctx,
+//   isAttackerWinner) triple — a default-DENY gate, the opposite of every
+//   other hook array's "decline is the common case" convention, since a
+//   gated SE would otherwise already be shown to everyone by the ordinary
+//   restriction switch.
+// =============================================================================
+
+/** Mirror of _filterSEs' gated-SE check (restriction switch assumed already passed). */
+function passesSEGate(se, ctx, isAttackerWinner, hooks) {
+  if (!se.gated) return true;
+  for (const fn of (hooks ?? [])) {
+    try { if (fn(se.id, ctx, isAttackerWinner) === true) return true; }
+    catch (err) { /* swallowed in production via console.error */ }
+  }
+  return false;
+}
+
+describe('seEligibilityHooks', () => {
+  test('an ungated SE is unaffected — passes regardless of hooks', () => {
+    const se = { id: 'bash' };
+    expect(passesSEGate(se, {}, true, [])).toBe(true);
+    expect(passesSEGate(se, {}, true, [() => false])).toBe(true);
+  });
+
+  test('a gated SE with no hooks registered is denied', () => {
+    const se = { id: 'bleed', gated: true };
+    expect(passesSEGate(se, {}, true, [])).toBe(false);
+    expect(passesSEGate(se, {}, true, undefined)).toBe(false);
+  });
+
+  test('a gated SE is granted when a hook returns exactly true for this seId', () => {
+    const se = { id: 'impale', gated: true };
+    const hook = (seId) => seId === 'impale';
+    expect(passesSEGate(se, {}, true, [hook])).toBe(true);
+  });
+
+  test('a hook returning true for a DIFFERENT seId does not grant this one', () => {
+    const se = { id: 'pinObject', gated: true };
+    const hook = (seId) => seId === 'impale';
+    expect(passesSEGate(se, {}, true, [hook])).toBe(false);
+  });
+
+  test('non-boolean truthy returns (a string, an object) do not grant — only exactly true counts', () => {
+    const se = { id: 'bleed', gated: true };
+    expect(passesSEGate(se, {}, true, [() => 'yes'])).toBe(false);
+    expect(passesSEGate(se, {}, true, [() => ({})])).toBe(false);
+  });
+
+  test('all matching hooks are consulted (not first-wins): a later hook can still grant after an earlier one declines', () => {
+    const se = { id: 'bleed', gated: true };
+    const hooks = [() => undefined, () => false, (seId) => seId === 'bleed'];
+    expect(passesSEGate(se, {}, true, hooks)).toBe(true);
+  });
+
+  test('a throwing hook does not poison the result — a later hook still grants eligibility', () => {
+    const se = { id: 'impale', gated: true };
+    const hooks = [
+      () => { throw new Error('bad seEligibilityHook'); },
+      (seId) => seId === 'impale',
+    ];
+    expect(passesSEGate(se, {}, true, hooks)).toBe(true);
+  });
+
+  test('hooks receive seId, ctx, and isAttackerWinner', () => {
+    const se = { id: 'pinObject', gated: true };
+    const ctx = { attacker: { id: 'a1' } };
+    const hook = (seId, c, isAtk) => seId === 'pinObject' && c.attacker.id === 'a1' && isAtk === true;
+    expect(passesSEGate(se, ctx, true, [hook])).toBe(true);
+    expect(passesSEGate(se, ctx, false, [hook])).toBe(false);
+  });
+});
+
+// =============================================================================
+// bashKnockbackMultiplierHooks
+//   bashKnockbackMultiplierHook : (attacker, weapon) => number
+//   Mirrors the multiplier loop added to resolveBash (module/combat/
+//   effects/bash.js): default multiplier is 1; the LAST hook to return a
+//   finite, positive number wins (hooks are not first-wins or additive —
+//   each valid result simply overwrites the running multiplier, matching
+//   the real loop's plain `for` construction). Non-finite/non-positive
+//   results are ignored and a throwing hook is caught and logged.
+// =============================================================================
+
+/** Mirror of resolveBash's knockbackMultiplier loop. */
+function resolveKnockbackMultiplier(attacker, weapon, hooks) {
+  let multiplier = 1;
+  for (const hook of (hooks ?? [])) {
+    try {
+      const result = hook(attacker, weapon);
+      if (Number.isFinite(result) && result > 0) multiplier = result;
+    } catch (err) { /* swallowed in production via console.error */ }
+  }
+  return multiplier;
+}
+
+describe('bashKnockbackMultiplierHooks', () => {
+  test('no hooks registered: multiplier defaults to 1', () => {
+    expect(resolveKnockbackMultiplier({}, {}, [])).toBe(1);
+    expect(resolveKnockbackMultiplier({}, {}, undefined)).toBe(1);
+  });
+
+  test('a hook returning 2 doubles the multiplier', () => {
+    expect(resolveKnockbackMultiplier({}, {}, [() => 2])).toBe(2);
+  });
+
+  test('zero, negative, and non-finite results are ignored', () => {
+    expect(resolveKnockbackMultiplier({}, {}, [() => 0])).toBe(1);
+    expect(resolveKnockbackMultiplier({}, {}, [() => -2])).toBe(1);
+    expect(resolveKnockbackMultiplier({}, {}, [() => NaN])).toBe(1);
+    expect(resolveKnockbackMultiplier({}, {}, [() => undefined])).toBe(1);
+  });
+
+  test('the last valid hook wins (not first-wins, not additive)', () => {
+    const hooks = [() => 2, () => 3];
+    expect(resolveKnockbackMultiplier({}, {}, hooks)).toBe(3);
+  });
+
+  test('an invalid later result does not reset a valid earlier one', () => {
+    const hooks = [() => 2, () => 0];
+    expect(resolveKnockbackMultiplier({}, {}, hooks)).toBe(2);
+  });
+
+  test('a throwing hook does not poison the result — a later hook still applies', () => {
+    const hooks = [
+      () => { throw new Error('bad bashKnockbackMultiplierHook'); },
+      () => 2,
+    ];
+    expect(resolveKnockbackMultiplier({}, {}, hooks)).toBe(2);
+  });
+
+  test('hooks receive attacker and weapon', () => {
+    const attacker = { id: 'a1' };
+    const weapon = { id: 'w1' };
+    const hook = (a, w) => (a.id === 'a1' && w.id === 'w1') ? 2 : 1;
+    expect(resolveKnockbackMultiplier(attacker, weapon, [hook])).toBe(2);
+  });
+});

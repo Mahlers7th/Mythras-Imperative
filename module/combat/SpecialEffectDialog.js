@@ -212,7 +212,7 @@ function _filterSEs(ctx, isAttackerWinner) {
     if (se.who === 'defender' &&  isAttackerWinner) return false;
 
     // Restriction filters
-    switch (se.restriction) {
+    const restrictionOk = (() => { switch (se.restriction) {
       case null:
       case undefined:
         return true;
@@ -268,6 +268,9 @@ function _filterSEs(ctx, isAttackerWinner) {
       case 'impalingWeapon':
         return traits.includes('impaling');
 
+      case 'impalingOrEntanglingWeapon':
+        return traits.includes('impaling') || traits.includes('entangling');
+
       case 'unarmed':
         return traits.includes('unarmed');
 
@@ -292,7 +295,27 @@ function _filterSEs(ctx, isAttackerWinner) {
 
       default:
         return true;
+    } })();
+
+    if (!restrictionOk) return false;
+
+    // Module gate — only consulted for SEs explicitly opted in via `gated:
+    // true`. Every other SE is unaffected (see seEligibilityHooks' doc in
+    // config.js for why this is a default-DENY gate rather than the usual
+    // "decline is the common case" pattern).
+    if (se.gated) {
+      const hooks = CONFIG.MYTHRAS?.seEligibilityHooks ?? [];
+      const eligible = hooks.some(hook => {
+        try { return hook(se.id, ctx, isAttackerWinner) === true; }
+        catch (err) {
+          console.error('Mythras Imperative | seEligibilityHooks: hook threw', err);
+          return false;
+        }
+      });
+      if (!eligible) return false;
     }
+
+    return true;
   }).map(se => ({
     ...se,
     stackable: se.id === 'maximiseDamage'

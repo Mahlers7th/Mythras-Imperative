@@ -54,6 +54,10 @@ import {
   resolveImpaleYank,
 } from './impale.js';
 
+// ── Batch 7: Destined Combat Expert additions ────────────────────────────────
+import { resolveImpact }    from './impact.js';
+import { resolvePinObject } from './pin-object.js';
+
 // ── Re-export callback functions used by mythras.mjs ─────────────────────────
 // These are called from chat-card button handlers in mythras.mjs, not via the
 // SE dispatch loop. Exported here so mythras.mjs only needs one effects import.
@@ -103,4 +107,8 @@ export const SE_RESOLVERS = {
 
   // Batch 6 — impale family
   impale:            resolveImpale,
+
+  // Batch 7 — Destined Combat Expert additions
+  impact:            resolveImpact,
+  pinObject:         resolvePinObject,
 };
