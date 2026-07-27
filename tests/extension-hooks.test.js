@@ -2899,3 +2899,55 @@ describe('bashKnockbackMultiplierHooks', () => {
     expect(resolveKnockbackMultiplier(attacker, weapon, [hook])).toBe(2);
   });
 });
+
+// =============================================================================
+// game.system.api.triggerOpposedSE (mythras.mjs, v1.4.271)
+//   Thin dispatcher: SE_RESOLVERS[seId](ctx), or a console.warn + no-op if
+//   seId isn't registered. mythras.mjs is Foundry-coupled and not import-safe
+//   under Jest, so this mirrors the real function against an injectable
+//   resolver map instead of the live SE_RESOLVERS catalogue.
+// =============================================================================
+
+/** Mirror of mythras.mjs's triggerOpposedSE. */
+async function triggerOpposedSE(seId, ctx, resolvers, warnFn) {
+  const resolver = resolvers[seId];
+  if (!resolver) {
+    warnFn(`no resolver registered for "${seId}"`);
+    return;
+  }
+  await resolver(ctx);
+}
+
+describe('game.system.api.triggerOpposedSE', () => {
+  test('a registered resolver is called once with the given ctx', async () => {
+    const calls = [];
+    const resolvers = { tripOpponent: async (ctx) => { calls.push(ctx); } };
+    const ctx = { attacker: { id: 'a1' }, defender: { id: 'd1' }, seWinner: 'attacker' };
+    await triggerOpposedSE('tripOpponent', ctx, resolvers, () => {});
+    expect(calls).toEqual([ctx]);
+  });
+
+  test('an unregistered seId warns and does not throw', async () => {
+    const warnings = [];
+    await expect(
+      triggerOpposedSE('notARealSE', {}, {}, (msg) => warnings.push(msg))
+    ).resolves.toBeUndefined();
+    expect(warnings.length).toBe(1);
+    expect(warnings[0]).toMatch(/notARealSE/);
+  });
+
+  test('disarmOpponent dispatches independently of tripOpponent', async () => {
+    const calls = [];
+    const resolvers = {
+      tripOpponent:   async () => { calls.push('trip'); },
+      disarmOpponent: async () => { calls.push('disarm'); },
+    };
+    await triggerOpposedSE('disarmOpponent', {}, resolvers, () => {});
+    expect(calls).toEqual(['disarm']);
+  });
+
+  test('a resolver that throws propagates (not swallowed by the dispatcher)', async () => {
+    const resolvers = { tripOpponent: async () => { throw new Error('boom'); } };
+    await expect(triggerOpposedSE('tripOpponent', {}, resolvers, () => {})).rejects.toThrow('boom');
+  });
+});

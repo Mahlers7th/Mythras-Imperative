@@ -29,6 +29,7 @@ import {
   applyImpaleLodge,
   resolveImpaleYank,
   resolveDamageWeapon,
+  SE_RESOLVERS,
 } from './module/combat/effects/index.js';
 // runSEDialog + this helpers.js applyFatigueToSkill (NOT the same-named,
 // narrower re-export at line ~40 below -- see requestSkillCheck's own
@@ -42,6 +43,39 @@ import { locationNameToKey }          from './module/utils/hit-location.js';
 // Re-exported here so any external consumer importing from mythras.mjs still works.
 // ---------------------------------------------------------------------------
 export { getFatigueSkillGrade, applyFatigueToSkill } from './module/utils/fatigue.js';
+
+// ---------------------------------------------------------------------------
+// triggerOpposedSE — invoke an 'opposed'-phase Special Effect resolver
+// directly, OUTSIDE the normal attack-roll pipeline (no attack roll, no
+// differential, no SE-count gate). Exposed on game.system.api (see the
+// 'ready' hook below) for a module UI that lets a hero trigger an SE their
+// current battlefield POSITION already earns them, independent of a fresh
+// roll -- e.g. Destined's Combat Expert Grappling Expertise: "while
+// grappling a target, instead of inflicting damage, automatically use the
+// Disarm or Trip Opponent Special Effect."
+//
+// Only 'opposed'-phase resolvers whose ctx needs are fully self-contained
+// are safe here -- confirmed for 'tripOpponent' and 'disarmOpponent'
+// specifically, both of which run their own resistance roll from
+// ctx.attacker/ctx.defender/ctx.seWinner alone. Many other opposed-phase
+// resolvers (bleed, impale, grip, ...) assume fields only a genuine attack
+// context populates (ctx.chatMessageId for card-sequencing/wait timing,
+// ctx.weapon for trait-restriction checks already applied upstream by
+// SpecialEffectDialog, requiresDamage semantics) -- this function does not
+// validate any of that, callers are responsible for only using it with a
+// resolver they've verified is safe standalone.
+// @param {string} seId - a key in SE_RESOLVERS
+// @param {object} ctx - {attacker, defender, seWinner, attackResult?, defenceResult?, attackerSkillTotal?, defenderSkillTotal?, weapon?, defenceWeapon?, chatMessageId?}
+// @returns {Promise<void>}
+// ---------------------------------------------------------------------------
+export async function triggerOpposedSE(seId, ctx) {
+  const resolver = SE_RESOLVERS[seId];
+  if (!resolver) {
+    console.warn(`Mythras Imperative | triggerOpposedSE: no resolver registered for "${seId}".`);
+    return;
+  }
+  await resolver(ctx);
+}
 
 // ---------------------------------------------------------------------------
 // Standard skills — seeded on every new Character actor
@@ -289,6 +323,11 @@ Hooks.once('ready', () => {
   // getArmourAt (v1.4.267+): thin wrapper over CombatEngine._getArmourAt --
   // see its own doc block above for the base-vs-effective distinction and
   // why _getEffectiveArmourAt is deliberately NOT exposed here.
+  //
+  // triggerOpposedSE (v1.4.271+): see its own doc block above -- lets a
+  // module invoke a self-contained 'opposed'-phase SE resolver (confirmed
+  // safe for 'tripOpponent'/'disarmOpponent') outside the normal attack
+  // pipeline, for a UI action a battlefield position already earns.
   game.system.api = Object.freeze({
     syncHitLocationHP,
     determineOutcome,
@@ -298,6 +337,7 @@ Hooks.once('ready', () => {
     DIFFICULTY_GRADES,
     requestSkillCheck,
     getArmourAt,
+    triggerOpposedSE,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
