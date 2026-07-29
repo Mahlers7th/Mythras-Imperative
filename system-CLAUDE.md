@@ -59,7 +59,7 @@ Modules extend the system via `CONFIG.MYTHRAS.*` arrays (see `extension-point-ap
 
 ## Git
 
-`git add .` → `git commit -m "v1.4.xxx - description"` → `git push` after each stable, tested batch. **Plain hyphens in commit messages** — em dashes cause terminal hangs. Bump the version in `system.json` (and `package.json`) every build.
+`git add .` → `git commit -m "v1.4.xxx - description"` → `git push` after each stable, tested batch. **Plain hyphens in commit messages** — em dashes cause terminal hangs. Bump the version in `system.json` (and `package.json`) every build — **both, in the same commit**: `package.json` drifted 5 versions behind `system.json` (`1.4.266` vs `1.4.271`) before being caught and corrected in a doc-sync pass, because this line was easy to read as "bump system.json; package.json too, eventually." Treat a version bump as touching both files or it isn't done.
 
 ## Live testing
 
