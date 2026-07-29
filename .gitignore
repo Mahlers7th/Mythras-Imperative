@@ -21,3 +21,6 @@ node_modules/
 # Compendium packs — built from _source/ via `npm run pack`
 # Never commit LevelDB binaries; commit _source/ YAML instead
 packs/
+
+# Rulebook PDFs (never commit — commercial material)
+*.pdf
