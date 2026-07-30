@@ -78,6 +78,40 @@ export async function triggerOpposedSE(seId, ctx) {
 }
 
 // ---------------------------------------------------------------------------
+// triggerFollowUpAttack — fire a genuine second attack for `attacker`,
+// against whichever token the CURRENT USER has targeted on the canvas, using
+// `weapon`. Thin public wrapper over CombatEngine._buildContext +
+// CombatEngine._runDialog -- the exact same pipeline any normal attack uses
+// (Attacker Dialog, AP spend, roll, defence, damage, further SEs). Promoted
+// onto game.system.api (v1.4.272) specifically so a module boost that grants
+// "make another attack" (Destined's Close Combat Attack Mega Boost, Berserk
+// Barrage) can trigger a REAL attack instead of a manual reminder card --
+// its own JSDoc in the module previously documented this exact gap ("no
+// attack-launch function exists"). module/combat/effects/flurry.js (the
+// system's own first consumer of this exact _buildContext+_runDialog pair,
+// v1.4.272) does NOT go through this wrapper -- it already has a defender
+// from its own ctx (the SAME target as the triggering attack) and calls
+// CombatEngine directly, same-repo, no boundary to cross. This wrapper
+// exists for a MODULE caller, which has no ctx and must resolve its target
+// from Foundry's own canvas targeting instead, via the same
+// CombatEngine._resolveDefender used by every other attack-initiation site.
+//
+// @param {Actor} attacker
+// @param {Item} weapon - a real weapon item owned by attacker
+// @returns {Promise<void>}
+// ---------------------------------------------------------------------------
+export async function triggerFollowUpAttack(attacker, weapon) {
+  if (!attacker || !weapon) {
+    console.warn('Mythras Imperative | triggerFollowUpAttack: attacker and weapon are required.');
+    return;
+  }
+  const defender = CombatEngine._resolveDefender(attacker);
+  if (!defender) return; // _resolveDefender already posted the "target a token" warning
+  const ctx = CombatEngine._buildContext(attacker, defender, weapon);
+  await CombatEngine._runDialog(ctx);
+}
+
+// ---------------------------------------------------------------------------
 // Standard skills — seeded on every new Character actor
 // All 22 from Mythras Imperative with correct base formulae and descriptions
 // ---------------------------------------------------------------------------
@@ -328,6 +362,11 @@ Hooks.once('ready', () => {
   // module invoke a self-contained 'opposed'-phase SE resolver (confirmed
   // safe for 'tripOpponent'/'disarmOpponent') outside the normal attack
   // pipeline, for a UI action a battlefield position already earns.
+  //
+  // triggerFollowUpAttack (v1.4.272+): see its own doc block above -- lets a
+  // module fire a genuine second attack (real Attacker Dialog, real roll)
+  // against the current user's canvas target, for a boost that grants an
+  // extra attack (Destined's Berserk Barrage).
   game.system.api = Object.freeze({
     syncHitLocationHP,
     determineOutcome,
@@ -338,6 +377,7 @@ Hooks.once('ready', () => {
     requestSkillCheck,
     getArmourAt,
     triggerOpposedSE,
+    triggerFollowUpAttack,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────

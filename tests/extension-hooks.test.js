@@ -2951,3 +2951,92 @@ describe('game.system.api.triggerOpposedSE', () => {
     await expect(triggerOpposedSE('tripOpponent', {}, resolvers, () => {})).rejects.toThrow('boom');
   });
 });
+
+// =============================================================================
+// game.system.api.triggerFollowUpAttack (mythras.mjs, v1.4.272)
+//   Thin wrapper: CombatEngine._resolveDefender -> _buildContext -> _runDialog.
+//   mythras.mjs is Foundry-coupled and not import-safe under Jest, so this
+//   mirrors the real function against an injectable engine-shaped object
+//   instead of the live CombatEngine class.
+// =============================================================================
+
+/** Mirror of mythras.mjs's triggerFollowUpAttack. */
+async function triggerFollowUpAttack(attacker, weapon, engine, warnFn) {
+  if (!attacker || !weapon) {
+    warnFn('attacker and weapon are required');
+    return;
+  }
+  const defender = engine.resolveDefender(attacker);
+  if (!defender) return; // resolveDefender already posted its own warning
+  const ctx = engine.buildContext(attacker, defender, weapon);
+  await engine.runDialog(ctx);
+}
+
+describe('game.system.api.triggerFollowUpAttack', () => {
+  test('missing attacker warns and never touches the engine', async () => {
+    const warnings = [];
+    const engine = {
+      resolveDefender: () => { throw new Error('should not be called'); },
+      buildContext:    () => { throw new Error('should not be called'); },
+      runDialog:       () => { throw new Error('should not be called'); },
+    };
+    await expect(
+      triggerFollowUpAttack(null, { id: 'w1' }, engine, (msg) => warnings.push(msg))
+    ).resolves.toBeUndefined();
+    expect(warnings.length).toBe(1);
+  });
+
+  test('missing weapon warns and never touches the engine', async () => {
+    const warnings = [];
+    const engine = {
+      resolveDefender: () => { throw new Error('should not be called'); },
+      buildContext:    () => { throw new Error('should not be called'); },
+      runDialog:       () => { throw new Error('should not be called'); },
+    };
+    await expect(
+      triggerFollowUpAttack({ id: 'a1' }, null, engine, (msg) => warnings.push(msg))
+    ).resolves.toBeUndefined();
+    expect(warnings.length).toBe(1);
+  });
+
+  test('no resolvable defender (bad/no target) stops before building context', async () => {
+    const calls = [];
+    const engine = {
+      resolveDefender: () => null, // resolveDefender's own "target a token" warning already fired
+      buildContext:    () => { calls.push('buildContext'); return {}; },
+      runDialog:       () => { calls.push('runDialog'); },
+    };
+    await triggerFollowUpAttack({ id: 'a1' }, { id: 'w1' }, engine, () => {});
+    expect(calls).toEqual([]);
+  });
+
+  test('happy path: resolves defender, builds context, runs the dialog with it', async () => {
+    const attacker = { id: 'a1' };
+    const weapon    = { id: 'w1' };
+    const defender  = { id: 'd1' };
+    const builtCtx  = { attacker, defender, weapon, tag: 'built' };
+    const calls = [];
+    const engine = {
+      resolveDefender: (a) => { calls.push(['resolveDefender', a]); return defender; },
+      buildContext:    (a, d, w) => { calls.push(['buildContext', a, d, w]); return builtCtx; },
+      runDialog:       (ctx) => { calls.push(['runDialog', ctx]); },
+    };
+    await triggerFollowUpAttack(attacker, weapon, engine, () => {});
+    expect(calls).toEqual([
+      ['resolveDefender', attacker],
+      ['buildContext', attacker, defender, weapon],
+      ['runDialog', builtCtx],
+    ]);
+  });
+
+  test('a runDialog throw propagates (not swallowed)', async () => {
+    const engine = {
+      resolveDefender: () => ({ id: 'd1' }),
+      buildContext:    () => ({}),
+      runDialog:       () => { throw new Error('boom'); },
+    };
+    await expect(
+      triggerFollowUpAttack({ id: 'a1' }, { id: 'w1' }, engine, () => {})
+    ).rejects.toThrow('boom');
+  });
+});

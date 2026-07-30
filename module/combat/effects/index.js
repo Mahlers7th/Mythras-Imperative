@@ -58,6 +58,9 @@ import {
 import { resolveImpact }    from './impact.js';
 import { resolvePinObject } from './pin-object.js';
 
+// ── Batch 8: Destined Flurry addition ────────────────────────────────────────
+import { resolveFlurry } from './flurry.js';
+
 // ── Re-export callback functions used by mythras.mjs ─────────────────────────
 // These are called from chat-card button handlers in mythras.mjs, not via the
 // SE dispatch loop. Exported here so mythras.mjs only needs one effects import.
@@ -111,4 +114,7 @@ export const SE_RESOLVERS = {
   // Batch 7 — Destined Combat Expert additions
   impact:            resolveImpact,
   pinObject:         resolvePinObject,
+
+  // Batch 8 — Destined Flurry addition
+  flurry:            resolveFlurry,
 };
