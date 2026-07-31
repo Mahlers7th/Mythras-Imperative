@@ -211,6 +211,60 @@ export async function resolveCircumventCover(ctx) {
 
 
 // -------------------------------------------------------------------------
+// resolvePressAdvantage — SE: Press Advantage (attacker, universal)
+//
+// Destined rules (p.162): "The hero keeps their foe on the defensive or
+// causes them to overextend themselves, preventing the opponent from using
+// an Attack Action on their next Turn... opponents are free to take other
+// Actions aside from attacking." No opposed roll in the rules text —
+// unlike Pin Down (Opposed Willpower), this applies automatically to
+// whichever winner selects it, same shape as Pin Object (no roll).
+//
+// Mechanically: writes a 'pressAdvantaged' flag to the BASE defender actor.
+// Two consumers, matching Pin Down's own two-part shape:
+//   - AttackerDialog.js disables the Attack button for the flagged actor
+//     (any weapon, melee or ranged) — a real enforced block, not just an
+//     informational note. Extends the same button-disable seam Weapon
+//     Malfunction's jammed-weapon check already uses, generalized to an
+//     actor-level restriction instead of a weapon-level one.
+//   - The updateCombat hook clears the flag at the start of the affected
+//     actor's next Turn (mirrors Pin Down/Stun/Blind Opponent's identical
+//     "write on apply, clear+notify on next-turn" pattern).
+// -------------------------------------------------------------------------
+
+export async function resolvePressAdvantage(ctx) {
+  const { attacker, defender } = ctx;
+  if (!attacker || !defender) return;
+
+  const baseDefender = game.actors.get(defender.id) ?? defender;
+  await baseDefender.setFlag(NS, 'pressAdvantaged', {
+    attackerName: attacker.name,
+    round:        game.combat?.round ?? 0
+  });
+
+  await ChatMessage.create({
+    content: `
+      <div class="mi-chat-card">
+        <div class="mi-card-header mi-card-header--stacked">
+          <span class="mi-card-actor">${attacker.name} → ${defender.name}</span>
+          <span class="mi-card-skill">Press Advantage</span>
+        </div>
+        <div class="mi-card-body">
+          <div class="mi-outcome-row">
+            <span class="mi-outcome mi-wound-serious">
+              <i class="fas fa-shield-halved"></i>
+              ${defender.name} is kept on the defensive — no Attack Action on their next Turn
+            </span>
+          </div>
+          <p class="mi-card-note">${defender.name} may still take other Actions (Move, Reload, cast a non-attack power, and so on) — only attacking is blocked.</p>
+        </div>
+      </div>`,
+    speaker: ChatMessage.getSpeaker({ actor: attacker })
+  });
+}
+
+
+// -------------------------------------------------------------------------
 // resolveSelectTarget — SE: Select Target (defender, attacker fumbles)
 //
 // Rules p.45: When the attacker fumbles, the defender may manoeuvre or

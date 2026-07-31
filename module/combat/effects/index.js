@@ -23,6 +23,7 @@ import {
   resolveCircumventCover,
   resolveSelectTarget,
   resolveWeaponMalfunction,
+  resolvePressAdvantage,
 } from './simple.js';
 
 // ── Batch 3: opposed-roll resolvers ──────────────────────────────────────────
@@ -88,6 +89,7 @@ export const SE_RESOLVERS = {
   circumventCover:   resolveCircumventCover,
   selectTarget:      resolveSelectTarget,
   weaponMalfunction: resolveWeaponMalfunction,
+  pressAdvantage:    resolvePressAdvantage,
 
   // Batch 3 — opposed roll resolvers
   bleed:             resolveBleed,

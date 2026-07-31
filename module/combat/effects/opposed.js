@@ -850,9 +850,18 @@ export async function resolveDropFoe(ctx, damage, forcesFail) {
 // nearby gunfire — explicitly stated in the rules).
 //
 // Mechanically: on failure writes a 'pinnedDown' actor flag. The updateCombat
-// hook clears it at the start of the affected actor's next turn. The attack
-// button in the dialog disables when the attacker is pinned (existing AP-gate
-// already handles this via the hasFlag check before _runAttackerDialog).
+// hook clears it at the start of the affected actor's next turn and posts a
+// notification. **Correction (found while building Press Advantage, which
+// needed the identical shape): this was NOT actually enforced** — no
+// hasFlag/AttackerDialog check for 'pinnedDown' exists anywhere in this
+// codebase, despite this comment previously claiming one did. Pin Down is
+// informational-only (the player/GM are trusted to respect it), same as
+// Stun/Stun Location/Blind Opponent's identical "clear+notify, don't block"
+// shape. Press Advantage (simple.js, config.js `pressAdvantage`) is the
+// first of this whole family to actually be enforced — AttackerDialog.js
+// disables its Attack button for a flagged actor. Not extended to Pin Down
+// here — that would be a real, separate change to an already-shipped
+// feature, out of scope for the batch that found this drift.
 // -------------------------------------------------------------------------
 
 export async function resolvePinDown(ctx, forcesFail) {

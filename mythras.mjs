@@ -1234,6 +1234,18 @@ async function _onUpdateCombat(combat, changed) {
     ui.notifications.info(`${actor.name} is no longer Pinned Down — may return fire.`);
   }
 
+  // ── Press Advantage: clear at the start of the affected actor's next Turn ─
+  // Destined rules p.162: no Attack Action on next Turn. Same shape as Pin
+  // Down above — write on apply (resolvePressAdvantage), clear+notify here.
+  // AttackerDialog.js reads this flag live to actually disable the Attack
+  // button (a real enforced block, not informational-only like Pin Down).
+  const pressAdvantaged = actor.getFlag('mythras-imperative', 'pressAdvantaged') ?? null;
+  if (pressAdvantaged) {
+    await actor.unsetFlag('mythras-imperative', 'pressAdvantaged');
+    console.log(`Mythras Imperative | Press Advantage cleared from ${actor.name}`);
+    ui.notifications.info(`${actor.name} is no longer kept on the defensive — may attack again.`);
+  }
+
   // ── Stun Location: decrement per-location counters each turn ─────────
   // flags.stunLocations = { [hitLocationId]: turnsRemaining }
   // When a location reaches 0 it is no longer incapacitated.
@@ -2545,7 +2557,7 @@ Hooks.on('deleteToken', async (tokenDoc) => {
     'pendingImpales', 'pendingGripCheck',
     'pendingEntangleTrip', 'pendingEntangleBreakFree',
     'stunLocations', 'stunTurns', 'sunderedAP', 'blindedBy', 'pinnedWeapons', 'pinnedDown',
-    'prepareCounter', 'pendingReload', 'jammedWeapons'
+    'prepareCounter', 'pendingReload', 'jammedWeapons', 'pressAdvantaged'
   ];
   if (baseActor) {
     for (const flag of ownFlags) {

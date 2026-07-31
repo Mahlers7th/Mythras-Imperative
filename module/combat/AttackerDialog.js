@@ -418,6 +418,12 @@ export class AttackerDialog {
             if (aimingRow)    aimingRow.style.display    = isRanged ? '' : 'none';
             if (chargeRow)    chargeRow.style.display    = isRanged ? 'none' : '';
 
+            // Press Advantage (Destined SE, module/combat/effects/simple.js) — an
+            // actor-level restriction, unlike the weapon-level jammed check below.
+            // Applies to every weapon (melee or ranged), so it's read once here
+            // rather than inside the isRanged-only branch that jammed/empty live in.
+            const pressAdvantaged = !!attacker.getFlag?.('mythras-imperative', 'pressAdvantaged');
+
             // Ammo row — show for ranged, update display and disable Attack if empty
             const ammoRow     = html.find('#mi-atk-ammo-row')[0];
             const ammoDisplay = html.find('#mi-atk-ammo-display')[0];
@@ -432,11 +438,16 @@ export class AttackerDialog {
               ammoDisplay.textContent = ammo !== null ? `${ammo} / ${ammoMax}` : '—';
               ammoDisplay.classList.toggle('mi-ammo-empty', empty);
               if (attackBtn) {
-                attackBtn.disabled = empty || jammed;
-                attackBtn.title    = jammed ? 'Weapon is jammed — field-strip to clear' : '';
+                attackBtn.disabled = empty || jammed || pressAdvantaged;
+                attackBtn.title    = jammed ? 'Weapon is jammed — field-strip to clear'
+                                    : pressAdvantaged ? 'Kept on the defensive by Press Advantage — no Attack Action this Turn'
+                                    : '';
               }
             } else {
-              if (attackBtn) { attackBtn.disabled = false; attackBtn.title = ''; }
+              if (attackBtn) {
+                attackBtn.disabled = pressAdvantaged;
+                attackBtn.title    = pressAdvantaged ? 'Kept on the defensive by Press Advantage — no Attack Action this Turn' : '';
+              }
             }
 
             // Burst fire row — only for firearms with the 'burst-fire' trait
