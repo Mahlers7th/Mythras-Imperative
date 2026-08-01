@@ -28,6 +28,7 @@
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
 import { classifyLocation, getImpaleGrade, weaponBaseMax } from '../utils/combat-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
+import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
   waitForCard,
   runSEDialog,
@@ -2324,11 +2325,7 @@ export class CombatEngine {
     // Read-time only — never mutates stored AP, recomputed each resolution.
     // Added as an extra armour layer at this location, AFTER sunder reductions,
     // so it is not consumed by prior sunder (it regenerates each cycle).
-    const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
-      .reduce((sum, fn) => {
-        try { return sum + (Number(fn(defender, locKey)) || 0); }
-        catch (err) { console.error('Mythras | armourBonusHook error:', err); return sum; }
-      }, 0);
+    const armourBonus = sumHookContributions(CONFIG.MYTHRAS?.armourBonusHooks, [defender, locKey], { errorLabel: 'armourBonusHook' }).total;
 
     return Math.max(0, naturalAP - naturalReduction) + Math.max(0, wornAP - wornReduction) + armourBonus;
   }
@@ -2390,10 +2387,10 @@ export class CombatEngine {
     if (hookList.length > 0) {
       const locItem = CombatEngine._getItem(defender, locationId);
       const locKey  = locItem ? locationNameToKey(locItem.system.label ?? locItem.name ?? '') : null;
-      hookReduction = hookList.reduce((sum, fn) => {
-        try { return sum + Math.max(0, Number(fn(attacker, defender, locKey, weapon)) || 0); }
-        catch (err) { console.error('Mythras | apReductionHook error:', err); return sum; }
-      }, 0);
+      hookReduction = sumHookContributions(hookList, [attacker, defender, locKey, weapon], {
+        errorLabel: 'apReductionHook',
+        clampNonNegative: true,
+      }).total;
     }
 
     return Math.max(0, afterPiercing - hookReduction);
@@ -3698,11 +3695,7 @@ export class CombatEngine {
     // It is a SEPARATE absorbing layer (applied after sunderable natural AP)
     // and is NEVER recorded in sunderedAP — regenerating armour cannot be
     // permanently sundered, so it must not feed the flag write below.
-    const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
-      .reduce((sum, fn) => {
-        try { return sum + (Number(fn(defender, locKey)) || 0); }
-        catch (err) { console.error('Mythras | armourBonusHook error:', err); return sum; }
-      }, 0);
+    const armourBonus = sumHookContributions(CONFIG.MYTHRAS?.armourBonusHooks, [defender, locKey], { errorLabel: 'armourBonusHook' }).total;
 
     const effectiveNaturalAP = Math.max(0, naturalApBase - priorNatRed);
     const totalApBefore      = effectiveWornAP + effectiveNaturalAP + armourBonus;

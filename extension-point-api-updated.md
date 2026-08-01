@@ -1,6 +1,6 @@
 # Extension-point / boundary contract — Mythras Imperative
 
-**Last updated: v1.4.271.**
+**Last updated: v1.4.277.**
 
 Modules (primarily Destined) extend the system via arrays and objects on
 `CONFIG.MYTHRAS.*`. This file did not exist before v1.4.250 — it is being
@@ -36,6 +36,53 @@ Every hook below is **read-time** except one, and every hook **sums** except two
   at the first non-`undefined` result. They also fire at **roll time**, inside
   `CombatEngine`, not during `prepareDerivedData` — see the dedicated section
   below.
+
+## Modifier bus (v1.4.277+)
+
+Ten of the hook families in the table below — `apBonusHooks`, `movementHooks`,
+`initiativeOffsetHooks`, `damageModOffsetHooks`, `healingRateHooks`,
+`luckPointsHooks`, `powerPointsHooks`, `hitPointBonusHooks`,
+`armourBonusHooks`, `apReductionHooks` — share one implementation as of
+v1.4.277: `sumHookContributions` (`module/utils/modifier-bus.js`, pure and
+Foundry-free, matching `char-math.js`/`combat-math.js`/`roll-math.js`).
+Previously each family's call site carried its own near-identical inline
+`.reduce()`/`for` loop. **Each family's own contract, signature, and
+surrounding math (documented per-family below and in the table) is
+completely unchanged** — this is an internal deduplication, not a new hook
+shape, and it is not a bus for every hook on `CONFIG.MYTHRAS`: the
+override/first-wins pair (`weaponDamageHooks`/`weaponForceHooks`), the
+composing-interception family (`damageHooks`), lifecycle events
+(`attackResolvedHooks`/`evasionHooks`), boolean gates
+(`rangedParryEligibleHooks`/`seEligibilityHooks`), and the last-valid-wins
+family (`bashKnockbackMultiplierHooks`) all have genuinely different
+combination contracts and keep their own hand-written call sites.
+
+Two real, deliberate behavior changes came with the consolidation, both
+strictly safer than the code they replaced:
+
+- **Every hook family now logs a caught throw.** Two of the ten
+  (`apBonusHooks`, `movementHooks`) previously swallowed a throwing hook
+  silently, with no `console.error` — the other eight already logged. All
+  ten now log consistently via the shared function's `errorLabel` option.
+- **`damageModOffsetHooks`' accumulation now coerces via `Number(...) || 0`**
+  like the other nine, instead of its own previous `?? 0` (which only
+  guards `null`/`undefined` — a hook that mistakenly returned a non-numeric
+  string would previously have been silently string-concatenated into
+  `dmOffset` rather than coerced to `0`).
+
+**Provenance**: `game.system.api.explainHookSum(hookFamilyName, args, options)`
+(see `frozen-api-updated.md`) is a thin console/macro-facing wrapper over the
+same shared function — looks up `CONFIG.MYTHRAS[hookFamilyName]` and returns
+`{ total, breakdown }`, where `breakdown` names each nonzero contributor. A
+hook registered through the Destined module's own `registerHook` (as of
+module v1.9.96) is labelled by that call's `feature` string (e.g. `"Inherent
+Armor — natural bonus AP (Destined)"`); a hand-rolled registration that
+pushes straight onto a `CONFIG.MYTHRAS[...]` array without going through
+`registerHook` falls back to `fn.name`, then `'anonymous'`. This is the
+concrete "why is this number 14?" answer `roadmap-verified-v2.md` Part 2's
+re-scoped modifier-bus recommendation asked for, without a new debug-UI
+surface — the breakdown is plain data, ready for a console call today or a
+future panel to render.
 
 ## Location-key vocabulary
 

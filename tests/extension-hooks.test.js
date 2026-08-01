@@ -22,6 +22,10 @@ import { locationNameToKey } from '../module/utils/hit-location.js';
 // _getEffectiveArmourAt tests below exercise the actual piercing-reduction
 // math, not a second copy of it.
 import { weaponBaseMax } from '../module/utils/combat-math.js';
+// sumHookContributions is likewise pure and already fully tested in
+// modifier-bus.test.js — imported for real so explainHookSum's own tests
+// below exercise the real summation behavior, not a second mirror of it.
+import { sumHookContributions } from '../module/utils/modifier-bus.js';
 
 /**
  * Minimal call-recording spy — this project's Jest/ESM setup does not expose
@@ -3111,5 +3115,82 @@ describe('game.system.api.triggerFollowUpAttack', () => {
     await expect(
       triggerFollowUpAttack({ id: 'a1' }, { id: 'w1' }, engine, () => {})
     ).rejects.toThrow('boom');
+  });
+});
+
+// =============================================================================
+// game.system.api.explainHookSum (mythras.mjs, v1.4.277)
+//   Thin console/macro-facing wrapper: looks up CONFIG.MYTHRAS[hookFamilyName]
+//   and sums it via the real, shared sumHookContributions -- the provenance
+//   win ("why is this number 14?") for any of the ten read-time additive
+//   numeric hook families now sharing that one implementation. mythras.mjs
+//   itself is Foundry-coupled and not import-safe under Jest, so CONFIG.MYTHRAS
+//   is injected as `mythrasConfig` here instead of read from the real global;
+//   the summation itself is the REAL imported sumHookContributions, already
+//   fully covered in modifier-bus.test.js, so these tests only guard the
+//   lookup-by-name + defaulting + option-forwarding wrapper around it.
+// =============================================================================
+
+/** Mirror of mythras.mjs's explainHookSum, with CONFIG.MYTHRAS injected. */
+function explainHookSum(hookFamilyName, args = [], options = {}, mythrasConfig = {}) {
+  const hooks = mythrasConfig?.[hookFamilyName] ?? [];
+  return sumHookContributions(hooks, args, { errorLabel: hookFamilyName, ...options });
+}
+
+describe('game.system.api.explainHookSum', () => {
+  test('looks up the named hook family and sums it via the real bus', () => {
+    const mythrasConfig = { apBonusHooks: [() => 1, () => 2] };
+    const res = explainHookSum('apBonusHooks', [{}], {}, mythrasConfig);
+    expect(res.total).toBe(3);
+    expect(res.breakdown.map(b => b.value)).toEqual([1, 2]);
+  });
+
+  test('an unknown/missing hook family name defaults to an empty array, not a throw', () => {
+    expect(explainHookSum('notARealHookFamily', [{}], {}, {})).toEqual({ total: 0, breakdown: [] });
+    expect(explainHookSum('apBonusHooks', [{}], {}, undefined)).toEqual({ total: 0, breakdown: [] });
+  });
+
+  test('args are forwarded to every hook exactly as given, in order', () => {
+    const calls = [];
+    const mythrasConfig = {
+      armourBonusHooks: [(actor, locKey) => { calls.push([actor, locKey]); return 1; }],
+    };
+    const actor = { name: 'Nex' };
+    explainHookSum('armourBonusHooks', [actor, 'chest'], {}, mythrasConfig);
+    expect(calls).toEqual([[actor, 'chest']]);
+  });
+
+  test('options (e.g. clampNonNegative) are forwarded through to the bus', () => {
+    const mythrasConfig = { apReductionHooks: [() => -5, () => 3] };
+    const res = explainHookSum('apReductionHooks', [{}, {}, 'chest', null], { clampNonNegative: true }, mythrasConfig);
+    // -5 clamped to 0, so total is 0+3, not -2.
+    expect(res.total).toBe(3);
+  });
+
+  test('errorLabel defaults to the hook family name itself', () => {
+    const originalError = console.error;
+    const calls = [];
+    console.error = (...args) => calls.push(args);
+    try {
+      const mythrasConfig = { healingRateHooks: [() => { throw new Error('boom'); }] };
+      explainHookSum('healingRateHooks', [{}], {}, mythrasConfig);
+      expect(calls.length).toBe(1);
+      expect(calls[0][0]).toContain('healingRateHooks error');
+    } finally {
+      console.error = originalError;
+    }
+  });
+
+  test('a caller-supplied errorLabel overrides the hook-family-name default', () => {
+    const originalError = console.error;
+    const calls = [];
+    console.error = (...args) => calls.push(args);
+    try {
+      const mythrasConfig = { luckPointsHooks: [() => { throw new Error('boom'); }] };
+      explainHookSum('luckPointsHooks', [{}], { errorLabel: 'custom label' }, mythrasConfig);
+      expect(calls[0][0]).toContain('custom label error');
+    } finally {
+      console.error = originalError;
+    }
   });
 });

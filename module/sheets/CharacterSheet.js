@@ -5,6 +5,7 @@
  */
 
 import { locationNameToKey } from '../utils/hit-location.js';
+import { sumHookContributions } from '../utils/modifier-bus.js';
 
 const { ActorSheetV2 }             = foundry.applications.sheets;
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -289,11 +290,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       // Mirror CombatEngine._getArmourAt so the sheet AP column matches what
       // actually absorbs damage in combat. Read-time, non-sunderable, never
       // stored — recomputed each render from the actor's live powers.
-      const armourBonus = (CONFIG.MYTHRAS?.armourBonusHooks ?? [])
-        .reduce((sum, fn) => {
-          try { return sum + (Number(fn(this.actor, locKey)) || 0); }
-          catch (err) { console.error('Mythras | armourBonusHook error (sheet):', err); return sum; }
-        }, 0);
+      const armourBonus = sumHookContributions(CONFIG.MYTHRAS?.armourBonusHooks, [this.actor, locKey], { errorLabel: 'armourBonusHook (sheet)' }).total;
 
       const totalAP    = effectiveNaturalAP + effectiveWornAP + armourBonus;
       const woundClass = this._woundClass(s.current, s.hp);

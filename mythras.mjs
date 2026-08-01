@@ -37,6 +37,7 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
+import { sumHookContributions }       from './module/utils/modifier-bus.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -500,6 +501,9 @@ Hooks.once('ready', () => {
     // (right-click a chat card/app > Pop Out opens a separate browser window
     // with its own <html>, which never received the setup-time attribute).
     applyMythrasTheme,
+    // explainHookSum (v1.4.277+): see its own doc block above -- provenance
+    // breakdown for any of the ten read-time additive numeric hook families.
+    explainHookSum,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -758,12 +762,7 @@ export function syncHitLocationHP(actor) {
   const hpHooks = CONFIG.MYTHRAS?.hitPointBonusHooks ?? [];
   const hpByKey = {};
   for (const [key, base] of Object.entries(baseByKey)) {
-    let hp = base;
-    for (const fn of hpHooks) {
-      try { hp += Number(fn(actor, key)) || 0; }
-      catch (err) { console.error('Mythras | hitPointBonusHook error:', err); }
-    }
-    hpByKey[key] = hp;
+    hpByKey[key] = base + sumHookContributions(hpHooks, [actor, key], { errorLabel: 'hitPointBonusHook' }).total;
   }
 
   const locationItems = Array.from(actor.items).filter(i => i.type === 'hit-location');
@@ -816,6 +815,31 @@ export function getArmourAt(defender, locationId) {
     console.error('Mythras Imperative | getArmourAt error:', err);
     return 0;
   }
+}
+
+// ---------------------------------------------------------------------------
+// EXPLAIN HOOK SUM (v1.4.277+) -- the provenance win from
+// roadmap-verified-v2.md Part 2's modifier-bus recommendation. All ten
+// read-time additive numeric hook families (apBonusHooks, movementHooks,
+// initiativeOffsetHooks, damageModOffsetHooks, healingRateHooks,
+// luckPointsHooks, powerPointsHooks, hitPointBonusHooks, armourBonusHooks,
+// apReductionHooks) now share one summation implementation,
+// sumHookContributions (module/utils/modifier-bus.js), at their real call
+// sites in CharacterData.js/CombatEngine.js/CharacterSheet.js/this file.
+// This is a thin console/macro-facing wrapper over that same function --
+// looks up CONFIG.MYTHRAS[hookFamilyName], sums it with the real args a
+// caller would pass, and returns the per-hook breakdown so "why is this
+// number 14?" has a real answer instead of requiring a debugger session.
+//
+// Diagnostic only: does NOT replicate a family's own surrounding math
+// (flooring at 0/1, the healingRate ×2 hero-advantage doubling, etc.) --
+// only the raw hook sum itself. For apReductionHooks specifically, pass
+// { clampNonNegative: true } to match its real per-hook floor-at-0 contract
+// (see modifier-bus.js's own doc comment).
+// ---------------------------------------------------------------------------
+export function explainHookSum(hookFamilyName, args = [], options = {}) {
+  const hooks = CONFIG.MYTHRAS?.[hookFamilyName] ?? [];
+  return sumHookContributions(hooks, args, { errorLabel: hookFamilyName, ...options });
 }
 
 // ---------------------------------------------------------------------------
