@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - `package.json`'s own `"version"` field (stale at 1.4.271, three versions behind `system.json`) removed rather than re-synced — a private, unpublished package doesn't need it, and it was a second place to remember to update on every release that `system.json` already covers authoritatively.
 - 495/495 tests unchanged (lint/format/CI/doc changes plus two narrow bugfixes, no hook-family behavior touched).
 - Companion module-side batch (Destined v1.9.97): same ESLint/Prettier/CI setup, plus README.md/CHANGELOG.md/LEGAL.md added (the module repo had none of the three) and one real bug fixed in Power Armor's energy-pool input handler, also found via ESLint.
-- Not yet committed.
+- Committed as `cc3fb65`.
 
 ## v1.4.278 — August 2026
 - **Doc/source truth sweep — roadmap Phase 2c**, the two concrete items left from Part 2's re-scoped recommendation. Doc-only changes plus one `config.js` comment fix; no runtime behavior changed.
