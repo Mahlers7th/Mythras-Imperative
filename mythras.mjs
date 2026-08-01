@@ -318,6 +318,21 @@ Hooks.once('setup', () => {
     type:    Boolean,
     default: false
   });
+
+  // Vehicle stat-block templates — a saved snapshot of a vehicle's system
+  // data plus its embedded items (weapons/traits/system components), keyed
+  // by name. GM-facing convenience, no config UI (managed entirely through
+  // VehicleSheet's own Save/Load controls). Ported from Destined module
+  // v1.9.9x's identical `vehicleTemplates` setting when that module's own
+  // bespoke (non-native) vehicle sheet was retired in favor of this one.
+  game.settings.register('mythras-imperative', 'vehicleTemplates', {
+    name:    'Vehicle Templates',
+    hint:    'Stored vehicle stat-block templates for quick reuse.',
+    scope:   'world',
+    config:  false,
+    type:    Object,
+    default: {}
+  });
 });
 
 // ---------------------------------------------------------------------------

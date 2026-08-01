@@ -2044,6 +2044,14 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   object-fit: cover; border: 1px solid var(--mi-rule); flex-shrink: 0;
 }
 
+/* ── Templates row (save/load a full vehicle stat-block snapshot) ─────────── */
+.mi-veh-template-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0 8px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-veh-template-row .mi-veh-tpl-select { flex: 1; min-width: 0; }
+
 /* ── Trait list ──────────────────────────────────────────────────────────── */
 .mi-vehicle-trait-list { display: flex; flex-direction: column; gap: 1px; }
 .mi-vehicle-trait-row {

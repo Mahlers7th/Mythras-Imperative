@@ -138,6 +138,29 @@
       <section class="mi-tab-panel {{#if (eq activeTab 'overview')}}active{{/if}}"
                data-tab="overview">
 
+        {{! Templates }}
+        <div class="mi-section-label">
+          <i class="fas fa-copy mi-section-icon"></i>
+          <span>Templates</span>
+        </div>
+        <div class="mi-veh-template-row">
+          <button type="button" class="mi-veh-tpl-save-btn mi-btn mi-btn--xs" title="Save this vehicle's full stat block (including weapons/traits/system components) as a reusable template">
+            <i class="fas fa-save"></i> Save as Template
+          </button>
+          <select class="mi-veh-tpl-select mi-vehicle-sel">
+            {{#if templateNames}}
+              {{#each templateNames as |tn|}}
+              <option value="{{tn}}">{{tn}}</option>
+              {{/each}}
+            {{else}}
+              <option value="" disabled>— No saved templates —</option>
+            {{/if}}
+          </select>
+          <button type="button" class="mi-veh-tpl-load-btn mi-btn mi-btn--xs" title="Replace this vehicle's stat block and items with the selected template">
+            <i class="fas fa-upload"></i> Load
+          </button>
+        </div>
+
         {{! Traits }}
         <div class="mi-section-label">
           <i class="fas fa-star mi-section-icon"></i>

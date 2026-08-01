@@ -150,6 +150,12 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       };
     });
 
+    // Template list — populated from the world setting, name-only for the
+    // dropdown (full snapshots are read fresh at load time, not cached here).
+    let templateNames = [];
+    try { templateNames = Object.keys(game.settings.get('mythras-imperative', 'vehicleTemplates') ?? {}); }
+    catch (e) { /* setting not yet ready */ }
+
     return {
       actor,
       system,
@@ -163,7 +169,8 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       systemSlots,
       systemDamageTable: SYSTEM_DAMAGE_TABLE,
       crew,
-      hasShields:   (system.shields?.max ?? 0) > 0
+      hasShields:   (system.shields?.max ?? 0) > 0,
+      templateNames
     };
   }
 
@@ -306,6 +313,15 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       });
       html.addEventListener('drop', ev => this._onDrop(ev));
     }
+
+    // ── Templates: save current stat block / load a saved one ───────────
+    html.querySelector('.mi-veh-tpl-save-btn')
+      ?.addEventListener('click', () => this._saveAsTemplate());
+    html.querySelector('.mi-veh-tpl-load-btn')
+      ?.addEventListener('click', () => {
+        const name = html.querySelector('.mi-veh-tpl-select')?.value;
+        if (name) this._loadTemplate(name);
+      });
   }
 
   // ---------------------------------------------------------------------------
@@ -414,6 +430,70 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       .map(e => ({ ...e }));
     crew.splice(idx, 1);
     await base.update({ 'system.crew': crew });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Templates — save/load a full stat-block snapshot (system fields + every
+  // embedded item: weapons, traits, system components). Ported from the
+  // Destined module's own vehicleTemplates feature when that module's
+  // bespoke vehicle sheet was retired in favor of this native one — same
+  // world-setting name and shape (name -> {system, items}), just backed by
+  // real embedded Item documents instead of a flag-blob array of plain
+  // objects.
+  // ---------------------------------------------------------------------------
+
+  async _saveAsTemplate() {
+    const defaultName = this.document.name || 'Unnamed Vehicle';
+    const name = await new Promise(resolve => {
+      new Dialog({
+        title: 'Save Vehicle Template',
+        content: `
+          <div class="mi-dialog-body">
+            <label>Template Name</label>
+            <input type="text" name="tpl-name" value="${defaultName}" style="width:100%;"/>
+          </div>`,
+        buttons: {
+          save: {
+            icon: '<i class="fas fa-save"></i>',
+            label: 'Save',
+            callback: html => resolve(html[0].querySelector('[name="tpl-name"]').value?.trim())
+          },
+          cancel: { icon: '<i class="fas fa-times"></i>', label: 'Cancel', callback: () => resolve(null) }
+        },
+        default: 'save',
+        classes: ['dialog', 'mi-dialog'],
+        close: () => resolve(null)
+      }).render(true);
+    });
+    if (!name) return;
+
+    const templates = game.settings.get('mythras-imperative', 'vehicleTemplates') ?? {};
+    templates[name] = {
+      system: this.document.system.toObject(),
+      items:  this.document.items.map(i => i.toObject())
+    };
+    await game.settings.set('mythras-imperative', 'vehicleTemplates', templates);
+    ui.notifications.info(`Mythras Imperative | Saved vehicle template: "${name}"`);
+    this.render();
+  }
+
+  async _loadTemplate(name) {
+    const templates = game.settings.get('mythras-imperative', 'vehicleTemplates') ?? {};
+    const tpl = templates[name];
+    if (!tpl) { ui.notifications.warn(`Template "${name}" not found.`); return; }
+
+    const base = game.actors.get(this.document.id) ?? this.document;
+
+    // Replace all embedded items with the template's own snapshot.
+    const existingIds = base.items.map(i => i.id);
+    if (existingIds.length) await base.deleteEmbeddedDocuments('Item', existingIds);
+
+    const newItems = foundry.utils.duplicate(tpl.items ?? []).map(i => { delete i._id; return i; });
+    if (newItems.length) await base.createEmbeddedDocuments('Item', newItems);
+
+    await base.update({ system: foundry.utils.duplicate(tpl.system ?? {}) });
+
+    ui.notifications.info(`Mythras Imperative | Loaded vehicle template: "${name}"`);
   }
 
   // ---------------------------------------------------------------------------
