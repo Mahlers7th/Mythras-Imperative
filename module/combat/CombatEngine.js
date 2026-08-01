@@ -44,6 +44,7 @@ import {
   getItem,
 } from './effects/helpers.js';
 import { SE_RESOLVERS } from './effects/index.js';
+import { postEntangleTripCard } from './effects/entangle.js';
 
 export class CombatEngine {
 

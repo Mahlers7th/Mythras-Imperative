@@ -165,9 +165,9 @@ function extractTraitsFromNotes(notesStr, alreadyFound) {
     const trimmed = line.trim();
     if (!trimmed) continue;
     // Match "Some Trait Name (optional param):" at start of line
-    const headerMatch = trimmed.match(/^([A-Za-z][A-Za-z\s\-]*)(?:\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*:/);
+    const headerMatch = trimmed.match(/^([A-Za-z][A-Za-z\s-]*)(?:\s*\([^)]*\))?\s*(?:\([^)]*\))?\s*:/);
     if (!headerMatch) continue;
-    const candidate = trimmed.match(/^((?:[A-Za-z][A-Za-z\s\-]*?)(?:\s*\([^)]+\))?)\s*:/);
+    const candidate = trimmed.match(/^((?:[A-Za-z][A-Za-z\s-]*?)(?:\s*\([^)]+\))?)\s*:/);
     if (!candidate) continue;
     const parsed = parseMegFeature(candidate[1].trim());
     if (!parsed) continue;

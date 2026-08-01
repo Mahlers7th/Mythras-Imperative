@@ -10,6 +10,15 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.279 — August 2026
+- **Repo hygiene — roadmap Phase 2e/2f, the last items in Phase 2.** ESLint (flat config, `eslint.config.js`) and Prettier (`.prettierrc.json`/`.prettierignore`) added — deliberately conservative rules (catch real bugs: unused vars, undefined globals; not a style enforced retroactively across the existing codebase). `npm run lint`/`format`/`format:check` are dev tools, **not** CI gates. New `.github/workflows/test.yml` runs `npm test` on push/PR to `master` — tests only, matching the current direct-push workflow.
+- **Two real bugs found by ESLint while wiring it up, both fixed**: (1) `CombatEngine._postEntangleTripCard` called a bare `postEntangleTripCard` reference that was never imported — a genuine `ReferenceError` waiting to fire the first time an actor had a pending Entangle trip at the start of their turn (the "post trip-or-skip card" feature, reachable via `updateCombat`, was live but broken since it shipped). Fixed with the missing import from `./effects/entangle.js`. (2) `module/utils/meg-import.js` had two harmless-but-flagged useless regex escapes (`\-` inside a character class) — cosmetic, cleaned up.
+- **`frozen-api-updated.md` is now formally frozen for v1.0** — a new header states every listed signature (all 12 `game.system.api` members plus `SE_RESOLVERS`) is a stability commitment requiring a major version bump to break. Documentation-only, not CI-enforced, per Chris's explicit choice — the discipline lives in the doc's own "update in the same change" rule, not new tooling.
+- `package.json`'s own `"version"` field (stale at 1.4.271, three versions behind `system.json`) removed rather than re-synced — a private, unpublished package doesn't need it, and it was a second place to remember to update on every release that `system.json` already covers authoritatively.
+- 495/495 tests unchanged (lint/format/CI/doc changes plus two narrow bugfixes, no hook-family behavior touched).
+- Companion module-side batch (Destined v1.9.97): same ESLint/Prettier/CI setup, plus README.md/CHANGELOG.md/LEGAL.md added (the module repo had none of the three) and one real bug fixed in Power Armor's energy-pool input handler, also found via ESLint.
+- Not yet committed.
+
 ## v1.4.278 — August 2026
 - **Doc/source truth sweep — roadmap Phase 2c**, the two concrete items left from Part 2's re-scoped recommendation. Doc-only changes plus one `config.js` comment fix; no runtime behavior changed.
 - **`bashKnockbackMultiplierHooks`' inline comment in `config.js` claimed "multiple hooks would multiply together"** — confirmed wrong against `bash.js`'s actual loop (a plain assignment, `knockbackMultiplier = result`, not `*=`) back when `extension-point-api-updated.md`'s own table row was written (v1.4.270) but left uncorrected in the code comment itself at the time. Fixed in place: multiple hooks do NOT compose, last valid (finite, positive) result wins.

@@ -1,0 +1,8 @@
+packs/
+node_modules/
+*.min.js
+# Prettier's HTML parser doesn't understand Foundry's Handlebars block
+# helpers used as inline attributes (e.g. {{#if system.equipped}}checked{{/if}}
+# inside a tag) and errors out rather than skipping them — excluded rather
+# than adding a Handlebars-aware plugin for this batch.
+*.hbs

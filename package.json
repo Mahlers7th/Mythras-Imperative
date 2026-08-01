@@ -1,11 +1,13 @@
 {
   "name": "mythras-imperative",
-  "version": "1.4.271",
   "description": "Mythras Imperative Foundry VTT system",
   "scripts": {
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "pack": "node scripts/pack-all.mjs",
-    "unpack": "node scripts/unpack-all.mjs"
+    "unpack": "node scripts/unpack-all.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "type": "module",
   "jest": {
@@ -13,7 +15,11 @@
     "transform": {}
   },
   "devDependencies": {
+    "@eslint/js": "^9.17.0",
     "@foundryvtt/foundryvtt-cli": "^3.0.3",
-    "jest": "^29.7.0"
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.4.2"
   }
 }

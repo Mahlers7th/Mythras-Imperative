@@ -1,5 +1,18 @@
 # Frozen API — Mythras Imperative
 
+**Frozen as of v1.4.278 (roadmap Phase 2f).** Every signature on this page —
+all 12 `game.system.api` members plus `SE_RESOLVERS` — is a stability
+commitment: **do not change a frozen signature's shape (parameters, return
+type, or observable behavior) without a major version bump, and update this
+doc in the same change as the runtime.** A signature change here is a
+breaking change for every listed caller (the Destined module today; the
+planned node editor and third-party modules in the future). This is a
+documentation-only commitment, not a CI-enforced one — no automated check
+currently fails a build that breaks this promise; the discipline lives in
+this header and in the "update the doc in the same change" rule below, which
+this doc's own change log shows has already been missed twice historically
+and caught in later doc-sync passes, not by tooling.
+
 Signatures on this page are called directly by external consumers (the
 planned node editor, modules, macros). **Do not change a frozen signature
 without updating this doc and the runtime in the same change.** A signature
