@@ -390,7 +390,6 @@ export class AttackerDialog {
           }
         },
         default: 'attack',
-        classes: ['dialog', 'mi-dialog'],
         render: html => {
           // Wire live updates ─────────────────────────────────────────────────
           const weaponSel     = html.find('#mi-atk-weapon')[0];
@@ -674,7 +673,7 @@ export class AttackerDialog {
             _updateGmDefence();
           }
         }
-      });
+      }, { classes: ['dialog', 'mi-dialog'] });
 
       dialog.render(true);
     });

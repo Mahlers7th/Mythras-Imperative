@@ -14,6 +14,22 @@
   --mi-teal-dark:      #0d2a52;
   --mi-teal-bg:        #e8eef8;
   --mi-teal-bg-sub:    #f0f4fc;
+  /* --mi-teal-dark is also used as a PANEL background (.mi-tabs-spine, the
+     advantage-picker header/footer) — a genuinely different role from "dark
+     accent text on a light surface" that happens to share the same value in
+     light mode but needs the OPPOSITE direction in dark mode (panel stays
+     dark; text needs to go bright). --mi-teal-text carries that text-only
+     role, split out after a dark-mode fix to one broke the other (a dialog
+     needed bright readable text, the tab spine needed to stay a dark panel).
+     Same value as --mi-teal-dark here — zero visible change in light mode. */
+  --mi-teal-text:      #0d2a52;
+  /* .mi-tabs-spine's own background — same value as --mi-teal-dark in light
+     mode (the approved current look), but explicitly NOT tied to it, so the
+     spine can go a neutral dark grey in dark mode without affecting the
+     other --mi-teal-dark panel uses (advantage-picker gradient, heal-button
+     hover) that are fine staying blue. Requested directly: low-opacity white
+     tab icons read poorly against a saturated blue panel in dark mode. */
+  --mi-spine-bg:       #0d2a52;
 
   --mi-ink:            #1a1a1e;
   --mi-ink-2:          #36363a;
@@ -38,6 +54,21 @@
   --mi-fumble-c:       #7f1d1d;
   --mi-fumble-bg:      #fef2f2;
 
+  /* Second accent (gold) and row-striping tints — added for destined-module's
+     palette migration onto these --mi-* tokens (roadmap-verified-v2.md Phase
+     1c/1e). The system had no prior token for either role: the module uses
+     gold as a genuine second accent throughout (headers, emphasis, borders),
+     distinct from --mi-teal and not the same role as the wound/outcome
+     colours above; row-alt/row-hover are generic list-striping tints with no
+     prior equivalent. Light-mode values are new (chosen for this migration);
+     dark-mode values are the module's own existing gotham colours — see
+     MYTHRAS_DARK_THEME in mythras.mjs. */
+  --mi-gold:           #a8823a;
+  --mi-gold-dim:        #8a6c30;
+  --mi-gold-glow:       rgba(168, 130, 58, 0.2);
+  --mi-row-alt:         rgba(0, 0, 0, 0.04);
+  --mi-row-hover:       rgba(0, 0, 0, 0.08);
+
   --mi-font-display:   'Cinzel', 'Palatino Linotype', serif;
   --mi-font-body:      'Crimson Text', Georgia, serif;
   --mi-font-ui:        'Source Sans 3', 'Segoe UI', sans-serif;
@@ -46,6 +77,16 @@
   --mi-radius:         4px;
   --mi-radius-lg:      8px;
 }
+
+/* Dark theme: NOT defined here as a `:root[data-mi-theme="dark"]` rule —
+   Foundry v14 loads this file via `@import "..." layer(system)` (confirmed
+   live via DevTools), and a cascade-layered override rule cannot beat the
+   base :root block above the way its higher selector specificity would
+   normally suggest; only an unlayered rule or an inline style can. The dark
+   values live as MYTHRAS_DARK_THEME in mythras.mjs and are applied as
+   inline custom properties on <html> by applyMythrasTheme(), driven by the
+   'mythras-imperative.theme' client setting (Follow Foundry / Always Light
+   / Always Dark). Keep the two in sync if either changes. */
 
 /* --- Reset ---------------------------------------------------------------- */
 .mythras-sheet *, .mythras-sheet *::before, .mythras-sheet *::after,
@@ -79,12 +120,25 @@
   background: var(--mi-paper); font-family: var(--mi-font-ui);
   font-size: 12px; color: var(--mi-ink); overflow: hidden;
 }
+/* Tab spine on the right — scoped to `.window-content .mythras-sheet`, NOT
+   the bare `.mythras-sheet` selector above. Two different elements share
+   that class name: the ApplicationV2 root <form> (classes option — first
+   child .window-header, second .window-content, needs to stay column so
+   the header sits above the content) and character-sheet.hbs's own inner
+   wrapper div (nested inside .window-content, first child .mi-tabs-spine —
+   this is the one that actually needs reversing). A bare `.mythras-sheet
+   { flex-direction: row-reverse }` hit BOTH — confirmed live: it squeezed
+   the outer form's own window-header into a 36px vertical sliver on the
+   right edge, hiding the close button entirely. */
+.window-content .mythras-sheet {
+  flex-direction: row-reverse;
+}
 
 /* ==========================================================================
    SPINE TABS
    ========================================================================== */
 .mi-tabs-spine {
-  width: var(--mi-tab-w); background: var(--mi-teal-dark);
+  width: var(--mi-tab-w); background: var(--mi-spine-bg);
   display: flex; flex-direction: column; align-items: center;
   padding: 8px 0; flex-shrink: 0; gap: 2px; z-index: 10;
 }
@@ -142,7 +196,7 @@
 }
 .mi-charname {
   font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
-  color: var(--mi-teal-dark); border: none; background: transparent;
+  color: var(--mi-teal-text); border: none; background: transparent;
   width: 100%; padding: 0; margin-bottom: 4px;
   border-bottom: 1px solid var(--mi-rule);
 }
@@ -239,7 +293,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 
 /* Fatigue select — colour shifts with severity */
 .mi-fatigue-select { background: transparent; color: var(--mi-ink-2); border: none; cursor: pointer; }
-.mi-fatigue-select.fresh        { color: var(--mi-teal-dark); }
+.mi-fatigue-select.fresh        { color: var(--mi-teal-text); }
 .mi-fatigue-select.winded,
 .mi-fatigue-select.tired        { color: #92400e; }
 .mi-fatigue-select.wearied,
@@ -317,7 +371,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   cursor: pointer; text-align: center;
 }
 .mi-attr-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--mi-ink-3); margin-bottom: 2px; }
-.mi-attr-val { font-size: 13px; font-weight: 600; color: var(--mi-teal-dark); font-family: var(--mi-font-body); }
+.mi-attr-val { font-size: 13px; font-weight: 600; color: var(--mi-teal-text); font-family: var(--mi-font-body); }
 
 /* ==========================================================================
    SKILL LIST
@@ -344,7 +398,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-skill-name { font-size: 12px; color: var(--mi-ink); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mi-skill-name:hover { color: var(--mi-teal); }
 .mi-skill-base { font-size: 10px; color: var(--mi-ink-4); white-space: nowrap; }
-.mi-skill-total { font-size: 12px; font-weight: 700; color: var(--mi-teal-dark); text-align: right; white-space: nowrap; }
+.mi-skill-total { font-size: 12px; font-weight: 700; color: var(--mi-teal-text); text-align: right; white-space: nowrap; }
 .mi-item-delete { color: var(--mi-ink-4); cursor: pointer; font-size: 10px; text-align: center; opacity: 0; transition: opacity .1s, color .1s; }
 .mi-skill-row:hover .mi-item-delete { opacity: 1; }
 .mi-item-delete:hover { color: var(--mi-wound-major); }
@@ -456,7 +510,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-resistance-value {
   font-size: 14px;
   font-weight: 700;
-  color: var(--mi-teal-dark);
+  color: var(--mi-teal-text);
 }
 
 /* ==========================================================================
@@ -608,7 +662,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-card-details { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 7px; }
 .mi-card-pill {
   font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   border-radius: 8px; padding: 2px 8px;
 }
 .mi-card-target { font-size: 11px; color: var(--mi-ink-3); text-align: center; margin-bottom: 4px; }
@@ -642,7 +696,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-luck-reroll, .mi-luck-swap {
   flex: 1; font-size: 11px; font-weight: 600; padding: 4px 8px;
   border: 1px solid var(--mi-teal); border-radius: var(--mi-radius);
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   cursor: pointer; font-family: var(--mi-font-ui); transition: background .15s, color .15s;
 }
 .mi-luck-reroll:hover, .mi-luck-swap:hover { background: var(--mi-teal); color: #fff; }
@@ -655,7 +709,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;
   padding: 4px 8px; font-size: 11px; font-weight: 600;
   border: 1px solid var(--mi-teal); border-radius: var(--mi-radius);
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   cursor: pointer; font-family: var(--mi-font-ui); transition: background .15s, color .15s;
 }
 .mi-btn:hover { background: var(--mi-teal); color: #fff; }
@@ -663,8 +717,27 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 /* ==========================================================================
    ROLL DIALOG
    ========================================================================== */
-.mi-dialog .window-content { padding: 0; background: var(--mi-paper); }
+/* !important: Foundry core's own (unlayered) window-content background rule
+   otherwise wins outright — this file loads via `@import "..." layer(system)`,
+   and cascade layers put ANY unlayered declaration ahead of ANY layered one
+   regardless of selector specificity, no matter how targeted. `!important`
+   is the one thing that beats that. Confirmed live: without it, .mi-dialog
+   windows (AttackerDialog/DefenderDialog/skill checks) stayed on Foundry's
+   default light background in dark mode, while the same background
+   correctly flips everywhere .mythras.sheet.item/.destined-dialog (module
+   CSS) already used !important for the same reason. */
+.mi-dialog .window-content { padding: 0; background: var(--mi-paper) !important; }
 .mi-roll-dialog { font-family: var(--mi-font-ui); }
+
+/* Dialog action buttons ("Attack"/"Cancel", "Roll"/"Cancel", etc.) — Foundry's
+   own default button text colour is a hardcoded near-black (assumes a light
+   surface); neither the system nor the module supplies its own override
+   here anymore (the module's used to, incorrectly, painting other windows'
+   V1 dialogs — removed in the roadmap-verified-v2.md Phase 1a sweep).
+   Confirmed live: computed to rgb(0,0,0) on a near-transparent background
+   over the dark dialog body — invisible. var(--mi-ink) reads correctly in
+   both themes. */
+.mi-dialog .dialog-buttons button { color: var(--mi-ink); }
 
 .mi-dialog-skill-header {
   display: flex; justify-content: space-between; align-items: baseline;
@@ -682,7 +755,17 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-form-row label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--mi-ink-3); }
 .mi-form-row select, .mi-form-row input {
   border: 1px solid var(--mi-rule); border-radius: var(--mi-radius);
-  padding: 4px 7px; font-size: 12px; background: var(--mi-paper-2); width: 100%;
+  padding: 4px 7px; font-size: 12px; background: var(--mi-paper-2); color: var(--mi-ink); width: 100%;
+}
+/* The <option> POPUP list is a separate rendering context from the closed
+   <select> — `color` inherits into it (so it went white in dark mode) but
+   `background` does not (so it stayed the browser's native white), giving
+   white text on a white popup. Only the closed/selected state was fixed
+   above; this covers the open dropdown list itself. Dark-theme-only bug —
+   light mode's near-black text already read fine against that same native
+   white. */
+.mi-form-row select option {
+  background: var(--mi-paper-2); color: var(--mi-ink);
 }
 .mi-dialog-target-row {
   display: flex; justify-content: space-between; align-items: center;
@@ -742,7 +825,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 
 /* Bonus badge — shown when module hooks add AP */
 .mi-ap-bonus-badge {
-  font-size: 9px; color: var(--mi-teal-dark); font-weight: 600;
+  font-size: 9px; color: var(--mi-teal-text); font-weight: 600;
   text-align: center; letter-spacing: .03em;
 }
 
@@ -764,7 +847,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-dm-btn:hover { background: var(--mi-teal); color: #fff; }
 /* Small offset badge shown when offset ≠ 0 */
 .mi-dm-offset-badge {
-  font-size: 9px; color: var(--mi-teal-dark);
+  font-size: 9px; color: var(--mi-teal-text);
   text-align: center; margin-top: 1px; font-weight: 600;
   letter-spacing: .03em;
 }
@@ -777,11 +860,11 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   display: flex; align-items: center; justify-content: center;
   gap: 2px; font-size: 11px; flex-wrap: nowrap;
 }
-.mi-move-val  { font-weight: 600; color: var(--mi-teal-dark); }
+.mi-move-val  { font-weight: 600; color: var(--mi-teal-text); }
 .mi-move-sep  { color: var(--mi-ink-4); }
 .mi-move-track input[type="text"] {
   width: 100%; text-align: center; font-size: 11px; font-weight: 600;
-  color: var(--mi-teal-dark); background: transparent;
+  color: var(--mi-teal-text); background: transparent;
   border: none; border-bottom: 1px solid var(--mi-ink-4);
   padding: 0 2px;
 }
@@ -819,11 +902,11 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 
 /* Skill name — opens item sheet */
 .mi-skill-name { cursor: pointer; }
-.mi-skill-name:hover { color: var(--mi-teal-dark); text-decoration: underline; }
+.mi-skill-name:hover { color: var(--mi-teal-text); text-decoration: underline; }
 
 /* Skill total % — triggers roll */
 .mi-skill-total.rollable {
-  cursor: pointer; font-weight: 600; color: var(--mi-teal-dark);
+  cursor: pointer; font-weight: 600; color: var(--mi-teal-text);
   border-radius: var(--mi-radius); padding: 0 3px;
   transition: background .1s;
 }
@@ -845,11 +928,11 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   font-size: 12px; font-weight: 600; color: var(--mi-ink);
   cursor: pointer;
 }
-.mi-ability-name:hover { color: var(--mi-teal-dark); text-decoration: underline; }
+.mi-ability-name:hover { color: var(--mi-teal-text); text-decoration: underline; }
 .mi-ability-rank { font-size: 11px; }
 .mi-ability-type-pill {
   font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   border-radius: 8px; padding: 1px 7px;
 }
 .mi-ability-desc { font-size: 11px; grid-column: 1; padding-top: 2px; line-height: 1.4; }
@@ -882,7 +965,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   font-size: 12px; font-weight: 700; color: var(--mi-ink);
   cursor: pointer; flex: 1;
 }
-.mi-creature-trait-card-name:hover { color: var(--mi-teal-dark); text-decoration: underline; }
+.mi-creature-trait-card-name:hover { color: var(--mi-teal-text); text-decoration: underline; }
 .mi-creature-trait-card-badges { display: flex; align-items: center; gap: 4px; }
 .mi-creature-trait-pill {
   font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
@@ -892,7 +975,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;
 }
 .mi-creature-trait-pill.engine {
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   border-color: color-mix(in srgb, var(--mi-teal) 40%, var(--mi-rule));
 }
 .mi-creature-trait-pill.value {
@@ -931,7 +1014,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-item-name {
   font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
-  color: var(--mi-teal-dark); border: none; background: transparent;
+  color: var(--mi-teal-text); border: none; background: transparent;
   width: 100%; padding: 0; margin-bottom: 4px;
   border-bottom: 1px solid var(--mi-rule);
 }
@@ -940,7 +1023,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-item-subtitle    { display: flex; align-items: center; gap: 8px; }
 .mi-item-type-pill   {
   font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em;
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   border-radius: 8px; padding: 2px 8px;
 }
 .mi-item-formula     { font-size: 11px; }
@@ -949,7 +1032,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-item-total-block { text-align: center; }
 .mi-item-total-num   {
   font-family: var(--mi-font-body); font-size: 28px; font-weight: 700;
-  color: var(--mi-teal-dark); line-height: 1;
+  color: var(--mi-teal-text); line-height: 1;
 }
 .mi-item-total-label {
   font-size: 9px; font-weight: 600; text-transform: uppercase;
@@ -1093,7 +1176,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   padding: 2px 8px 2px 10px; font-size: 11px; font-weight: 500;
   border: 1px solid var(--mi-teal-light); border-radius: 20px;
   background: color-mix(in srgb, var(--mi-teal) 10%, var(--mi-paper));
-  color: var(--mi-teal-dark); cursor: pointer;
+  color: var(--mi-teal-text); cursor: pointer;
   transition: background .1s, border-color .1s;
 }
 .mi-cs-weapon-pill:hover { background: color-mix(in srgb, var(--mi-teal) 18%, var(--mi-paper)); border-color: var(--mi-teal); }
@@ -1121,7 +1204,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-cs-trait-pill:hover { border-color: var(--mi-teal-light); color: var(--mi-ink); }
 .mi-cs-trait-pill.active {
-  border-color: var(--mi-teal); color: var(--mi-teal-dark); font-weight: 600;
+  border-color: var(--mi-teal); color: var(--mi-teal-text); font-weight: 600;
   background: color-mix(in srgb, var(--mi-teal) 12%, var(--mi-paper));
 }
 .mi-cs-trait-pill.engine-effect.active { border-color: var(--mi-teal-dark); }
@@ -1147,7 +1230,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-cs-inline-trait.engine {
   border-color: color-mix(in srgb, var(--mi-teal) 40%, var(--mi-rule));
-  color: var(--mi-teal-dark);
+  color: var(--mi-teal-text);
 }
 .mi-cs-inline-trait i { font-size: 8px; opacity: .7; }
 
@@ -1253,7 +1336,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 
 .mi-card-pill--range {
   background: color-mix(in srgb, var(--mi-teal) 15%, var(--mi-paper));
-  color: var(--mi-teal-dark);
+  color: var(--mi-teal-text);
 }
 
 /* ==========================================================================
@@ -1284,7 +1367,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-defence-skill {
   font-size: 13px; font-weight: 700; font-family: var(--mi-font-body);
-  color: var(--mi-teal-dark); min-width: 40px;
+  color: var(--mi-teal-text); min-width: 40px;
 }
 .mi-defence-note {
   font-size: 10px; color: var(--mi-ink-3); font-style: italic;
@@ -1357,7 +1440,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 
 /* SE pill in chat card */
 .mi-card-pill--se {
-  background: var(--mi-teal-bg); color: var(--mi-teal-dark);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
   border: 1px solid var(--mi-teal);
 }
 .mi-card-se-list {
@@ -1445,7 +1528,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   padding: 6px 0;
 }
 .mi-card-damage-num    { font-size: 16px; font-weight: 800; color: var(--mi-ink); }
-.mi-card-damage-final  { font-size: 13px; font-weight: 700; color: var(--mi-teal-dark); }
+.mi-card-damage-final  { font-size: 13px; font-weight: 700; color: var(--mi-teal-text); }
 .mi-card-note--warn    { color: var(--mi-fumble-c); font-weight: 700; }
 .mi-roll-result--location { font-size: 1.4em; }
 
@@ -1485,7 +1568,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
   background: var(--mi-teal-bg); border: 1px solid var(--mi-teal-light);
 }
 .mi-se-roll-label { font-size: 12px; font-weight: 600; color: var(--mi-ink); }
-.mi-se-roll-val   { font-size: 15px; font-weight: 800; color: var(--mi-teal-dark); font-family: var(--mi-font-body); }
+.mi-se-roll-val   { font-size: 15px; font-weight: 800; color: var(--mi-teal-text); font-family: var(--mi-font-body); }
 .mi-se-roll-note  { font-size: 11px; color: var(--mi-ink-3); font-style: italic; margin: 2px 0; }
 
 
@@ -1522,7 +1605,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-dice-breakdown-die {
   display: inline-block;
   background: var(--mi-teal-bg);
-  color: var(--mi-teal-dark);
+  color: var(--mi-teal-text);
   border: 1px solid var(--mi-teal-light);
   border-radius: 4px;
   min-width: 26px;
@@ -1559,7 +1642,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-card-location-die strong { color: var(--mi-ink); font-weight: 800; }
 .mi-card-location-label {
-  font-size: 13px; font-weight: 700; color: var(--mi-teal-dark);
+  font-size: 13px; font-weight: 700; color: var(--mi-teal-text);
 }
 
 /* ==========================================================================
@@ -1664,7 +1747,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 
 .mi-card-burst-round .mi-card-damage-final {
-  font-size: 12px; font-weight: 700; color: var(--mi-teal-dark);
+  font-size: 12px; font-weight: 700; color: var(--mi-teal-text);
 }
 
 /* ==========================================================================
@@ -1770,7 +1853,7 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-actor-name {
   font-family: var(--mi-font-display); font-size: 16px; font-weight: 500;
-  color: var(--mi-teal-dark); border: none; background: transparent;
+  color: var(--mi-teal-text); border: none; background: transparent;
   width: 100%; padding: 0; margin-bottom: 4px;
   border-bottom: 1px solid var(--mi-rule);
 }
@@ -2276,4 +2359,4 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-crew-pick-img { width: 24px; height: 24px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
 .mi-crew-pick-name { flex: 1; font-size: 12px; color: var(--mi-ink); }
 .mi-crew-role-label { font-size: 10px; }
-.mi-crew-style-pct { font-size: 11px; font-weight: 600; color: var(--mi-teal-dark); min-width: 36px; text-align: right; }
+.mi-crew-style-pct { font-size: 11px; font-weight: 600; color: var(--mi-teal-text); min-width: 36px; text-align: right; }

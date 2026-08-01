@@ -969,7 +969,6 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         }
       },
       default: 'apply',
-      classes: ['dialog', 'mi-dialog'],
       render: html => {
         const root    = html[0];
         const countEl = root.querySelector('#mi-adv-count');
@@ -991,7 +990,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         );
         updateCount();
       }
-    }).render(true);
+    }, { classes: ['dialog', 'mi-dialog'] }).render(true);
   }
 
   async _onDmOffsetChange(ev) {
@@ -1346,9 +1345,8 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           cancel: { icon: '<i class="fas fa-times"></i>', label: 'Cancel', callback: () => resolve(null) }
         },
         default: 'ok',
-        classes: ['dialog', 'mi-dialog'],
         render: html => { html.find('#mi-loc-name-input').focus().select(); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 

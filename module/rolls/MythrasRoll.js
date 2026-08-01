@@ -118,7 +118,6 @@ export class MythrasRoll {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         render: html => {
           const update = () => {
             const diff    = html.find('#mi-difficulty').val();
@@ -135,7 +134,7 @@ export class MythrasRoll {
           html.find('#mi-difficulty, #mi-passion').on('change input', update);
           update();
         }
-      });
+      }, { classes: ['dialog', 'mi-dialog'] });
       dialog.render(true);
     });
   }

@@ -258,7 +258,6 @@ export class DefenderDialog {
           }
         },
         default: 'defend',
-        classes: ['dialog', 'mi-dialog'],
         render: html => {
           const typeRadios    = html.find('input[name="mi-def-type"]');
           const weaponSel     = html.find('#mi-def-weapon')[0];
@@ -313,7 +312,7 @@ export class DefenderDialog {
 
           _updateDisplay();
         }
-      });
+      }, { classes: ['dialog', 'mi-dialog'] });
 
       dialog.render(true);
     });

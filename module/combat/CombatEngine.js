@@ -2125,9 +2125,8 @@ export class CombatEngine {
           }
         },
         default: 'confirm',
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolve(CombatEngine._rollHitLocation(defender))
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -2270,9 +2269,8 @@ export class CombatEngine {
           }
         },
         default: 'confirm',
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolve({ id: null, label: rolledLabel })
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 

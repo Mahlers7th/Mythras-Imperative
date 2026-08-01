@@ -284,12 +284,11 @@ export async function runWoundEnduranceDialog({
         }
       },
       default: 'roll',
-      classes: ['dialog', 'mi-dialog'],
       close: () => {
         // Treat dialog close without rolling as a failure (worst case for safety)
         if (!resolved) resolve({ roll: null, succeeds: false });
       }
-    }).render(true);
+    }, { classes: ['dialog', 'mi-dialog'] }).render(true);
   });
 }
 
@@ -340,9 +339,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -377,9 +375,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -414,9 +411,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -454,9 +450,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -489,9 +484,8 @@ export async function runSEDialog(data) {
               content,
               buttons: btns,
               default: skillOptions[0].name,
-              classes: ['dialog', 'mi-dialog'],
               close: () => resolve(skillOptions[0])
-            }).render(true);
+            }, { classes: ['dialog', 'mi-dialog'] }).render(true);
           });
         })
       : skillOptions[0];
@@ -540,7 +534,6 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => {
           if (!resolved) resolve({
             chosenSkillName: pickSkill.name, chosenSkillTotal: pickSkill.total,
@@ -548,7 +541,7 @@ export async function runSEDialog(data) {
             roll: null, succeeds: false
           });
         }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -584,9 +577,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -626,9 +618,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -659,13 +650,12 @@ export async function runSEDialog(data) {
         content,
         buttons: btns,
         default: skillOptions[0].name,
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolve({
           chosenSkillName: skillOptions[0].name, chosenSkillTotal: skillOptions[0].total,
           chosenSkillRaw: skillOptions[0].rawTotal ?? skillOptions[0].total,
           roll: null, succeeds: true
         })
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -705,9 +695,8 @@ export async function runSEDialog(data) {
             }
           },
           default: 'roll',
-          classes: ['dialog', 'mi-dialog'],
           close: () => { if (!resolved) resolve({ chosenSkillName: sk.name, chosenSkillTotal: sk.total, chosenSkillRaw: sk.rawTotal ?? sk.total, roll: null, succeeds: false }); }
-        }).render(true);
+        }, { classes: ['dialog', 'mi-dialog'] }).render(true);
       });
     }
 
@@ -735,9 +724,8 @@ export async function runSEDialog(data) {
         content,
         buttons: btns,
         default: skillOptions[0].name,
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolveOuter({ chosenSkillName: skillOptions[0].name, chosenSkillTotal: skillOptions[0].total, chosenSkillRaw: skillOptions[0].rawTotal ?? skillOptions[0].total, roll: null, succeeds: false })
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -772,9 +760,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -819,9 +806,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ roll: null, succeeds: false, grade: 'hard' }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -849,9 +835,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'no',
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolve(false)
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -879,9 +864,8 @@ export async function runSEDialog(data) {
               content,
               buttons: btns,
               default: bashSkills[0].name,
-              classes: ['dialog', 'mi-dialog'],
               close: () => resolve(bashSkills[0])
-            }).render(true);
+            }, { classes: ['dialog', 'mi-dialog'] }).render(true);
           });
         })
       : bashSkills[0];
@@ -916,9 +900,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'roll',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve({ chosenSkill: pickSkill, roll: null, succeeds: false }); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -971,9 +954,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'confirm',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve(null); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -1027,9 +1009,8 @@ export async function runSEDialog(data) {
           }
         },
         default: 'confirm',
-        classes: ['dialog', 'mi-dialog'],
         close: () => { if (!resolved) resolve(null); }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 
@@ -1103,7 +1084,6 @@ export async function runSEDialog(data) {
         content,
         buttons: btns,
         default: skillOptions[0]?.name,
-        classes: ['dialog', 'mi-dialog'],
         close: () => {
           if (!resolved) resolve({
             chosenSkillName: null, chosenSkillTotal: null, chosenSkillRaw: null,
@@ -1111,7 +1091,7 @@ export async function runSEDialog(data) {
             cancelled: true, gmOverride: false
           });
         }
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
 

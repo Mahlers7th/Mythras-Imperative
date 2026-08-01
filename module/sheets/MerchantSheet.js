@@ -271,7 +271,6 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         cancel: { label: 'Cancel' }
       },
       default: 'buy',
-      classes: ['dialog', 'mi-dialog'],
       render: html => {
         const updateFinal = () => {
           const adjFactor   = 1 + (parseFloat(html.find('#mi-buy-adjust').val()) || 0) / 100;
@@ -286,7 +285,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         html.find('#mi-buy-adjust')[0]?.addEventListener('change', updateFinal);
         html.find('#mi-buy-paywith')[0]?.addEventListener('change', updateFinal);
       }
-    }).render(true);
+    }, { classes: ['dialog', 'mi-dialog'] }).render(true);
   }
 
   // ---------------------------------------------------------------------------
@@ -349,7 +348,6 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         decline: { label: 'Decline' }
       },
       default: 'accept',
-      classes: ['dialog', 'mi-dialog'],
       render: html => {
         html.find('#mi-tradein-adjust')[0]?.addEventListener('change', ev => {
           const adjFactor = 1 + (parseFloat(ev.target.value) || 0) / 100;
@@ -357,7 +355,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
             this._baseToDisplay(Math.round(offerBase * adjFactor), denomItem);
         });
       }
-    }).render(true);
+    }, { classes: ['dialog', 'mi-dialog'] }).render(true);
   }
 
   // ---------------------------------------------------------------------------

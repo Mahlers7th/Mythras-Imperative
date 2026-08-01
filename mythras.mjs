@@ -333,7 +333,109 @@ Hooks.once('setup', () => {
     type:    Object,
     default: {}
   });
+
+  // Theme — client-scoped so a GM and a player can each pick independently.
+  // Drives the --mi-* design tokens via applyMythrasTheme below. Every
+  // Mythras Imperative window reads these tokens, so re-applying them on
+  // <html> re-themes all of them at once — module windows too, once
+  // destined-module's own palette is remapped onto these same --mi-* names
+  // (see roadmap-verified-v2.md Phase 1c/1e).
+  game.settings.register('mythras-imperative', 'theme', {
+    name:    'Theme',
+    hint:    '"Follow Foundry" matches your own core Interface Appearance setting (Configure Settings > Interface). Light/Dark force a specific theme for Mythras Imperative windows regardless of that setting.',
+    scope:   'client',
+    config:  true,
+    type:    String,
+    choices: {
+      auto:  'Follow Foundry',
+      light: 'Always Light',
+      dark:  'Always Dark',
+    },
+    default: 'auto',
+    onChange: applyMythrasTheme,
+  });
+  applyMythrasTheme();
 });
+
+// Dark values for the --mi-* design tokens (styles/mythras.css's :root block
+// has the light/default values). This is the gotham palette destined-module
+// built (styles/destined-module.css's --g-* block), remapped onto the
+// system's semantic token names so module and system windows can eventually
+// share one palette instead of two (roadmap-verified-v2.md Phase 1c/1e).
+// --mi-font-*/--mi-tab-w/--mi-radius-* are layout/typography, not colour,
+// and intentionally don't vary by theme, so they're absent here.
+const MYTHRAS_DARK_THEME = {
+  '--mi-teal':          '#4a90c4',
+  '--mi-teal-light':    '#6bb0e0',
+  '--mi-teal-lighter':  '#8ecbf0',
+  // --mi-teal-dark is a PANEL background here (.mi-tabs-spine etc.) — stays
+  // dark, gotham's own --g-blue-dim. --mi-teal-text (below) carries the
+  // *text* role instead — see its definition in mythras.css's :root for why
+  // one token couldn't serve both once dark mode needed opposite directions
+  // for each (panel stays dark; text needs to go bright).
+  '--mi-teal-dark':     '#2e6090',
+  '--mi-teal-text':     '#8ecbf0',
+  // Requested directly: dark grey, not a saturated blue — the tab spine's
+  // ~45%-opacity white icons read poorly against any blue panel.
+  '--mi-spine-bg':      '#26262b',
+  '--mi-teal-bg':       '#1a2b3d',
+  '--mi-teal-bg-sub':   '#0e1e2d',
+  '--mi-ink':           '#dde8f0',
+  '--mi-ink-2':         '#8aa8c0',
+  '--mi-ink-3':         '#7a9aac',
+  '--mi-ink-4':         '#4a6070',
+  '--mi-paper':         '#0e1e2d',
+  '--mi-paper-2':       '#1a2b3d',
+  '--mi-paper-3':       '#09131c',
+  '--mi-rule':          '#2a4060',
+  '--mi-wound-minor':   '#f0a020',
+  '--mi-wound-serious': '#e0601a',
+  '--mi-wound-major':   '#d94040',
+  '--mi-critical-c':    '#5adb8a',
+  '--mi-critical-bg':   '#16321f',
+  '--mi-success-c':     '#7ee0a5',
+  '--mi-success-bg':    '#122a1a',
+  '--mi-failure-c':     '#e0a050',
+  '--mi-failure-bg':    '#2e2410',
+  '--mi-fumble-c':      '#e05555',
+  '--mi-fumble-bg':     '#2e1414',
+  '--mi-gold':          '#d4b896',
+  '--mi-gold-dim':      '#a88c6a',
+  '--mi-gold-glow':     'rgba(212, 184, 150, 0.2)',
+  '--mi-row-alt':       'rgba(255, 255, 255, 0.04)',
+  '--mi-row-hover':     'rgba(255, 255, 255, 0.08)',
+};
+
+/**
+ * Resolve the effective light/dark theme from the 'theme' client setting
+ * (following Foundry's own core Interface Appearance setting when set to
+ * 'auto') and apply the --mi-* design tokens on <html> accordingly.
+ *
+ * Applied as inline custom properties on documentElement.style, NOT via a
+ * `:root[data-mi-theme="dark"]` stylesheet rule — Foundry v14 loads system
+ * CSS via `@import "..." layer(system)` (confirmed live: DevTools shows
+ * exactly this in the generated <style> tag), and a cascade-layered rule
+ * cannot beat the base (equally-layered) :root block the way normal
+ * specificity would suggest; an unlayered override or an inline style is
+ * required. Inline style also means light mode needs no override at all —
+ * just remove these properties to fall back to :root's own light values.
+ *
+ * Called on setup, on setting change, and exposed on game.system.api so a
+ * popped-out window (a separate document, its own <html>) can re-apply it.
+ */
+function applyMythrasTheme() {
+  const setting = game.settings.get('mythras-imperative', 'theme');
+  const effective = setting === 'auto'
+    ? (game.settings.get('core', 'uiConfig')?.colorScheme?.interface ?? 'light')
+    : setting;
+  const root = document.documentElement;
+  root.dataset.miTheme = effective;
+  if (effective === 'dark') {
+    for (const [prop, value] of Object.entries(MYTHRAS_DARK_THEME)) root.style.setProperty(prop, value);
+  } else {
+    for (const prop of Object.keys(MYTHRAS_DARK_THEME)) root.style.removeProperty(prop);
+  }
+}
 
 // ---------------------------------------------------------------------------
 // READY
@@ -393,6 +495,11 @@ Hooks.once('ready', () => {
     getArmourAt,
     triggerOpposedSE,
     triggerFollowUpAttack,
+    // applyMythrasTheme (v1.4.275+): re-stamps data-mi-theme on <html> from the
+    // current 'theme' setting. Exposed for a popped-out window's own document
+    // (right-click a chat card/app > Pop Out opens a separate browser window
+    // with its own <html>, which never received the setup-time attribute).
+    applyMythrasTheme,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────

@@ -115,7 +115,6 @@ export class SpecialEffectDialog {
           }
         },
         default: 'confirm',
-        classes: ['dialog', 'mi-dialog', 'mi-se-dialog-window'],
         render: html => {
           const checkboxes    = html.find('input[name="mi-se-choice"]');
           const countDisplay  = html.find('#mi-se-selected-num')[0];
@@ -183,7 +182,7 @@ export class SpecialEffectDialog {
 
           _updateCount();
         }
-      });
+      }, { classes: ['dialog', 'mi-dialog', 'mi-se-dialog-window'] });
 
       dialog.render(true);
     });

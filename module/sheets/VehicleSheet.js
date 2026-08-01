@@ -461,9 +461,8 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           cancel: { icon: '<i class="fas fa-times"></i>', label: 'Cancel', callback: () => resolve(null) }
         },
         default: 'save',
-        classes: ['dialog', 'mi-dialog'],
         close: () => resolve(null)
-      }).render(true);
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
     if (!name) return;
 
