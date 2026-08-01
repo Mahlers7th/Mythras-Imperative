@@ -64,6 +64,23 @@ function applyArmourHooks(hooks, actor, locationId) {
 }
 
 /**
+ * Mirror of the prepareDerivedData action-points bonus reduce (Step 3).
+ * Fires AFTER the fatigue penalty (Step 2) has already been applied to
+ * penalizedBaseMax, so a hook-granted bonus is not itself fatigued away.
+ * Returns { bonus, max } — bonus is stored separately on
+ * attr.actionPoints.bonus for display; max is floored at 1 (the bonus
+ * itself is never floored). Faithful to CharacterData.js.
+ */
+function applyApBonusHooks(hooks, penalizedBaseMax, actor) {
+  const bonus = (hooks ?? []).reduce((sum, fn) => {
+    try { return sum + (Number(fn(actor)) || 0); }
+    catch { return sum; }
+  }, 0);
+  const max = Math.max(1, penalizedBaseMax + bonus);
+  return { bonus, max };
+}
+
+/**
  * Mirror of the prepareDerivedData damage-modifier-offset loop.
  * Sums each hook's signed step return on top of the manual dmOffset.
  * Faithful to CharacterData.js (Damage Modifier derivation).
@@ -1278,6 +1295,62 @@ describe('vehicle multi-round damage loop (v1.4.266)', () => {
     // ctx itself still only reflects the last round, as the real fields do —
     // callers must read the snapshot array, not ctx, for per-round history.
     expect(ctx.rawDamage).toBe(30);
+  });
+});
+
+// =============================================================================
+// apBonusHooks
+//   Non-negative-per-hook integers summed onto Action Points max AFTER the
+//   fatigue penalty is applied, so a granted bonus isn't itself fatigued
+//   away. Used by Destined Combat Expert (+1 AP). Max floors at 1.
+// =============================================================================
+
+describe('apBonusHooks', () => {
+  test('empty/undefined hook list leaves the penalized base unchanged, bonus 0', () => {
+    expect(applyApBonusHooks([], 3, {})).toEqual({ bonus: 0, max: 3 });
+    expect(applyApBonusHooks(undefined, 2, {})).toEqual({ bonus: 0, max: 2 });
+  });
+
+  test('a single hook adds to max and is reported separately as bonus', () => {
+    const res = applyApBonusHooks([() => 1], 3, {});
+    expect(res).toEqual({ bonus: 1, max: 4 });
+  });
+
+  test('multiple hooks sum (stacking AP bonuses across powers)', () => {
+    const res = applyApBonusHooks([() => 1, () => 2], 3, {});
+    expect(res).toEqual({ bonus: 3, max: 6 });
+  });
+
+  test('a hook returning null/undefined/NaN contributes zero', () => {
+    expect(applyApBonusHooks([() => undefined, () => 1], 3, {})).toEqual({ bonus: 1, max: 4 });
+    expect(applyApBonusHooks([() => null], 3, {})).toEqual({ bonus: 0, max: 3 });
+    expect(applyApBonusHooks([() => NaN, () => 1], 3, {})).toEqual({ bonus: 1, max: 4 });
+  });
+
+  test('a throwing hook is swallowed and does not abort the sum', () => {
+    const hooks = [() => 1, () => { throw new Error('boom'); }, () => 2];
+    expect(applyApBonusHooks(hooks, 3, {})).toEqual({ bonus: 3, max: 6 });
+  });
+
+  test('max floors at 1 even against a heavily fatigue-penalized base with no bonus', () => {
+    // A penalized base of 0 (e.g. Exhausted) with no hooks registered still
+    // must leave the actor able to act at all -- matches Step 2's own floor.
+    expect(applyApBonusHooks([], 0, {})).toEqual({ bonus: 0, max: 1 });
+  });
+
+  test('idempotent: re-running yields the same result (no accumulation)', () => {
+    const hooks = [() => 2];
+    const first  = applyApBonusHooks(hooks, 3, {});
+    const second = applyApBonusHooks(hooks, 3, {});
+    expect(first).toEqual(second);
+    expect(second).toEqual({ bonus: 2, max: 5 });
+  });
+
+  test('each hook receives the actor document', () => {
+    const spy = makeSpy(() => 1);
+    const actor = { name: 'Nex' };
+    applyApBonusHooks([spy], 3, actor);
+    expect(spy.calls).toEqual([[actor]]);
   });
 });
 
