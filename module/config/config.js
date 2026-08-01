@@ -55,17 +55,36 @@ export const MYTHRAS = {
 
   // -----------------------------------------------------------------------
   // ROLL HOOKS
-  // Modules register callbacks that fire before and after roll resolution.
-  // preRoll  : ({ actor, skill, difficulty, modifier }) => void | false
-  //            Return false to cancel the roll entirely.
-  // postRoll : ({ actor, skill, roll, outcome, chatData }) => void
-  //            Modify chatData to alter the chat card output.
+  //   Corrected (doc/source sync pass, system v1.4.278) — preRoll and
+  //   postRoll are NOT a symmetric pair covering "a skill/combat roll"
+  //   uniformly, despite sharing this one object. Confirmed against every
+  //   real call site: preRoll fires ONLY from CombatEngine (combat rolls,
+  //   2 call sites — normal attack init and vehicle-weapon attack init);
+  //   postRoll fires ONLY from MythrasRoll._postResult (skill/Passion roll
+  //   resolution, 1 call site). CombatEngine never calls postRoll; MythrasRoll
+  //   never calls preRoll. Neither loop has a try/catch — unlike nearly every
+  //   other hook family in this file, a throwing preRoll/postRoll hook
+  //   propagates UNCAUGHT out of attack initiation / roll resolution.
+  //
+  //   preRoll  : (ctx) => void | false
+  //     ctx is the SAME full attack-context object CombatEngine._buildContext
+  //     produces (ctx.attacker, ctx.defender, ctx.weapon, ...) — NOT a
+  //     {actor, skill, difficulty, modifier} shape. Return exactly `false` to
+  //     cancel the roll entirely (checked via `=== false`); any other return
+  //     is ignored. Fires once per attack initiation, before the automation-
+  //     level branch (manual vs. dialog flow).
+  //   postRoll : ({ actor, item, roll, outcome, chatData }) => void
+  //     `item` is the Skill/CombatStyle/Passion Item document being rolled
+  //     (not a raw skill name/value). Return value ignored — mutate
+  //     `chatData` (its `.content` string, most usefully) in place to alter
+  //     the chat card actually posted; fires immediately before
+  //     `ChatMessage.create(chatData)`.
   // -----------------------------------------------------------------------
 
   rollHooks: {
-    /** @type {Function[]} Called before a skill/combat roll is resolved */
+    /** @type {Function[]} (ctx) => void|false — combat rolls ONLY, see doc block above */
     preRoll: [],
-    /** @type {Function[]} Called after a roll is resolved, before chat output */
+    /** @type {Function[]} ({actor, item, roll, outcome, chatData}) => void — skill/Passion rolls ONLY, see doc block above */
     postRoll: []
   },
 
@@ -222,9 +241,15 @@ export const MYTHRAS = {
   //   ÷2 (shield) / ÷3 (bludgeoning) knockback formula. Return a positive
   //   number to scale the input damage (e.g. 2 to double it); the default
   //   multiplier when no hook returns a positive finite number is 1 (no
-  //   change). Multiple hooks would multiply together, but the expected
-  //   pattern — like damageModOffsetHooks — is a single module hook owning
-  //   net resolution across whichever of its own powers/boosts apply.
+  //   change). Multiple hooks do NOT multiply together — confirmed wrong
+  //   against bash.js's actual loop (a doc/source sync pass, system
+  //   v1.4.278): each hook that returns a valid (finite, positive) result
+  //   OVERWRITES knockbackMultiplier via plain assignment, so the LAST such
+  //   hook in registration order wins, not a compounded product. The
+  //   expected pattern — like damageModOffsetHooks — is a single module hook
+  //   owning net resolution across whichever of its own powers/boosts apply;
+  //   two independent hooks both returning a multiplier will silently NOT
+  //   compose.
   //   Read-time and pure: no actor/item writes, no chat output.
   //
   //   Added for Destined's Combat Expert "Improvised Weapon Expertise",
