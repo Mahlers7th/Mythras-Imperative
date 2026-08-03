@@ -19,6 +19,8 @@
  * when the rest of the sheets move across.
  */
 
+import { DIFFICULTY_GRADES } from '../utils/roll-math.js';
+
 export class AttackerDialog {
 
   /**
@@ -656,7 +658,7 @@ function _findDefenderSkill(actor, name) {
  * Returns 0 for 'hopeless'.
  */
 function _applyDifficulty(skill, difficulty) {
-  const grade = CONFIG.MYTHRAS.difficultyGrades[difficulty];
+  const grade = DIFFICULTY_GRADES[difficulty];
   if (!grade || grade.multiplier === null) return 0;
   return Math.ceil(skill * grade.multiplier);
 }

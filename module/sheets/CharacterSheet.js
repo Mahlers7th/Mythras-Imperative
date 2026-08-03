@@ -876,7 +876,12 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   // ── Hero Level / Advantage Picker ────────────────────────────────────────
 
-  // Advantage definitions — key, label, and which levels offer it
+  // Advantage definitions — key, label, and which levels offer it.
+  // Healing Rate doubling is deliberately NOT here — rulebook p.13-14 grants
+  // it automatically to every Hero Level character, separate from the
+  // "choose two/three" Advantage list (see CharacterData.js's own comment
+  // at the automatic-doubling site). Exactly 6 real picks per level, per
+  // the rulebook's own bulleted lists.
   static ADVANTAGES = [
     { key: 'actionPoint',      label: '+1 Action Point',                    levels: ['pulp','paragon'] },
     { key: 'luckyPoint',       label: '+1 Luck Point',                      levels: ['pulp'] },
@@ -886,7 +891,6 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     { key: 'enduranceEasier',  label: 'Endurance rolls one grade easier',   levels: ['pulp','paragon'] },
     { key: 'stealthEasier',    label: 'Stealth rolls one grade easier',     levels: ['pulp','paragon'] },
     { key: 'willpowerEasier',  label: 'Willpower rolls one grade easier',   levels: ['pulp','paragon'] },
-    { key: 'healingRate',      label: 'Double Healing Rate (Minor/Serious)',levels: ['pulp','paragon'] },
   ];
 
   async _onHeroLevelChange(ev) {

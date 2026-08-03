@@ -13,9 +13,9 @@ export const DIFFICULTY_GRADES = {
   veryEasy:   { multiplier: 2.0  },
   easy:       { multiplier: 1.5  },
   standard:   { multiplier: 1.0  },
-  hard:       { multiplier: 0.75 },
+  hard:       { multiplier: 2 / 3 }, // rulebook p.17: "reduce skill value by one-third"
   formidable: { multiplier: 0.5  },
-  herculean:  { multiplier: 0.25 },
+  herculean:  { multiplier: 1 / 5 }, // rulebook p.17: "reduce the skill value to one-fifth"
   hopeless:   { multiplier: null },
 };
 

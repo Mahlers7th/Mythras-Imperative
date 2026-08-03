@@ -283,8 +283,16 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
     if (adv.includes('actionPoint'))   attr.actionPoints.max   += 1;
     if (adv.includes('luckyPoint'))    attr.luckPoints.max     += 1;
     if (adv.includes('luckyPoint2'))   attr.luckPoints.max     += 2;
-    if (adv.includes('healingRate'))   attr.healingRate         = attr.healingRate * 2;
     // hitPoints bonus applied inside _calcHitLocationHP; grade-easier handled at roll time
+
+    // Healing Rate doubling is NOT one of the picked Advantages (rulebook
+    // p.13-14 states it separately from the "choose two/three" Advantage
+    // list: "All Pulp Heroic characters double their Healing Rate... All
+    // Paragon characters double their Healing Rate...") — automatic for
+    // any Hero Level character, free, doesn't compete with the real picks.
+    if (this.heroLevel === 'pulp' || this.heroLevel === 'paragon') {
+      attr.healingRate = attr.healingRate * 2;
+    }
 
     // Module luckPointsHooks (e.g. Destined Lucky ×2 / Mega Lucky ×4) add a
     // signed integer to the max AFTER the Hero Level luckyPoint adjustments.

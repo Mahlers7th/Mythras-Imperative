@@ -185,10 +185,10 @@ describe('gradeChoice', () => {
   });
 
   test('difficulty is applied via applyDifficulty before grading, not after', () => {
-    // applyDifficulty(60, 'hard') === 45 (roll-math.test.js line 31)
-    // determineOutcome(50, 45, 60) -> 50 > 45 -> 'failure'
+    // applyDifficulty(60, 'hard') === 40 (roll-math.test.js: ×2/3, rules p.17)
+    // determineOutcome(50, 40, 60) -> 50 > 40 -> 'failure'
     const result = gradeChoice(50, 60, 'hard');
-    expect(result.target).toBe(45);
+    expect(result.target).toBe(40);
     expect(result.grade).toBe('failure');
     expect(result.succeeds).toBe(false);
   });

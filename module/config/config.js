@@ -13,6 +13,8 @@
  *   });
  */
 
+import { DIFFICULTY_GRADES } from '../utils/roll-math.js';
+
 export const MYTHRAS = {
 
   // -----------------------------------------------------------------------
@@ -582,14 +584,19 @@ export const MYTHRAS = {
   // Modules should not modify this unless implementing a house rule variant.
   // -----------------------------------------------------------------------
 
+  // Multipliers sourced from roll-math.js's DIFFICULTY_GRADES — the single
+  // canonical table (rules p.17) — labels merged in here. Do not hand-type
+  // multiplier values in this object; a second hand-maintained copy is what
+  // let hard/herculean drift wrong (0.75/0.25 instead of 0.667/0.2) in the
+  // other table for years while this one stayed correct.
   difficultyGrades: {
-    veryEasy:    { label: 'MYTHRAS.DifficultyVeryEasy',   multiplier: 2    },
-    easy:        { label: 'MYTHRAS.DifficultyEasy',        multiplier: 1.5  },
-    standard:    { label: 'MYTHRAS.DifficultyStandard',   multiplier: 1    },
-    hard:        { label: 'MYTHRAS.DifficultyHard',        multiplier: 0.667 },
-    formidable:  { label: 'MYTHRAS.DifficultyFormidable', multiplier: 0.5  },
-    herculean:   { label: 'MYTHRAS.DifficultyHerculean',  multiplier: 0.2  },
-    hopeless:    { label: 'MYTHRAS.DifficultyHopeless',   multiplier: null }
+    veryEasy:    { label: 'MYTHRAS.DifficultyVeryEasy',   multiplier: DIFFICULTY_GRADES.veryEasy.multiplier   },
+    easy:        { label: 'MYTHRAS.DifficultyEasy',       multiplier: DIFFICULTY_GRADES.easy.multiplier       },
+    standard:    { label: 'MYTHRAS.DifficultyStandard',   multiplier: DIFFICULTY_GRADES.standard.multiplier   },
+    hard:        { label: 'MYTHRAS.DifficultyHard',       multiplier: DIFFICULTY_GRADES.hard.multiplier       },
+    formidable:  { label: 'MYTHRAS.DifficultyFormidable', multiplier: DIFFICULTY_GRADES.formidable.multiplier },
+    herculean:   { label: 'MYTHRAS.DifficultyHerculean',  multiplier: DIFFICULTY_GRADES.herculean.multiplier  },
+    hopeless:    { label: 'MYTHRAS.DifficultyHopeless',   multiplier: DIFFICULTY_GRADES.hopeless.multiplier   }
   },
 
   // -----------------------------------------------------------------------

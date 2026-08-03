@@ -6,6 +6,8 @@
  * passion augmentation, luck point re-roll/swap.
  */
 
+import { applyDifficulty as applyDifficultyShared } from '../utils/roll-math.js';
+
 export class MythrasRoll {
 
   // -------------------------------------------------------------------------
@@ -197,10 +199,7 @@ export class MythrasRoll {
   // -------------------------------------------------------------------------
 
   static applyDifficulty(skill, difficulty) {
-    const grades = CONFIG.MYTHRAS.difficultyGrades;
-    const grade  = grades[difficulty];
-    if (!grade || grade.multiplier === null) return skill;
-    return Math.ceil(skill * grade.multiplier);
+    return applyDifficultyShared(skill, difficulty);
   }
 
   // -------------------------------------------------------------------------

@@ -27,17 +27,17 @@ describe('applyDifficulty', () => {
   test('veryEasy (×2.0)', () => {
     expect(applyDifficulty(40, 'veryEasy')).toBe(80);
   });
-  test('hard (×0.75) — rounds up', () => {
-    expect(applyDifficulty(60, 'hard')).toBe(45);
-    expect(applyDifficulty(50, 'hard')).toBe(38); // ceil(37.5)
+  test('hard (×2/3, "reduce skill value by one-third", rules p.17) — rounds up', () => {
+    expect(applyDifficulty(60, 'hard')).toBe(40);
+    expect(applyDifficulty(50, 'hard')).toBe(34); // ceil(33.33...)
   });
   test('formidable (×0.5)', () => {
     expect(applyDifficulty(60, 'formidable')).toBe(30);
     expect(applyDifficulty(51, 'formidable')).toBe(26); // ceil(25.5)
   });
-  test('herculean (×0.25)', () => {
-    expect(applyDifficulty(60, 'herculean')).toBe(15);
-    expect(applyDifficulty(50, 'herculean')).toBe(13); // ceil(12.5)
+  test('herculean (×1/5, "reduce the skill value to one-fifth", rules p.17)', () => {
+    expect(applyDifficulty(60, 'herculean')).toBe(12);
+    expect(applyDifficulty(50, 'herculean')).toBe(10);
   });
   test('hopeless — multiplier null, returns skill unchanged', () => {
     expect(applyDifficulty(60, 'hopeless')).toBe(60);
@@ -137,7 +137,7 @@ describe('DIFFICULTY_GRADES', () => {
   test('hopeless multiplier is null', () => {
     expect(DIFFICULTY_GRADES.hopeless.multiplier).toBeNull();
   });
-  test('grades progress from easy (×2) to herculean (×0.25)', () => {
+  test('grades progress monotonically from veryEasy (×2) to herculean (×1/5)', () => {
     expect(DIFFICULTY_GRADES.veryEasy.multiplier).toBeGreaterThan(DIFFICULTY_GRADES.easy.multiplier);
     expect(DIFFICULTY_GRADES.easy.multiplier).toBeGreaterThan(DIFFICULTY_GRADES.standard.multiplier);
     expect(DIFFICULTY_GRADES.standard.multiplier).toBeGreaterThan(DIFFICULTY_GRADES.hard.multiplier);
