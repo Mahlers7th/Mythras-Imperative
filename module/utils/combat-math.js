@@ -11,32 +11,14 @@
 // Outcome determination
 // ---------------------------------------------------------------------------
 
-/**
- * Determine the success level of a single d100 roll.
- *
- * Rules p.21:
- *   - Fumble:   result >= 100, OR result >= 99 when skill < 100
- *   - Critical: result <= ceil(skill / 10)
- *   - Success:  result <= skill
- *   - Failure:  result > skill
- *
- * @param {number} result  The d100 roll result (1–100)
- * @param {number} target  Effective skill after difficulty applied
- * @param {number} [rawSkill]  Pre-difficulty skill (for fumble threshold).
- *   When omitted, falls back to `target` — safe for CombatEngine's internal
- *   use where target already equals the adjusted skill.
- * @returns {'critical'|'success'|'failure'|'fumble'}
- */
-export function determineOutcome(result, target, rawSkill = target) {
-  // Fumble: 99–100 always, or 99 when raw skill < 100
-  if (result >= 100 || (result >= 99 && rawSkill < 100)) return 'fumble';
-
-  // Critical: within 1/10 of target (round up)
-  const critThreshold = Math.ceil(target / 10);
-  if (result <= critThreshold) return 'critical';
-
-  return result <= target ? 'success' : 'failure';
-}
+// Re-exported from roll-math.js — this used to be a separate, byte-identical
+// copy of the same function (both independently missing the rules p.18
+// 01-05-Success/96-00-Failure floor-ceiling until it was found and fixed).
+// resolveOpposedRoll below is the entire opposed-SE-roll system's (Bleed,
+// Trip, Entangle, Grip, Impale, etc.) only path to outcome determination, so
+// a second hand-maintained copy here was a real drift risk, not just noise.
+export { determineOutcome } from './roll-math.js';
+import { determineOutcome } from './roll-math.js';
 
 // ---------------------------------------------------------------------------
 // Opposed roll resolution

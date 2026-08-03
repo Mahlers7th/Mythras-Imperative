@@ -29,8 +29,8 @@ describe('determineOutcome', () => {
     test('99 is fumble when rawSkill < 100', () => {
       expect(determineOutcome(99, 60, 60)).toBe('fumble');
     });
-    test('99 is NOT fumble when rawSkill >= 100', () => {
-      expect(determineOutcome(99, 100, 100)).toBe('success');
+    test('99 is NOT fumble when rawSkill >= 100 (but still Failure — the 96-00 ceiling)', () => {
+      expect(determineOutcome(99, 100, 100)).toBe('failure');
     });
     test('98 is never a fumble', () => {
       expect(determineOutcome(98, 50, 50)).toBe('failure');
@@ -67,9 +67,37 @@ describe('determineOutcome', () => {
     test('rolling target+1 is failure', () => {
       expect(determineOutcome(51, 50, 50)).toBe('failure');
     });
-    test('skill 01 — only 1 is critical, nothing else succeeds', () => {
+    test('skill 01 — 1 is critical, 2-5 are Success via the floor, 6+ fail', () => {
       expect(determineOutcome(1, 1, 1)).toBe('critical');
-      expect(determineOutcome(2, 1, 1)).toBe('failure');
+      expect(determineOutcome(2, 1, 1)).toBe('success'); // rules p.18 floor
+      expect(determineOutcome(5, 1, 1)).toBe('success'); // rules p.18 floor
+      expect(determineOutcome(6, 1, 1)).toBe('failure');
+    });
+  });
+
+  describe('01-05 auto-success floor (rules p.18)', () => {
+    test('a roll of 01-05 is always Success even against a near-zero skill', () => {
+      expect(determineOutcome(3, 0, 0)).toBe('success');
+      expect(determineOutcome(5, 2, 2)).toBe('success');
+    });
+    test('does not override a Critical (critical is already at least as good)', () => {
+      expect(determineOutcome(3, 50, 50)).toBe('critical');
+    });
+    test('does not apply above 05', () => {
+      expect(determineOutcome(6, 0, 0)).toBe('failure');
+    });
+  });
+
+  describe('96-00 auto-failure ceiling (rules p.18)', () => {
+    test('a roll of 96-99 is always Failure even against a very high skill', () => {
+      expect(determineOutcome(97, 150, 150)).toBe('failure');
+      expect(determineOutcome(96, 200, 200)).toBe('failure');
+    });
+    test('a Fumble in that range still takes priority over the ceiling', () => {
+      expect(determineOutcome(99, 60, 60)).toBe('fumble');
+    });
+    test('does not apply below 96 — a roll of 95 against a target of 95 still succeeds', () => {
+      expect(determineOutcome(95, 95, 95)).toBe('success');
     });
   });
 });

@@ -26,7 +26,7 @@
  */
 
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
-import { classifyLocation, getImpaleGrade, weaponBaseMax } from '../utils/combat-math.js';
+import { classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared } from '../utils/combat-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -4394,10 +4394,7 @@ export class CombatEngine {
   // -------------------------------------------------------------------------
 
   static _determineOutcome(result, target) {
-    if (result >= 100 || (result >= 99 && target < 100)) return 'fumble';
-    const critThreshold = Math.ceil(target / 10);
-    if (result <= critThreshold) return 'critical';
-    return result <= target ? 'success' : 'failure';
+    return determineOutcomeShared(result, target);
   }
 
   // -------------------------------------------------------------------------

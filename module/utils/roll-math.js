@@ -43,6 +43,10 @@ export function applyDifficulty(skill, difficulty) {
 /**
  * Determine the outcome of a skill roll.
  *
+ * Rules p.18: any roll of 01-05 is always a Success (floor); any roll of
+ * 96-00 is always a Failure regardless of skill (ceiling), unless it's
+ * already a Fumble under the rule above.
+ *
  * @param {number} result     d100 result
  * @param {number} target     Effective skill after difficulty
  * @param {number} [rawSkill] Pre-difficulty skill (for fumble threshold)
@@ -52,7 +56,10 @@ export function determineOutcome(result, target, rawSkill = target) {
   if (result >= 100 || (result >= 99 && rawSkill < 100)) return 'fumble';
   const critThreshold = Math.ceil(target / 10);
   if (result <= critThreshold) return 'critical';
-  return result <= target ? 'success' : 'failure';
+  if (result >= 96) return 'failure';
+  if (result <= target) return 'success';
+  if (result <= 5) return 'success';
+  return 'failure';
 }
 
 /**

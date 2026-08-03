@@ -6,7 +6,7 @@
  * passion augmentation, luck point re-roll/swap.
  */
 
-import { applyDifficulty as applyDifficultyShared } from '../utils/roll-math.js';
+import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared } from '../utils/roll-math.js';
 
 export class MythrasRoll {
 
@@ -208,18 +208,7 @@ export class MythrasRoll {
   // -------------------------------------------------------------------------
 
   static determineOutcome(result, target, rawSkill) {
-    // Fumble: 99-100, or 00 (=100) if skill < 50
-    if (result >= 100 || (result >= 99 && rawSkill < 100)) {
-      return 'fumble';
-    }
-    if (result < 100 && rawSkill < 50 && result >= 99) return 'fumble';
-
-    // Critical: ≤ 1/10 of target (round up)
-    const critThreshold = Math.ceil(target / 10);
-    if (result <= critThreshold) return 'critical';
-
-    // Success / Failure
-    return result <= target ? 'success' : 'failure';
+    return determineOutcomeShared(result, target, rawSkill);
   }
 
   // -------------------------------------------------------------------------

@@ -213,8 +213,9 @@ describe('gradeChoice', () => {
   });
 
   test('fumble at a raw skill >= 100 requires a natural 100, not 99 (matches determineOutcome)', () => {
-    // determineOutcome(99, 100, 100) === 'success' (roll-math.test.js line 80)
-    expect(gradeChoice(99, 100, null).grade).toBe('success');
+    // determineOutcome(99, 100, 100) === 'failure', not fumble, but not success
+    // either — the 96-00 ceiling still applies (roll-math.test.js line 80).
+    expect(gradeChoice(99, 100, null).grade).toBe('failure');
     expect(gradeChoice(100, 100, null).grade).toBe('fumble');
   });
 });

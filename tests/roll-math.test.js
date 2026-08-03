@@ -76,8 +76,8 @@ describe('determineOutcome', () => {
   test('roll 99 on skill 60 → fumble (rawSkill < 100)', () => {
     expect(determineOutcome(99, 60, 60)).toBe('fumble');
   });
-  test('roll 99 on skill 100 → success (rawSkill = 100, no fumble on 99)', () => {
-    expect(determineOutcome(99, 100, 100)).toBe('success');
+  test('roll 99 on skill 100 → failure, not fumble, not success (rawSkill = 100: no fumble on 99, but the 96-00 ceiling still applies)', () => {
+    expect(determineOutcome(99, 100, 100)).toBe('failure');
   });
   test('roll 100 → always fumble', () => {
     expect(determineOutcome(100, 100, 100)).toBe('fumble');
@@ -85,6 +85,21 @@ describe('determineOutcome', () => {
   test('critical threshold rounds up: skill 51 → crit ≤ 6', () => {
     expect(determineOutcome(6, 51, 51)).toBe('critical');
     expect(determineOutcome(7, 51, 51)).toBe('success');
+  });
+
+  describe('01-05 auto-success floor / 96-00 auto-failure ceiling (rules p.18)', () => {
+    test('roll 05 always succeeds, even against a target of 0', () => {
+      expect(determineOutcome(5, 0, 0)).toBe('success');
+    });
+    test('roll 06 is not covered by the floor — an ordinary failure against a low target', () => {
+      expect(determineOutcome(6, 0, 0)).toBe('failure');
+    });
+    test('roll 96 always fails, even against a target of 200 (and isn\'t a Fumble at rawSkill 200)', () => {
+      expect(determineOutcome(96, 200, 200)).toBe('failure');
+    });
+    test('roll 95 is not covered by the ceiling — an ordinary success against a matching target', () => {
+      expect(determineOutcome(95, 95, 95)).toBe('success');
+    });
   });
 });
 
