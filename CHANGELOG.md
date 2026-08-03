@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **New finding, not fixed this pass — flagged for later**: `CombatEngine._determineOutcome`'s 2-arg shape means combat's fumble threshold always uses the difficulty-*adjusted* target, never the character's raw skill. For a raw skill over 100% facing a difficulty penalty that brings the target under 100, this could fumble on 99 as well as 100, where the rulebook's "skills over 100% fumble only on 00" arguably should still apply based on the *raw* skill. Distinct from the floor/ceiling bug just fixed, and would need a signature change (a third raw-skill parameter plumbed through combat context) rather than a drop-in fix — deliberately out of scope here.
 - Live-verified against the running world: all four consumption points (`roll-math.js`, `combat-math.js`, `MythrasRoll.determineOutcome`, `CombatEngine._determineOutcome`) agree exactly on both the floor and ceiling cases; `game.system.api.determineOutcome` confirmed to be the literal same function reference as `roll-math.js`'s export, not a copy.
 - 10 new tests (`combat-math.test.js`, `roll-math.test.js`) covering the floor and ceiling explicitly; 4 existing tests across `combat-math.test.js`/`roll-math.test.js`/`request-skill-check.test.js` updated in place — each was asserting the old buggy output for exactly the input ranges this fix changes. 495 → 505, all green.
-- Not yet committed.
+- Committed as `41e78bc`.
 
 ## v1.4.282 — August 2026
 - **Two high-severity rulebook-audit bugs fixed** ([[project_rulebook-audit-2026-08-01]], findings #2 and #3 — the combat-order finding, #1, was resolved separately in v1.4.280/281).
