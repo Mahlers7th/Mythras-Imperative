@@ -522,6 +522,11 @@ export class CombatEngine {
       return;
     }
 
+    // ── RAW ordering (rules p.40): roll this target's attack before its
+    // defence is requested — once per target, since this method itself runs
+    // once per target in the spray loop.
+    await CombatEngine._rollAttack(ctx);
+
     // ── Surprised / zero-AP shortcuts ────────────────────────────────────────
     if (ctx.defenderSurprised) {
       ctx.defenceType        = 'none';
@@ -649,10 +654,23 @@ export class CombatEngine {
     const evadeTotal = evadeSkill?.system.total ?? 0;
     const hasParry   = sortedWeapons.length > 0;
 
+    // RAW ordering (rules p.40): _runFullAutoSingleTarget rolls this target's
+    // attack before calling this dialog — ctx.attackResult/attackOutcome are
+    // already set. Shown so the GM can decline a hopeless parry per target.
+    const outcomeLabel = {
+      critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
+      success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
+      failure:  game.i18n.localize('MYTHRAS.OutcomeFailure'),
+      fumble:   game.i18n.localize('MYTHRAS.OutcomeFumble')
+    };
+
     const content = `
       <div class="mi-attacker-dialog">
         <div class="mi-dialog-skill-header">
           <span class="mi-dialog-skill-name">${attacker.name} (Full Auto) → ${defender.name}</span>
+          <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}">
+            ${ctx.attackResult} — ${outcomeLabel[ctx.attackOutcome]}
+          </span>
         </div>
         <div class="mi-defence-options mi-defence-options--inline" style="padding: 8px 0;">
           <label class="mi-defence-option">
@@ -790,6 +808,11 @@ export class CombatEngine {
       await CombatEngine._resolveVehicleAttack(confirmedCtx);
       return;
     }
+
+    // ── RAW ordering (rules p.40): roll before the defence decision is
+    // requested, on every remaining branch below (surprised/zero-AP/GM
+    // inline/socket). No-op if AttackerDialog already rolled it (GM Mode).
+    await CombatEngine._rollAttack(confirmedCtx);
 
     // ── Step 5b: Surprised path — skip defender dialog entirely ─────────────
     if (confirmedCtx.defenderSurprised) {
@@ -936,6 +959,29 @@ export class CombatEngine {
   // 13.  Update actor HP, apply conditions, post resolution chat card
   // -------------------------------------------------------------------------
 
+  /**
+   * Roll the attacker's d100 and determine outcome — RAW ordering (rules
+   * p.40): the attacker rolls and notes the result BEFORE the defender's
+   * reaction is requested, on every path. Called once per attack, before
+   * the defence decision is requested (challenge()/inlineDefenceData/GM
+   * Full Auto dialog). Idempotent — a no-op if already rolled, so it's safe
+   * to call unconditionally even on the GM-inline path, where AttackerDialog
+   * itself already rolled between its two phases.
+   */
+  static async _rollAttack(ctx) {
+    if (ctx.attackResult != null) return;
+
+    const attackRoll = new Roll('1d100');
+    await attackRoll.evaluate();
+    ctx.attackRoll    = attackRoll;
+    ctx.attackResult  = attackRoll.total;
+    ctx.attackOutcome = CombatEngine._determineOutcome(ctx.attackResult, ctx.attackerSkillTotal);
+
+    if (ctx.attackOutcome === 'fumble' && ctx.attackerStyle && !ctx.attackerStyle.system.fumbledLastSession) {
+      await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+    }
+  }
+
   static async _afterDefenceResolved(ctx) {
     const { attacker, defender } = ctx;
 
@@ -955,16 +1001,9 @@ export class CombatEngine {
       if (applyProne) await CombatEngine._applyProneToDefender(defender);
     }
 
-    // ── Step 9: Roll attacker d100 ───────────────────────────────────────────
-    const attackRoll = new Roll('1d100');
-    await attackRoll.evaluate();
-    ctx.attackRoll    = attackRoll;
-    ctx.attackResult  = attackRoll.total;
-    ctx.attackOutcome = CombatEngine._determineOutcome(ctx.attackResult, ctx.attackerSkillTotal);
-
-    if (ctx.attackOutcome === 'fumble' && ctx.attackerStyle && !ctx.attackerStyle.system.fumbledLastSession) {
-      await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
-    }
+    // ── Step 9: Roll attacker d100 ────────────────────────────────────────────
+    // Moved to _rollAttack, called before the defence decision was requested
+    // (RAW, rules p.40) — ctx.attackResult/attackOutcome are already set here.
 
     // ── Step 9b: Roll defender d100 ─────────────────────────────────────────
     if (ctx.defenceType === 'none') {

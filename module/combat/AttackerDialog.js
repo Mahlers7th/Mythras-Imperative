@@ -173,94 +173,19 @@ export class AttackerDialog {
       return `<option value="${value}"${sel}>${label} — ${note}</option>`;
     }).join('');
 
-    // ── GM Mode — build inline defender panel ────────────────────────────────
+    // ── GM Mode — collect defender data for the post-roll defence phase ──────
     // Suppressed for vehicle defenders — vehicles cannot parry or evade.
+    // The panel itself is built by _showGmDefencePhase, after the attacker's
+    // final weapon (melee/ranged) is known — see that function for why.
     const gmMode = (game.settings.get('mythras-imperative', 'gmMode') ?? false)
                    && defender.type !== 'vehicle';
     const defStylesByWeaponId = gmMode ? _buildStylesByWeaponMap(defender) : {};
-    // Build the full weapon list here — filtering for shields (ranged) and
-    // shield-first sorting are applied reactively in the render callback when
-    // the attacker changes their weapon selection.
     const defParryWeaponsAll  = gmMode ? _buildWeaponList(defender, defStylesByWeaponId) : [];
-    // Initial sort: shields first. Reactive filtering happens in _updateRangedMode.
-    const defParryWeapons     = defParryWeaponsAll.slice().sort((a, b) => {
-      const aS = (a.system.traits ?? []).includes('shield') ? 0 : 1;
-      const bS = (b.system.traits ?? []).includes('shield') ? 0 : 1;
-      if (aS !== bS) return aS - bS;
-      return a.name.localeCompare(b.name);
-    });
     const evadeSkill          = gmMode ? _findDefenderSkill(defender, 'Evade') : null;
     const acrobaticsSkill     = gmMode ? _findDefenderSkill(defender, 'Acrobatics') : null;
     const hasDaredevil        = gmMode && Array.from(defender.items).some(
       i => i.type === 'combat-style' && (i.system.traits ?? []).includes('daredevil')
     );
-
-    const defWeaponOptions = defParryWeapons
-      .map(w => `<option value="${w.id}">${w.name}</option>`).join('')
-      || '<option value="">— No weapons —</option>';
-    const initDefStyles    = defParryWeapons[0]
-      ? (defStylesByWeaponId[defParryWeapons[0].id] ?? []) : [];
-    const defStyleOptions  = _buildStyleOptions(initDefStyles, null);
-
-    const evadeTotal       = evadeSkill?.system.total ?? 0;
-    const acrobaticsTotal  = acrobaticsSkill?.system.total ?? 0;
-    const proneWarning     = hasDaredevil ? '(Daredevil — no prone)' : '(will be prone)';
-
-    const gmDefenderPanel = gmMode ? `
-      <hr class="mi-dialog-divider">
-      <div class="mi-dialog-section-title">
-        <i class="fas fa-shield-alt"></i> ${defender.name} — Defence (GM Mode)
-      </div>
-      <div class="mi-defence-options mi-defence-options--inline">
-
-        <label class="mi-defence-option">
-          <input type="radio" name="mi-gm-def-type" value="parry" ${defParryWeapons.length ? 'checked' : 'disabled'}>
-          <span class="mi-defence-label">
-            <span class="mi-defence-name">Parry</span>
-            <span class="mi-defence-skill" id="mi-gm-parry-skill">${initDefStyles[0]?.system.total ?? 0}%</span>
-          </span>
-        </label>
-
-        <div class="mi-parry-selectors" id="mi-gm-parry-selectors">
-          <div class="mi-form-row">
-            <label>Weapon</label>
-            <select id="mi-gm-def-weapon">${defWeaponOptions}</select>
-          </div>
-          <div class="mi-form-row">
-            <label>Style</label>
-            <select id="mi-gm-def-style">${defStyleOptions}</select>
-          </div>
-        </div>
-
-        <label class="mi-defence-option">
-          <input type="radio" name="mi-gm-def-type" value="evade">
-          <span class="mi-defence-label">
-            <span class="mi-defence-name">Evade</span>
-            <span class="mi-defence-skill">${evadeTotal}%</span>
-            <span class="mi-defence-note">${proneWarning}</span>
-          </span>
-        </label>
-
-        ${acrobaticsSkill ? `
-        <label class="mi-defence-option">
-          <input type="radio" name="mi-gm-def-type" value="acrobatics">
-          <span class="mi-defence-label">
-            <span class="mi-defence-name">Acrobatics</span>
-            <span class="mi-defence-skill">${acrobaticsTotal}%</span>
-            <span class="mi-defence-note">(no prone)</span>
-          </span>
-        </label>` : ''}
-
-        <label class="mi-defence-option">
-          <input type="radio" name="mi-gm-def-type" value="none" ${defParryWeapons.length ? '' : 'checked'}>
-          <span class="mi-defence-label">
-            <span class="mi-defence-name">Don't Defend</span>
-            <span class="mi-defence-skill">—</span>
-            <span class="mi-defence-note">(automatic Failure)</span>
-          </span>
-        </label>
-
-      </div>` : '';
 
     const content = `
       <div class="mi-attacker-dialog">
@@ -365,10 +290,13 @@ export class AttackerDialog {
           <span class="mi-dialog-target-val" id="mi-atk-target-val">${initTarget}%</span>
         </div>
 
-        ${gmDefenderPanel}
-
       </div>
     `;
+    // Note: gmDefenderPanel is NOT included in this dialog's content — RAW
+    // ordering (rules p.40) requires the attacker's roll to be known before
+    // the defender's choice is made. In GM Mode the roll happens between this
+    // dialog and a second phase (_showGmDefencePhase) that shows the result
+    // alongside the inline defence panel. See _readAttackerFields below.
 
     return new Promise(resolve => {
       const dialog = new Dialog({
@@ -378,9 +306,22 @@ export class AttackerDialog {
           attack: {
             icon:  '<i class="fas fa-sword"></i>',
             label: 'Attack',
-            callback: html => {
-              const result = _readDialog(html, attacker, defender, ctx, stylesByWeaponId, allStyleWeapons);
-              resolve(result);
+            callback: async html => {
+              const result = _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, allStyleWeapons);
+              if (!gmMode) {
+                resolve(result);
+                return;
+              }
+              // GM Mode: roll now (RAW — attacker rolls and notes the result
+              // before the defender's reaction is requested), then show the
+              // roll alongside the inline defence panel in a second dialog.
+              await CombatEngine._rollAttack(result);
+              const gmResult = await _showGmDefencePhase(
+                result, defender,
+                defParryWeaponsAll, defStylesByWeaponId,
+                evadeSkill, acrobaticsSkill, hasDaredevil
+              );
+              resolve(gmResult);
             }
           },
           cancel: {
@@ -488,44 +429,12 @@ export class AttackerDialog {
               }
             }
 
-            // Rebuild GM Mode defender weapon list
-            if (gmMode) {
-              const gmWeaponSel  = html.find('#mi-gm-def-weapon')[0];
-              const gmStyleSel   = html.find('#mi-gm-def-style')[0];
-              if (!gmWeaponSel) return;
-
-              // Filter and sort: ranged = shields only (fall back to all if none);
-              // melee = shields first, then alphabetical
-              let eligible = defParryWeaponsAll.slice();
-              if (isRanged) {
-                const shieldOnly = eligible.filter(w => (w.system.traits ?? []).includes('shield'));
-                if (shieldOnly.length > 0) eligible = shieldOnly;
-              }
-              eligible.sort((a, b) => {
-                const aS = (a.system.traits ?? []).includes('shield') ? 0 : 1;
-                const bS = (b.system.traits ?? []).includes('shield') ? 0 : 1;
-                if (aS !== bS) return aS - bS;
-                return a.name.localeCompare(b.name);
-              });
-
-              // Rebuild weapon options
-              gmWeaponSel.innerHTML = eligible.length
-                ? eligible.map(w => `<option value="${w.id}">${w.name}</option>`).join('')
-                : '<option value="">— No weapons —</option>';
-
-              // Rebuild style options for new first weapon
-              const firstWeaponId = eligible[0]?.id ?? null;
-              const newStyles = firstWeaponId ? (defStylesByWeaponId[firstWeaponId] ?? []) : [];
-              if (gmStyleSel) gmStyleSel.innerHTML = _buildStyleOptions(newStyles, null);
-
-              // Update parry skill display
-              const gmParrySkill = html.find('#mi-gm-parry-skill')[0];
-              if (gmParrySkill) gmParrySkill.textContent = `${newStyles[0]?.system.total ?? 0}%`;
-
-              // Enable/disable parry radio based on whether any weapons are available
-              const parryRadio = html.find('input[name="mi-gm-def-type"][value="parry"]')[0];
-              if (parryRadio) parryRadio.disabled = eligible.length === 0;
-            }
+            // Note: the GM Mode inline defender panel (weapon/style rebuild on
+            // weapon change) used to live here. It's no longer part of this
+            // dialog's DOM — RAW ordering moved it to the second phase
+            // (_showGmDefencePhase), which is built fresh after the roll with
+            // the attacker's final weapon already known, so no live rebuild
+            // is needed there either.
           };
 
           // When weapon changes, rebuild the style list and update ranged/melee mode
@@ -641,37 +550,8 @@ export class AttackerDialog {
 
           _updateTarget();
 
-          // ── GM Mode inline defender panel wiring ──────────────────────────
-          if (gmMode) {
-            const gmDefRadios   = html.find('input[name="mi-gm-def-type"]');
-            const gmWeaponSel   = html.find('#mi-gm-def-weapon')[0];
-            const gmStyleSel    = html.find('#mi-gm-def-style')[0];
-            const gmParryBlock  = html.find('#mi-gm-parry-selectors')[0];
-            const gmParrySkill  = html.find('#mi-gm-parry-skill')[0];
-
-            const _updateGmDefence = () => {
-              const type = html.find('input[name="mi-gm-def-type"]:checked').val();
-              if (gmParryBlock) {
-                gmParryBlock.style.display = type === 'parry' ? '' : 'none';
-              }
-              if (type === 'parry' && gmWeaponSel && gmStyleSel) {
-                const styles = defStylesByWeaponId[gmWeaponSel.value] ?? [];
-                const style  = styles.find(s => s.id === gmStyleSel.value) ?? styles[0] ?? null;
-                if (gmParrySkill) gmParrySkill.textContent = `${style?.system.total ?? 0}%`;
-              }
-            };
-
-            if (gmWeaponSel) {
-              gmWeaponSel.addEventListener('change', () => {
-                const styles = defStylesByWeaponId[gmWeaponSel.value] ?? [];
-                if (gmStyleSel) gmStyleSel.innerHTML = _buildStyleOptions(styles, null);
-                _updateGmDefence();
-              });
-            }
-            if (gmStyleSel) gmStyleSel.addEventListener('change', _updateGmDefence);
-            gmDefRadios.on('change', _updateGmDefence);
-            _updateGmDefence();
-          }
+          // GM Mode's inline defender panel is no longer part of this dialog —
+          // it's built and wired by _showGmDefencePhase, after the roll.
         }
       }, { classes: ['dialog', 'mi-dialog'] });
 
@@ -815,10 +695,11 @@ function _easierDifficulty(chosen) {
 }
 
 /**
- * Read confirmed dialog values and mutate the combatContext.
- * Returns the mutated ctx.
+ * Read confirmed attacker-side dialog values and mutate the combatContext.
+ * Returns the mutated ctx. Defender/GM-Mode fields are read separately by
+ * _readGmDefencePanel, once the roll has happened — see _showGmDefencePhase.
  */
-function _readDialog(html, attacker, defender, ctx, stylesByWeaponId, allStyleWeapons) {
+function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, allStyleWeapons) {
   const weaponId   = html.find('#mi-atk-weapon').val();
   const styleId    = html.find('#mi-atk-style').val();
   const difficulty = html.find('#mi-atk-difficulty').val();
@@ -908,42 +789,205 @@ function _readDialog(html, attacker, defender, ctx, stylesByWeaponId, allStyleWe
     ctx.bonusSpecialEffects.push('chargeBonus');
   }
 
-  // ── GM Mode: read inline defender choices ─────────────────────────────────
-  const gmMode = game.settings.get('mythras-imperative', 'gmMode') ?? false;
-  if (gmMode) {
-    const defType      = html.find('input[name="mi-gm-def-type"]:checked').val() ?? 'none';
-    const defWeaponId  = html.find('#mi-gm-def-weapon').val() ?? null;
-    const defStyleId   = html.find('#mi-gm-def-style').val() ?? null;
+  return ctx;
+}
 
-    // Resolve skill total for GM choice
-    let defSkillTotal = 0;
-    const defender    = ctx.defender;
-    if (defType === 'parry' && defWeaponId) {
-      const styles = _buildStylesByWeaponMap(defender);
-      const candidates = styles[defWeaponId] ?? [];
-      const chosenDefStyle = candidates.find(s => s.id === defStyleId) ?? candidates[0] ?? null;
-      defSkillTotal = chosenDefStyle?.system.total ?? 0;
-    } else if (defType === 'evade') {
-      defSkillTotal = _findDefenderSkill(defender, 'Evade')?.system.total ?? 0;
-    } else if (defType === 'acrobatics') {
-      defSkillTotal = _findDefenderSkill(defender, 'Acrobatics')?.system.total ?? 0;
-    }
+/**
+ * Read the GM Mode inline defence panel (phase 2 dialog, built by
+ * _showGmDefencePhase) and stamp ctx.inlineDefenceData. Mirrors the shape
+ * DefenderDialog._readDialog produces for the socket path.
+ */
+function _readGmDefencePanel(html, defender, ctx) {
+  const defType      = html.find('input[name="mi-gm-def-type"]:checked').val() ?? 'none';
+  const defWeaponId  = html.find('#mi-gm-def-weapon').val() ?? null;
+  const defStyleId   = html.find('#mi-gm-def-style').val() ?? null;
 
-    // Prone determination
-    const hasDaredevil = Array.from(defender.items).some(
-      i => i.type === 'combat-style' && (i.system.traits ?? []).includes('daredevil')
-    );
-    const willBeProne = defType === 'evade' && !hasDaredevil;
-
-    ctx.inlineDefenceData = {
-      defenceType: defType,
-      weaponId:    defWeaponId,
-      styleId:     defStyleId,
-      skillTotal:  defSkillTotal,
-      actorId:     defender.id,
-      willBeProne
-    };
+  // Resolve skill total for GM choice
+  let defSkillTotal = 0;
+  if (defType === 'parry' && defWeaponId) {
+    const styles = _buildStylesByWeaponMap(defender);
+    const candidates = styles[defWeaponId] ?? [];
+    const chosenDefStyle = candidates.find(s => s.id === defStyleId) ?? candidates[0] ?? null;
+    defSkillTotal = chosenDefStyle?.system.total ?? 0;
+  } else if (defType === 'evade') {
+    defSkillTotal = _findDefenderSkill(defender, 'Evade')?.system.total ?? 0;
+  } else if (defType === 'acrobatics') {
+    defSkillTotal = _findDefenderSkill(defender, 'Acrobatics')?.system.total ?? 0;
   }
 
+  // Prone determination
+  const hasDaredevil = Array.from(defender.items).some(
+    i => i.type === 'combat-style' && (i.system.traits ?? []).includes('daredevil')
+  );
+  const willBeProne = defType === 'evade' && !hasDaredevil;
+
+  ctx.inlineDefenceData = {
+    defenceType: defType,
+    weaponId:    defWeaponId,
+    styleId:     defStyleId,
+    skillTotal:  defSkillTotal,
+    actorId:     defender.id,
+    willBeProne
+  };
+
   return ctx;
+}
+
+/**
+ * GM Mode phase 2 — shown after the attack roll, before the GM commits to a
+ * defence. RAW ordering (rules p.40): the defender's reaction is only
+ * meaningful once the attacker's result is known. Rebuilds the defender's
+ * weapon list here (not reused from an earlier build) because it depends on
+ * ctx.isRanged, which is only final once _readAttackerFields has run.
+ *
+ * @returns {Promise<object|null>} mutated ctx, or null if the GM cancels.
+ */
+async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesByWeaponId, evadeSkill, acrobaticsSkill, hasDaredevil) {
+  const outcomeLabel = {
+    critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
+    success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
+    failure:  game.i18n.localize('MYTHRAS.OutcomeFailure'),
+    fumble:   game.i18n.localize('MYTHRAS.OutcomeFumble')
+  };
+
+  // Ranged attacks may only be parried with shields (rules p.49) — fall back
+  // to the full list if the defender has none.
+  let eligible = defParryWeaponsAll.slice();
+  if (ctx.isRanged) {
+    const shieldOnly = eligible.filter(w => (w.system.traits ?? []).includes('shield'));
+    if (shieldOnly.length > 0) eligible = shieldOnly;
+  }
+  eligible.sort((a, b) => {
+    const aS = (a.system.traits ?? []).includes('shield') ? 0 : 1;
+    const bS = (b.system.traits ?? []).includes('shield') ? 0 : 1;
+    if (aS !== bS) return aS - bS;
+    return a.name.localeCompare(b.name);
+  });
+
+  const defWeaponOptions = eligible
+    .map(w => `<option value="${w.id}">${w.name}</option>`).join('')
+    || '<option value="">— No weapons —</option>';
+  const initDefStyles   = eligible[0] ? (defStylesByWeaponId[eligible[0].id] ?? []) : [];
+  const defStyleOptions = _buildStyleOptions(initDefStyles, null);
+
+  const evadeTotal      = evadeSkill?.system.total ?? 0;
+  const acrobaticsTotal = acrobaticsSkill?.system.total ?? 0;
+  const proneWarning    = hasDaredevil ? '(Daredevil — no prone)' : '(will be prone)';
+
+  const content = `
+    <div class="mi-attacker-dialog">
+      <div class="mi-dialog-skill-header">
+        <span class="mi-dialog-skill-name">Attack roll — ${ctx.attackerSkillTotal}%</span>
+        <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}">
+          ${ctx.attackResult} — ${outcomeLabel[ctx.attackOutcome]}
+        </span>
+      </div>
+
+      <div class="mi-dialog-section-title">
+        <i class="fas fa-shield-alt"></i> ${defender.name} — Defence (GM Mode)
+      </div>
+      <div class="mi-defence-options mi-defence-options--inline">
+
+        <label class="mi-defence-option">
+          <input type="radio" name="mi-gm-def-type" value="parry" ${eligible.length ? 'checked' : 'disabled'}>
+          <span class="mi-defence-label">
+            <span class="mi-defence-name">Parry</span>
+            <span class="mi-defence-skill" id="mi-gm-parry-skill">${initDefStyles[0]?.system.total ?? 0}%</span>
+          </span>
+        </label>
+
+        <div class="mi-parry-selectors" id="mi-gm-parry-selectors">
+          <div class="mi-form-row">
+            <label>Weapon</label>
+            <select id="mi-gm-def-weapon">${defWeaponOptions}</select>
+          </div>
+          <div class="mi-form-row">
+            <label>Style</label>
+            <select id="mi-gm-def-style">${defStyleOptions}</select>
+          </div>
+        </div>
+
+        <label class="mi-defence-option">
+          <input type="radio" name="mi-gm-def-type" value="evade">
+          <span class="mi-defence-label">
+            <span class="mi-defence-name">Evade</span>
+            <span class="mi-defence-skill">${evadeTotal}%</span>
+            <span class="mi-defence-note">${proneWarning}</span>
+          </span>
+        </label>
+
+        ${acrobaticsSkill ? `
+        <label class="mi-defence-option">
+          <input type="radio" name="mi-gm-def-type" value="acrobatics">
+          <span class="mi-defence-label">
+            <span class="mi-defence-name">Acrobatics</span>
+            <span class="mi-defence-skill">${acrobaticsTotal}%</span>
+            <span class="mi-defence-note">(no prone)</span>
+          </span>
+        </label>` : ''}
+
+        <label class="mi-defence-option">
+          <input type="radio" name="mi-gm-def-type" value="none" ${eligible.length ? '' : 'checked'}>
+          <span class="mi-defence-label">
+            <span class="mi-defence-name">Don't Defend</span>
+            <span class="mi-defence-skill">—</span>
+            <span class="mi-defence-note">(automatic Failure)</span>
+          </span>
+        </label>
+
+      </div>
+    </div>
+  `;
+
+  return new Promise(resolve => {
+    const dialog = new Dialog({
+      title: `${defender.name} — Defence (GM Mode)`,
+      content,
+      buttons: {
+        resolve: {
+          icon:  '<i class="fas fa-shield-alt"></i>',
+          label: 'Resolve',
+          callback: html => resolve(_readGmDefencePanel(html, defender, ctx))
+        },
+        cancel: {
+          icon:  '<i class="fas fa-times"></i>',
+          label: 'Cancel',
+          callback: () => resolve(null)
+        }
+      },
+      default: 'resolve',
+      render: html => {
+        const gmDefRadios  = html.find('input[name="mi-gm-def-type"]');
+        const gmWeaponSel  = html.find('#mi-gm-def-weapon')[0];
+        const gmStyleSel   = html.find('#mi-gm-def-style')[0];
+        const gmParryBlock = html.find('#mi-gm-parry-selectors')[0];
+        const gmParrySkill = html.find('#mi-gm-parry-skill')[0];
+
+        const _updateGmDefence = () => {
+          const type = html.find('input[name="mi-gm-def-type"]:checked').val();
+          if (gmParryBlock) {
+            gmParryBlock.style.display = type === 'parry' ? '' : 'none';
+          }
+          if (type === 'parry' && gmWeaponSel && gmStyleSel) {
+            const styles = defStylesByWeaponId[gmWeaponSel.value] ?? [];
+            const style  = styles.find(s => s.id === gmStyleSel.value) ?? styles[0] ?? null;
+            if (gmParrySkill) gmParrySkill.textContent = `${style?.system.total ?? 0}%`;
+          }
+        };
+
+        if (gmWeaponSel) {
+          gmWeaponSel.addEventListener('change', () => {
+            const styles = defStylesByWeaponId[gmWeaponSel.value] ?? [];
+            if (gmStyleSel) gmStyleSel.innerHTML = _buildStyleOptions(styles, null);
+            _updateGmDefence();
+          });
+        }
+        if (gmStyleSel) gmStyleSel.addEventListener('change', _updateGmDefence);
+        gmDefRadios.on('change', _updateGmDefence);
+        _updateGmDefence();
+      }
+    }, { classes: ['dialog', 'mi-dialog'] });
+
+    dialog.render(true);
+  });
 }

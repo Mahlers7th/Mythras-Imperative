@@ -160,8 +160,29 @@ export class DefenderDialog {
         </span>
       </label>` : '';
 
+    // ── Attack result — RAW ordering (rules p.40): the attacker has already
+    // rolled by the time this dialog opens. Shown prominently, before any
+    // choice is made, so the defender can decline to spend an Action Point
+    // on a hopeless parry or ignore a fumbled attack entirely (see CHANGELOG
+    // for the deliberate Action Point economy shift this produces).
+    const outcomeLabel = {
+      critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
+      success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
+      failure:  game.i18n.localize('MYTHRAS.OutcomeFailure'),
+      fumble:   game.i18n.localize('MYTHRAS.OutcomeFumble')
+    };
+    const attackResultBanner = (ctx.attackResult != null && ctx.attackOutcome) ? `
+      <div class="mi-dialog-skill-header">
+        <span class="mi-dialog-skill-name">${attacker.name}'s attack — ${ctx.attackerSkillTotal ?? 0}%</span>
+        <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}">
+          ${ctx.attackResult} — ${outcomeLabel[ctx.attackOutcome]}
+        </span>
+      </div>` : '';
+
     const content = `
       <div class="mi-defender-dialog">
+
+        ${attackResultBanner}
 
         <div class="mi-dialog-skill-header">
           <span class="mi-dialog-skill-name">${attacker.name} attacks with ${weapon?.name ?? 'weapon'}</span>

@@ -182,6 +182,13 @@ export const CombatSocket = {
       attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
       attackerTraits:     ctx.attackerTraits ?? [],
 
+      // Attack roll — RAW ordering (rules p.40): the attacker has already
+      // rolled by the time this challenge is sent. Primitives only, no Roll
+      // instance crosses the wire. Kept alongside attackerSkillTotal so the
+      // defender can read both.
+      attackResult:       ctx.attackResult ?? null,
+      attackOutcome:      ctx.attackOutcome ?? null,
+
       // Difficulty & modifiers
       difficulty:         ctx.difficulty ?? 'standard',
       modifiers:          ctx.modifiers ?? 0,
@@ -257,12 +264,15 @@ export const CombatSocket = {
       defenderSurprised:   payload.defenderSurprised ?? false,
       wardedLocations:     payload.wardedLocations ?? [],
 
-      // Roll results — all null until engine resolves
+      // Roll results — attackResult/attackOutcome arrive already rolled (RAW
+      // ordering, rules p.40 — the attacker rolls before this challenge is
+      // sent). attackRoll (the live Roll instance) never crosses the wire
+      // and stays null; defence hasn't happened yet, so those stay null too.
       attackRoll:          null,
       defenceRoll:         null,
-      attackResult:        null,
+      attackResult:        payload.attackResult ?? null,
       defenceResult:       null,
-      attackOutcome:       null,
+      attackOutcome:       payload.attackOutcome ?? null,
       defenceOutcome:      null,
       seAdvantage:         null,
       seWinner:            null,
