@@ -18,7 +18,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - Live-verified post-fix: unlinked token now resolves the token actor (AP 1, `isToken: true`); a linked token (Nex) is unaffected (base and token actor are the same object either way); an actor with no token on the active scene canvas falls back cleanly to `game.actors.get()` rather than erroring.
 - 495/495 tests unchanged (no test file touches this path yet — call-site-shaped, not table/formula-shaped).
 - Batch B (RAW attack/defence ordering) is next per the batch prompt's own sequencing — deliberately not started until this landed.
-- Not yet committed.
+- Committed as `28e8255`.
 
 ## v1.4.279 — August 2026
 - **Repo hygiene — roadmap Phase 2e/2f, the last items in Phase 2.** ESLint (flat config, `eslint.config.js`) and Prettier (`.prettierrc.json`/`.prettierignore`) added — deliberately conservative rules (catch real bugs: unused vars, undefined globals; not a style enforced retroactively across the existing codebase). `npm run lint`/`format`/`format:check` are dev tools, **not** CI gates. New `.github/workflows/test.yml` runs `npm test` on push/PR to `master` — tests only, matching the current direct-push workflow.
