@@ -38,6 +38,7 @@ import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './mod
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
+import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -1733,21 +1734,6 @@ async function _onManualRollDamage(ev, message) {
     </div>`;
 
   await ChatMessage.create({ content, speaker: message.speaker, rolls: [roll] });
-}
-
-// ---------------------------------------------------------------------------
-// _resolveActor — resolve an actor by ID via canvas token first.
-// ctx.attacker / ctx.defender are always token actors (synthetic). The IDs
-// stamped on card buttons come from ctx, so we must resolve via the canvas
-// token to get the same synthetic actor and its items. Falling back to
-// game.actors.get() handles the case where the token is no longer on canvas.
-// ---------------------------------------------------------------------------
-function _resolveActor(actorId) {
-  if (!actorId) return null;
-  const token = canvas?.tokens?.placeables?.find(t =>
-    t.actor?.id === actorId || t.document?.actorId === actorId
-  ) ?? null;
-  return token?.actor ?? game.actors.get(actorId) ?? null;
 }
 
 // Semi-Auto: Roll Hit Location

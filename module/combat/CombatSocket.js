@@ -34,6 +34,8 @@
  *   the same client), the resolver fires and the engine continues.
  */
 
+import { resolveTokenActor } from '../utils/actor-resolution.js';
+
 const SOCKET_NAME = 'system.mythras-imperative';
 
 // Map of exchangeId → { resolve, reject, timeout } for pending combatChallenge promises
@@ -213,8 +215,8 @@ export const CombatSocket = {
    * Returns null if attacker or defender cannot be resolved.
    */
   deserialiseContext(payload) {
-    const attacker = game.actors.get(payload.attackerId);
-    const defender = game.actors.get(payload.defenderId);
+    const attacker = resolveTokenActor(payload.attackerId);
+    const defender = resolveTokenActor(payload.defenderId);
 
     if (!attacker || !defender) {
       console.error('Mythras Imperative | CombatSocket — could not resolve actors from payload', payload);
