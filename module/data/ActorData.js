@@ -8,6 +8,32 @@
 
 const { fields } = foundry.data;
 
+const NS = 'mythras-imperative';
+
+// -----------------------------------------------------------------------
+// applyCharacteristicDrain — Characteristic Drain creature trait (rules
+// p.77: "drain temporary Characteristic points... detailed in the
+// creature's description"). Pull-based, like characteristicBonusHooks:
+// reads a persistent per-characteristic total off the victim's own flag
+// (written by CombatEngine._applyDamage when a Characteristic Drain
+// attacker deals damage) and subtracts it from the prepared characteristic
+// values in place. No automatic resistance roll — the rulebook says the
+// resist mechanism varies per creature, so that stays GM-adjudicated.
+// Shared across CharacterData/CreatureData/NPCData so a victim of any
+// actor type is affected identically; call before any characteristic
+// local is captured, same rule as characteristicBonusHooks.
+// -----------------------------------------------------------------------
+export function applyCharacteristicDrain(characteristics, actor) {
+  const drain = actor?.getFlag?.(NS, 'characteristicDrain');
+  if (!drain) return;
+  for (const key of ['str', 'con', 'siz', 'dex', 'int', 'pow', 'cha']) {
+    const amount = drain[key];
+    if (!amount) continue;
+    const stat = characteristics[key];
+    if (stat) stat.value = Math.max(0, stat.value - amount);
+  }
+}
+
 export class NPCData extends foundry.abstract.TypeDataModel {
 
   static defineSchema() {
@@ -86,6 +112,8 @@ export class NPCData extends foundry.abstract.TypeDataModel {
 
   prepareDerivedData() {
     const c = this.characteristics;
+    applyCharacteristicDrain(c, this.parent);
+
     const str = c.str.value;
     const con = c.con.value;
     const siz = c.siz.value;
@@ -196,6 +224,8 @@ export class CreatureData extends foundry.abstract.TypeDataModel {
 
   prepareDerivedData() {
     const c = this.characteristics;
+    applyCharacteristicDrain(c, this.parent);
+
     const str = c.str.value;
     const siz = c.siz.value;
     const dex = c.dex.value;
@@ -206,6 +236,23 @@ export class CreatureData extends foundry.abstract.TypeDataModel {
     attr.initiativeBonus = Math.floor((dex + int) / 2);
     attr.magicPoints.max = pow;
     attr.damageModifier = this._calcDamageModifier(str + siz);
+
+    // Multi-Headed / Multi-Limbed (rules p.77) — +1 Combat Action (= +1 Action
+    // Point, per p.19: "any Combat Action... costs one Action Point") per
+    // extra head / limb-pair beyond the first. The trait's system.value is
+    // the extra count directly (the GM sets it when adding the trait), added
+    // on top of the AP max the GM entered for the creature. Dynamic loss as
+    // heads/limbs are incapacitated is GM-adjudicated, not tracked here —
+    // there is no per-head/per-limb health model in this system to hook into.
+    const items = this.parent?.items;
+    if (items) {
+      for (const item of items) {
+        if (item.type !== 'trait' || item.system.category !== 'creature') continue;
+        if (item.system.key === 'multiHeaded' || item.system.key === 'multiLimbed') {
+          attr.actionPoints.max += item.system.value ?? 1;
+        }
+      }
+    }
   }
 
   _calcDamageModifier(strSiz) {

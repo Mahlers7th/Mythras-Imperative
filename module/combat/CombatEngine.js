@@ -3240,6 +3240,68 @@ export class CombatEngine {
         }
       }
     }
+
+    // ── Characteristic Drain trait — drain a characteristic from the ──────
+    // defender on successful damage (rules p.77). Which characteristic and
+    // how much are per-creature (trait item's own characteristic/value
+    // fields, set by the GM); how to resist is explicitly left to the GM by
+    // the rulebook itself, so no resistance roll is modelled here. Stored as
+    // a running total on the defender's own flag; ActorData.js's
+    // applyCharacteristicDrain reads it back at prepare-data time (pull, not
+    // push — same architecture as Growth/Shrink's characteristicBonusHooks).
+    if (damage > 0 && ctx.attacker) {
+      const drainTrait = Array.from(ctx.attacker.items ?? []).find(
+        i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'characteristicDrain'
+      );
+      if (drainTrait) {
+        const stat   = drainTrait.system.characteristic ?? 'con';
+        const amount = drainTrait.system.value ?? 1;
+        const current = defender.getFlag('mythras-imperative', 'characteristicDrain') ?? {};
+        const updated = { ...current, [stat]: (current[stat] ?? 0) + amount };
+        await defender.setFlag('mythras-imperative', 'characteristicDrain', updated);
+
+        const content = `
+          <div class="mi-chat-card">
+            <div class="mi-card-header mi-card-header--stacked">
+              <span class="mi-card-actor">${ctx.attacker.name}</span>
+              <span class="mi-card-skill">Characteristic Drain</span>
+            </div>
+            <div class="mi-card-body">
+              <div class="mi-outcome-row">
+                <span class="mi-outcome mi-wound-serious">
+                  <i class="fas fa-heart-broken"></i> ${defender.name} loses ${amount} ${stat.toUpperCase()} — now drained ${updated[stat]} total
+                </span>
+              </div>
+            </div>
+          </div>`;
+        await ChatMessage.create({
+          content,
+          speaker: ChatMessage.getSpeaker({ actor: ctx.attacker })
+        });
+        ui.notifications.warn(`${ctx.attacker.name} drains ${stat.toUpperCase()} — ${defender.name} loses ${amount}.`);
+      }
+    }
+
+    // ── Grappler creature trait — automatic Grip on any successful strike ──
+    // Rules p.77: "If the creature successfully strikes in combat, it can
+    // immediately seize hold of the opponent in addition to inflicting
+    // damage." No SE slot spent, no differential win required — reuses the
+    // existing Grip resolver directly, same "no-SE-slot auto-grant" pattern
+    // as Vampiric/Characteristic Drain just above. Placed here (not a
+    // per-automation-level chokepoint) because _applyDamage is the single
+    // damage-write path both Full Auto and Semi-Auto already funnel through
+    // (confirmed by reading both call sites before choosing this location).
+    // The rule's separate parry-interaction clause (Grip-vs-limb or
+    // Pin-Weapon-vs-weapon instead, depending on which side parried) is left
+    // to the GM — see the trait's own description.
+    if (damage > 0 && ctx.attacker) {
+      const grapplerTrait = Array.from(ctx.attacker.items ?? []).find(
+        i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'grappler'
+      );
+      if (grapplerTrait) {
+        await SE_RESOLVERS['grip'](ctx, damage, false);
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

@@ -507,6 +507,13 @@ export class TraitData extends foundry.abstract.TypeDataModel {
       // Whether the combat engine reads this trait mechanically
       engineEffect: new fields.BooleanField({ initial: false }),
 
+      // Characteristic Drain only: which characteristic the trait drains.
+      // Unused (and harmless) for every other trait key.
+      characteristic: new fields.StringField({
+        initial: 'con',
+        choices: ['str', 'con', 'siz', 'dex', 'int', 'pow', 'cha']
+      }),
+
       // Numeric parameter — used by engine-effect traits that need a rate or count.
       // e.g. Regeneration: HP recovered per round; Vampiric: Fatigue levels drained per bite.
       // Default 1. GM sets this on the trait item instance dragged onto the creature.

@@ -6,6 +6,7 @@
  */
 
 import { sumHookContributions } from '../utils/modifier-bus.js';
+import { applyCharacteristicDrain } from './ActorData.js';
 
 const { fields } = foundry.data;
 
@@ -178,6 +179,11 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
       try { fn(c, this.parent); }
       catch (err) { console.error('Mythras | characteristicBonusHook error:', err); }
     }
+
+    // Characteristic Drain creature trait (rules p.77) — pull-based, same
+    // timing rule as the hooks loop above: before any characteristic local
+    // is captured. See ActorData.js for the shared implementation.
+    applyCharacteristicDrain(c, this.parent);
 
     const str = c.str.value;
     const con = c.con.value;
