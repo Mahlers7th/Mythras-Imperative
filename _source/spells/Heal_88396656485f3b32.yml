@@ -1,0 +1,36 @@
+_id: 88396656485f3b32
+name: Heal
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Heal has several different effects depending on the nature of the
+    ailment it is being used on. If the subject is suffering from a minor
+    complaint such as a headache, back pain, hangover, cold, warts and so
+    on, then the symptoms are immediately lifted. Cast on a location
+    suffering a Minor Wound it restores all lost Hit Points instantly.
+    Against Serious or Major Wounds no Hit Points are recovered. However
+    the spell will stabilise locations, stop all bleeding and prevent
+    imminent death from inattention.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!88396656485f3b32'

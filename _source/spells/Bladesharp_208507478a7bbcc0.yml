@@ -1,0 +1,33 @@
+_id: 208507478a7bbcc0
+name: Bladesharp
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Bladesharp is cast on edged and piercing melee weapons. It increases the
+    damage of a weapon by one dice step and incidentally leaves the edge
+    honed after the spell concludes. This spell is often used on tools such
+    as logging axes, ploughs and razors. Thus casting this spell on a dagger
+    increases it to 1d6+1 damage, whereas the same spell on a great axe
+    would increase it to 2d8+2 damage. (1d4/1d6/1d8/1d10/2d6/2d8/2d10).
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!208507478a7bbcc0'

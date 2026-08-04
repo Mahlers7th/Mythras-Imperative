@@ -26,7 +26,8 @@
             "hit-location",
             "trait",
             "currency",
-            "ammo"
+            "ammo",
+            "spell"
         ],
         "templates": {},
         "skill": {},
@@ -39,6 +40,7 @@
         "hit-location": {},
         "trait": {},
         "currency": {},
-        "ammo": {}
+        "ammo": {},
+        "spell": {}
     }
 }

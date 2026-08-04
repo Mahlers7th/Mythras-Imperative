@@ -526,6 +526,53 @@ export class TraitData extends foundry.abstract.TypeDataModel {
 }
 
 // ---------------------------------------------------------------------------
+// SpellData — TypeDataModel for the 'spell' item type
+//
+// Mythras Imperative's own simplified Magic system (rules p.62-67) — a
+// single Magic skill, a single Magic Points pool (=POW), spells cast at a
+// fixed Intensity/Magnitude of 1 (no variable scaling). Deliberately does
+// NOT model Classic Fantasy Imperative's separate, more complex magic
+// system (two casting skills, variable Intensity/Magnitude, a different
+// MP-cost-by-outcome table) — a different ruleset, not more content for
+// this schema.
+// ---------------------------------------------------------------------------
+
+export class SpellData extends foundry.abstract.TypeDataModel {
+  static defineSchema() {
+    const fields = foundry.data.fields;
+    return {
+      // The 5 Magic Traits (rules p.63) — closed set, multi-select.
+      traits: new fields.ArrayField(
+        new fields.StringField({
+          choices: ['concentration', 'instant', 'ranged', 'resist', 'touch']
+        }),
+        { initial: [] }
+      ),
+
+      // Resist trait sub-choice (rules p.63: "Resist (Endurance, Evade,
+      // Willpower)"). Only meaningful when 'resist' is in traits. 'special'
+      // covers the rare spell (e.g. Find) whose resistance doesn't map to
+      // one of the three standard skills — not automated, GM-adjudicated.
+      resistSkill: new fields.StringField({
+        initial: '',
+        blank: true,
+        choices: ['', 'endurance', 'evade', 'willpower', 'special']
+      }),
+
+      // Free text override for a custom/special duration (e.g. Alarm/Lock's
+      // "Special Duration", Breath's "half POW in minutes", Sleep's "half
+      // POW in hours"). Empty means the rulebook default: no duration if
+      // Instant, maintained-until-broken (GM-adjudicated) if Concentration,
+      // otherwise lasts the scene.
+      duration: new fields.StringField({ initial: '' }),
+
+      // Full rules text
+      description: new fields.HTMLField({ initial: '' })
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // AMMO
 // ---------------------------------------------------------------------------
 

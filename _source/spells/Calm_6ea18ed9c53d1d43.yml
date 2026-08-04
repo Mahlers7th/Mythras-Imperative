@@ -1,0 +1,35 @@
+_id: 6ea18ed9c53d1d43
+name: Calm
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - ranged
+    - resist
+  resistSkill: willpower
+  duration: ''
+  description: >-
+    Calm attempts to dampen down the passions of the target, perhaps
+    ensuring that a lovesick paramour doesn't press his suit, a frightened
+    rival doesn't scream for help or that weapons are not drawn in anger. A
+    calmed person is not otherwise mentally affected, thus any sort of
+    assault or threatening action still permits the target to defend
+    themselves and even attack, albeit they will do so in a calm and level
+    headed manner.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!6ea18ed9c53d1d43'

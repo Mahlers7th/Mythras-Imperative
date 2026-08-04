@@ -7,9 +7,10 @@ import { MYTHRAS }                    from './module/config/config.js';
 import { openMegImportDialog }          from './module/utils/meg-import.js';
 import { CharacterData }              from './module/data/CharacterData.js';
 import { NPCData, CreatureData, MerchantData, VehicleData } from './module/data/ActorData.js';
-import { SkillData, WeaponData, ArmourData, GearData, CombatStyleData, PassionData, AbilityData, HitLocationData, TraitData, CurrencyData, AmmoData, redistributeHitLocationRanges } from './module/data/ItemData.js';
+import { SkillData, WeaponData, ArmourData, GearData, CombatStyleData, PassionData, AbilityData, HitLocationData, TraitData, CurrencyData, AmmoData, SpellData, redistributeHitLocationRanges } from './module/data/ItemData.js';
 import { CharacterSheet }             from './module/sheets/CharacterSheet.js';
 import { TraitSheet }                 from './module/sheets/TraitSheet.js';
+import { SpellSheet }                 from './module/sheets/SpellSheet.js';
 import { CurrencySheet }              from './module/sheets/CurrencySheet.js';
 import { GearSheet }                  from './module/sheets/GearSheet.js';
 import { MerchantSheet }              from './module/sheets/MerchantSheet.js';
@@ -160,7 +161,7 @@ Hooks.once('init', () => {
     skill: SkillData, weapon: WeaponData, armour: ArmourData,
     gear: GearData, 'combat-style': CombatStyleData, passion: PassionData,
     ability: AbilityData, 'hit-location': HitLocationData, trait: TraitData, currency: CurrencyData,
-    ammo: AmmoData,
+    ammo: AmmoData, spell: SpellData,
     ...MYTHRAS.dataModels.items
   };
 
@@ -199,6 +200,10 @@ Hooks.once('init', () => {
   DocumentSheetConfig.registerSheet(Item, 'mythras-imperative', TraitSheet, {
     types: ['trait'], makeDefault: true,
     label: 'Mythras Imperative Trait Sheet'
+  });
+  DocumentSheetConfig.registerSheet(Item, 'mythras-imperative', SpellSheet, {
+    types: ['spell'], makeDefault: true,
+    label: 'Mythras Imperative Spell Sheet'
   });
   DocumentSheetConfig.registerSheet(Item, 'mythras-imperative', CurrencySheet, {
     types: ['currency'], makeDefault: true,
@@ -2598,6 +2603,7 @@ function _registerHelpers() {
   Handlebars.registerHelper('uppercase',  str       => typeof str === 'string' ? str.toUpperCase() : str);
   Handlebars.registerHelper('capitalize', str       => typeof str === 'string' ? str.charAt(0).toUpperCase() + str.slice(1) : str);
   Handlebars.registerHelper('concat',     (...args) => args.slice(0, -1).join(''));
+  Handlebars.registerHelper('includes',   (arr, val) => Array.isArray(arr) && arr.includes(val));
 
   // Maps heroAdvantages keys to short display labels for the hero banner
   const _ADVANTAGE_LABELS = {
