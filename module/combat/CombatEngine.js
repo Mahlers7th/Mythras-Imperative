@@ -1154,7 +1154,7 @@ export class CombatEngine {
     };
 
     const pills = [
-      ctx.isCharge          ? '<span class="mi-card-pill">Charge</span>'                        : '',
+      ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -1267,7 +1267,7 @@ export class CombatEngine {
       evade: 'Evade', acrobatics: 'Acrobatics', none: "Don't Defend"
     };
     const pills = [
-      ctx.isCharge          ? '<span class="mi-card-pill">Charge</span>'                        : '',
+      ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -2068,7 +2068,7 @@ export class CombatEngine {
       evade: 'Evade', acrobatics: 'Acrobatics', none: "Don't Defend"
     };
     const pills = [
-      ctx.isCharge          ? '<span class="mi-card-pill">Charge</span>'                        : '',
+      ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -4653,6 +4653,12 @@ export class CombatEngine {
     if (ctx?.isRanged && ctx?.rangeBand === 'long') {
       atkSize = Math.max(0, atkSize - 1);
     }
+    // Charge / Diving Strike — "increases the Size of the attack... by one
+    // step" (rules p.34/77). Melee-only per AttackerDialog's own gating, so
+    // this can never coincide with the long-range step-down above.
+    if (ctx?.isCharge) {
+      atkSize = Math.min(4, atkSize + 1);
+    }
 
     const diff = atkSize - defSize; // positive = attack weapon is larger / more forceful
     return CombatEngine._sizeDiffMultiplier(diff);
@@ -4724,6 +4730,10 @@ export class CombatEngine {
     let   atkSize   = sizeOrder[CombatEngine._getWeaponForce(attackWeapon, atkActor, 'attack')] ?? 1;
     if (ctx?.isRanged && ctx?.rangeBand === 'long') {
       atkSize = Math.max(0, atkSize - 1);
+    }
+    // Charge / Diving Strike — see the identical comment in resolveParryReduction.
+    if (ctx?.isCharge) {
+      atkSize = Math.min(4, atkSize + 1);
     }
 
     return CombatEngine._sizeDiffMultiplier(atkSize - defSize);

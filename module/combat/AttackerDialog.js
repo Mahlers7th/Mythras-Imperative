@@ -157,6 +157,13 @@ export class AttackerDialog {
     // Charge is only available for melee weapons.
     const chargeChecked = ctx.isCharge ? ' checked' : '';
 
+    // Diving Strike (rules p.77) — "effectively charging for creatures which
+    // are not land based." Same Size+1/Damage Modifier+1 step as Charge
+    // (achieved by also setting ctx.isCharge — see _readAttackerFields),
+    // but explicitly does NOT impose Charge's Hard difficulty. Only shown
+    // for creatures that actually have the trait, melee-only like Charge.
+    const hasDivingStrike = CombatEngine._hasCreatureTrait(attacker, 'divingStrike');
+
     // ── Range band (ranged weapons only) ─────────────────────────────────────
     // The attacker selects which range band the target is at. This drives the
     // difficulty modifier applied to the attack roll:
@@ -285,6 +292,16 @@ export class AttackerDialog {
             </label>
           </div>
 
+          ${hasDivingStrike ? `
+          <div class="mi-form-row mi-form-row--toggle" id="mi-atk-diving-strike-row">
+            <label>Diving Strike</label>
+            <label class="mi-toggle">
+              <input type="checkbox" id="mi-atk-diving-strike">
+              <span class="mi-toggle-track"></span>
+              <span class="mi-toggle-hint">Weapon size +1, Damage Modifier +1 — no difficulty penalty</span>
+            </label>
+          </div>` : ''}
+
         </div>
 
         <div class="mi-dialog-target-row">
@@ -340,6 +357,7 @@ export class AttackerDialog {
           const difficultySel = html.find('#mi-atk-difficulty')[0];
           const chargeChk      = html.find('#mi-atk-charge')[0];
           const chargeRow      = html.find('#mi-atk-charge-row')[0];
+          const divingStrikeRow = html.find('#mi-atk-diving-strike-row')[0];
           const rangeBandSel   = html.find('#mi-atk-range-band')[0];
           const rangeBandRow   = html.find('#mi-atk-range-band-row')[0];
           const aimingChk      = html.find('#mi-atk-aiming')[0];
@@ -359,6 +377,7 @@ export class AttackerDialog {
             if (rangeBandRow) rangeBandRow.style.display = isRanged ? '' : 'none';
             if (aimingRow)    aimingRow.style.display    = isRanged ? '' : 'none';
             if (chargeRow)    chargeRow.style.display    = isRanged ? 'none' : '';
+            if (divingStrikeRow) divingStrikeRow.style.display = isRanged ? 'none' : '';
 
             // Press Advantage (Destined SE, module/combat/effects/simple.js) — an
             // actor-level restriction, unlike the weapon-level jammed check below.
@@ -715,6 +734,12 @@ function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, al
 
   // Melee-only: Charge toggle
   const isCharge   = isRangedWeapon ? false : (html.find('#mi-atk-charge')[0]?.checked ?? false);
+  // Melee-only: Diving Strike toggle (rules p.77) — same Size+1/DM+1 step as
+  // Charge (ctx.isCharge is OR'd below so every existing Charge-gated
+  // consumer picks it up for free), but deliberately kept out of the
+  // isCharge local used for the Hard-difficulty decision just below — Diving
+  // Strike does not impose it.
+  const isDivingStrike = isRangedWeapon ? false : (html.find('#mi-atk-diving-strike')[0]?.checked ?? false);
 
   // Ranged-only: Range band and aiming
   const rangeBand    = isRangedWeapon ? (html.find('#mi-atk-range-band').val() ?? 'effective') : null;
@@ -778,7 +803,8 @@ function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, al
     : [];
   ctx.attackerSkillTotal  = effectiveSkill;
   ctx.difficulty          = effectiveDifficulty;
-  ctx.isCharge            = isCharge;
+  ctx.isCharge            = isCharge || isDivingStrike;
+  ctx.isDivingStrike      = isDivingStrike;
   ctx.isRanged            = isRangedWeapon;
   ctx.rangeBand           = rangeBand;   // 'close'|'effective'|'long'|null (melee)
   ctx.isAiming            = isAiming;
