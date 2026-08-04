@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - Live-verified against the running world: `resolveParryReduction` against a controlled boundary case (matching attacker/defender size) now correctly shifts from "full block" to "half damage through" when `ctx.isCharge` is true, where it previously showed no change at all. Diving Strike's dialog row appears only for a trait-holding attacker, is melee-only (hidden for ranged weapons, matching Charge), and the resulting context correctly carries `isCharge: true, isDivingStrike: true, difficulty: 'standard'` (no Hard-difficulty leak) after toggling it and confirming.
 - Trample and Wing Buffet (the other two candidates considered alongside Diving Strike) turned out to need more than a trait wiring — Trample needs a whole Athletics-based attack path this engine doesn't have, and its "twice the Damage Modifier" damage formula is numerically ambiguous in the rulebook text; Wing Buffet is a multi-target area effect, which (per the existing Detonate precedent) this project deliberately doesn't auto-enumerate targets for. Both parked, not started.
 - 505/505 tests unchanged — `resolveParryReduction`/`resolveWardReduction` are `CombatEngine` static methods coupled to Foundry actors/items, verified live rather than with new Jest mocks, consistent with how this class is tested elsewhere.
-- Not yet committed.
+- Committed as `390fe27`.
 
 ## v1.4.284 — August 2026
 - **Creature trait automation — 3 more of the 38 canonical traits wired**, per [[project_rulebook-audit-2026-08-01]]'s named candidates. 9 of 38 now automated.
