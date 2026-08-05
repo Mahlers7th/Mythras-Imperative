@@ -156,6 +156,27 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     try { templateNames = Object.keys(game.settings.get('mythras-imperative', 'vehicleTemplates') ?? {}); }
     catch (e) { /* setting not yet ready */ }
 
+    // Effective Speed + over-cap warning (rules p.54-56, 2026-08-04 Vehicles
+    // audit F3/F5/F6/F4). Dynamic import to avoid a top-level dependency on
+    // the combat engine from a sheet, same convention as the weapon-fire
+    // click handler below.
+    const { CombatEngine } = await import('../combat/CombatEngine.js');
+    const { getMaxSpeedForSize, SPEED_STEPS: RULEBOOK_SPEED_STEPS } = await import('../utils/combat-math.js');
+    const effectiveSpeed = CombatEngine.getVehicleEffectiveSpeed(actor);
+    const traitKeys = new Set(traitItems.map(i => i.system.key));
+    const maxSpeedForSize = getMaxSpeedForSize(system.size, {
+      enhancedPerformance: traitKeys.has('enhancedPerformance'),
+      rails: traitKeys.has('rails')
+    });
+    // Compared against the rulebook's own 9-step list, not this sheet's
+    // local SPEED_STEPS (10 entries, includes the homebrew 'supersonic') —
+    // 'supersonic' must read as index -1 here so it always shows as over
+    // cap, which is the correct behaviour for a step beyond anything the
+    // rulebook's table defines.
+    const speedIdx    = RULEBOOK_SPEED_STEPS.indexOf(system.speed);
+    const maxSpeedIdx = RULEBOOK_SPEED_STEPS.indexOf(maxSpeedForSize);
+    const speedOverCap = speedIdx === -1 || (maxSpeedIdx !== -1 && speedIdx > maxSpeedIdx);
+
     return {
       actor,
       system,
@@ -170,7 +191,11 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       systemDamageTable: SYSTEM_DAMAGE_TABLE,
       crew,
       hasShields:   (system.shields?.max ?? 0) > 0,
-      templateNames
+      templateNames,
+      effectiveSpeed,
+      effectiveSpeedDiffers: effectiveSpeed !== system.speed,
+      maxSpeedForSize,
+      speedOverCap
     };
   }
 

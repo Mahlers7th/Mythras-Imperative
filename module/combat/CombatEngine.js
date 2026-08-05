@@ -28,7 +28,7 @@
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
-  woundLevel, resolveLossOfControl, shiftSpeedStep,
+  woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed,
 } from '../utils/combat-math.js';
 import { shiftGrade } from '../utils/roll-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
@@ -85,6 +85,15 @@ export class CombatEngine {
    * @param {Item}  weaponItem   The weapon item embedded on the vehicle
    */
   static async initiateVehicleWeaponAttack(vehicle, weaponItem) {
+    // ── 0. Weapons system check (rules p.59): a destroyed Weapons system
+    // means "vehicle cannot fire weapons," full stop — checked live here
+    // rather than stamped as a flag, since the system can be repaired.
+    const weaponsSystem = CombatEngine._findVehicleSystem(vehicle, /weapon/i);
+    if (weaponsSystem && (weaponsSystem.system.current ?? 1) <= 0) {
+      ui.notifications.warn(`${vehicle.name}'s Weapons system is destroyed — cannot fire.`);
+      return;
+    }
+
     // ── 1. Target check ────────────────────────────────────────────────────
     const targetTokens = Array.from(game.user.targets ?? []);
     if (targetTokens.length === 0) {
@@ -313,7 +322,15 @@ export class CombatEngine {
     const hasSuperiorHandling = Array.from(vehicle.items)
       .some(i => i.type === 'trait' && i.system.key === 'superiorHandling');
     const baseHandling = hasSuperiorHandling ? 'easy' : (vehicle.system.handling ?? 'standard');
-    const finalGrade   = shiftGrade(baseHandling, shift);
+
+    // Controls damage (rules p.59): "Drive/Pilot rolls suffer one
+    // additional Difficulty Grade each time they are damaged."
+    const controls = CombatEngine._findVehicleSystem(vehicle, /control/i);
+    const controlsHits = controls
+      ? Math.max(0, (controls.system.hp ?? 1) - (controls.system.current ?? controls.system.hp ?? 1))
+      : 0;
+
+    const finalGrade = shiftGrade(shiftGrade(baseHandling, shift), controlsHits);
 
     const result = await game.system.api.requestSkillCheck(driver, {
       skillNames: ['Drive', 'Pilot'],
@@ -321,6 +338,7 @@ export class CombatEngine {
       title: `${vehicle.name} — Manoeuvre`,
       prompt: `Handling ${baseHandling}${hasSuperiorHandling ? ' (Superior Handling)' : ''}` +
               `${shift ? `, manoeuvre ${shift > 0 ? '+' : ''}${shift} grade${Math.abs(shift) === 1 ? '' : 's'}` : ''}` +
+              `${controlsHits ? `, Controls damaged (+${controlsHits} grade${controlsHits === 1 ? '' : 's'})` : ''}` +
               ` → ${finalGrade} Drive/Pilot roll.`,
       allowGMOverride: true
     });
@@ -3147,14 +3165,18 @@ export class CombatEngine {
 
     let systemResult = null;
     if (hitItem) {
-      const hp      = hitItem.system.hp ?? 1;
-      const current = Math.max(0, (hitItem.system.current ?? hp) - 1);
+      const hp           = hitItem.system.hp ?? 1;
+      const preHitCurrent = hitItem.system.current ?? hp;
+      const current       = Math.max(0, preHitCurrent - 1);
       const wound   = current <= 0  ? 'major'
                     : current / hp <= 0.5 ? 'serious'
                     : 'minor';
       await hitItem.update({ 'system.current': current, 'system.wound': wound });
       systemResult     = { label: hitItem.system.label, current, hp, destroyed: current <= 0 };
       ctx.systemResult = systemResult;
+
+      const justDestroyed = preHitCurrent > 0 && current <= 0;
+      await CombatEngine._applySystemConsequence(baseActor, hitItem, justDestroyed);
     } else {
       ctx.systemResult = null;
     }
@@ -3185,6 +3207,99 @@ export class CombatEngine {
     await baseActor.update({ 'system.destroyed': true });
     await applyStatusToActor(baseActor, 'dead');
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // System Component Damage Table consequences (rules p.58-59, 2026-08-04
+  // Vehicles audit finding F3). System slots have no canonical type key
+  // (unlike Traits) — matched here by the free-text label a GM types when
+  // creating the component, same assumption the sheet's own on-screen
+  // reference table already makes. A GM renaming a slot away from its
+  // rulebook name (e.g. "Drive" -> "Powerplant") silently loses these
+  // effects; a real key field would be the more robust long-term fix, out
+  // of scope for this pass.
+  //
+  // Comms and Cargo are left narrative — neither has a consuming mechanic
+  // anywhere in this codebase to hook into (no "Comms roll," no tracked
+  // cargo resource). Controls' "immediate Control roll" is also left
+  // narrative rather than auto-firing a driver-picker dialog mid-attack —
+  // the ongoing +1-Difficulty-Grade-per-hit effect on future Manoeuvre
+  // rolls (see initiateVehicleManoeuvre) IS automated for real.
+  // -------------------------------------------------------------------------
+
+  static _findVehicleSystem(vehicle, pattern) {
+    return Array.from(vehicle.items ?? [])
+      .find(i => i.type === 'hit-location' && pattern.test(i.system?.label ?? i.name ?? ''));
+  }
+
+  static async _applySystemConsequence(vehicle, systemItem, justDestroyed) {
+    const label = (systemItem.system?.label ?? systemItem.name ?? '');
+
+    if (/crew/i.test(label)) {
+      const roster = vehicle.system.crew ?? [];
+      const crewActors = [];
+      for (const entry of roster) {
+        const actor = await fromUuid(entry.uuid).catch(() => null);
+        if (actor) crewActors.push(actor);
+      }
+      if (crewActors.length === 0) return;
+
+      if (justDestroyed) {
+        // "All vehicle occupants die."
+        for (const actor of crewActors) await applyStatusToActor(actor, 'dead');
+        return;
+      }
+      // "A number of passengers proportional to the damage are rendered
+      // casualties" — no formula given for the proportion, so one random
+      // crew member per hit is the simplest defensible reading, applied
+      // via the same Endurance-gated damage shape as Loss of Control's
+      // Severe Roll (F1) rather than inventing a second one.
+      const victim = crewActors[Math.floor(Math.random() * crewActors.length)];
+      await CombatEngine._applyCrashDamageToOccupant(victim, {
+        onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: false
+      });
+      return;
+    }
+
+    if (/engine|fuel/i.test(label) && justDestroyed) {
+      // "Vehicle destroyed in explosion" — a second, independent
+      // destruction trigger beyond zero Structure.
+      await vehicle.update({ 'system.structure.value': 0 });
+      await CombatEngine._checkVehicleDestroyed(vehicle, 0);
+    }
+    // Weapons-destroyed and Drive/Engine-Fuel's live Speed effect are read
+    // live at the point of use (initiateVehicleWeaponAttack,
+    // getVehicleEffectiveSpeed) rather than stamped here — no state to
+    // write beyond what's already on the system item itself.
+  }
+
+  // -------------------------------------------------------------------------
+  // getVehicleEffectiveSpeed — live Speed reading a vehicle sheet/roll
+  // should display or use, accounting for Drive/Engine-Fuel damage and the
+  // Enhanced Performance/Rails traits. Does not mutate system.speed, which
+  // stays the vehicle's nominal rating (rules p.54's own term) — same
+  // base-vs-effective split this codebase already uses for Armour.
+  // -------------------------------------------------------------------------
+
+  static getVehicleEffectiveSpeed(vehicle) {
+    const drive      = CombatEngine._findVehicleSystem(vehicle, /drive/i);
+    const engineFuel = CombatEngine._findVehicleSystem(vehicle, /engine|fuel/i);
+    const driveHitsTaken = drive
+      ? Math.max(0, (drive.system.hp ?? 1) - (drive.system.current ?? drive.system.hp ?? 1))
+      : 0;
+    const engineFuelDamaged = engineFuel
+      ? (engineFuel.system.current ?? engineFuel.system.hp ?? 1) < (engineFuel.system.hp ?? 1)
+      : false;
+    const traitKeys = new Set(
+      Array.from(vehicle.items ?? []).filter(i => i.type === 'trait').map(i => i.system?.key)
+    );
+    return computeEffectiveSpeed({
+      baseSpeed: vehicle.system.speed,
+      driveHitsTaken,
+      engineFuelDamaged,
+      enhancedPerformance: traitKeys.has('enhancedPerformance'),
+      rails: traitKeys.has('rails')
+    });
   }
 
   // -------------------------------------------------------------------------

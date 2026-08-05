@@ -20,7 +20,10 @@ import {
   resolveLossOfControl,
   LOSS_OF_CONTROL_TABLE,
   shiftSpeedStep,
-  SPEED_STEPS
+  SPEED_STEPS,
+  MAX_SPEED_FOR_SIZE,
+  getMaxSpeedForSize,
+  computeEffectiveSpeed
 } from '../module/utils/combat-math.js';
 
 // =============================================================================
@@ -538,5 +541,82 @@ describe('shiftSpeedStep', () => {
       'ponderous', 'sluggish', 'slow', 'mediocre', 'gentle',
       'moderate', 'rapid', 'fast', 'fleet'
     ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Max Speed by Size (rules p.55) and effective Speed (rules p.56)
+// ---------------------------------------------------------------------------
+
+describe('getMaxSpeedForSize', () => {
+  test('matches the rulebook table for every printed size', () => {
+    expect(getMaxSpeedForSize('small')).toBe('fast');
+    expect(getMaxSpeedForSize('medium')).toBe('rapid');
+    expect(getMaxSpeedForSize('large')).toBe('gentle');
+    expect(getMaxSpeedForSize('huge')).toBe('slow');
+    expect(getMaxSpeedForSize('enormous')).toBe('ponderous');
+  });
+
+  test('colossal is inferred no more permissive than enormous', () => {
+    expect(getMaxSpeedForSize('colossal')).toBe('ponderous');
+  });
+
+  test('Enhanced Performance raises the cap by 1 step', () => {
+    expect(getMaxSpeedForSize('small', { enhancedPerformance: true })).toBe('fleet');
+    expect(getMaxSpeedForSize('enormous', { enhancedPerformance: true })).toBe('sluggish');
+  });
+
+  test('Rails raises the cap by 3 steps and wins over Enhanced Performance if both are set', () => {
+    expect(getMaxSpeedForSize('enormous', { rails: true })).toBe('mediocre');
+    expect(getMaxSpeedForSize('enormous', { rails: true, enhancedPerformance: true })).toBe('mediocre');
+  });
+
+  test('unrecognised size falls back to fleet (no cap) rather than guessing', () => {
+    expect(getMaxSpeedForSize('unknown-size')).toBe('fleet');
+  });
+
+  test('MAX_SPEED_FOR_SIZE has an entry for all 6 canonical sizes', () => {
+    expect(Object.keys(MAX_SPEED_FOR_SIZE).sort()).toEqual(
+      ['colossal', 'enormous', 'huge', 'large', 'medium', 'small'].sort()
+    );
+  });
+});
+
+describe('computeEffectiveSpeed', () => {
+  test('with no modifiers, effective speed equals base speed', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'moderate' })).toBe('moderate');
+  });
+
+  test('the rulebook\'s own worked example: Enormous vehicle, Speed Slow, 2 Drive hits -> Ponderous', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'slow', driveHitsTaken: 2 })).toBe('ponderous');
+  });
+
+  test('each Drive hit costs exactly 1 step, floored at ponderous', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'gentle', driveHitsTaken: 1 })).toBe('mediocre');
+    expect(computeEffectiveSpeed({ baseSpeed: 'gentle', driveHitsTaken: 10 })).toBe('ponderous');
+  });
+
+  test('Engine/Fuel damage halves the step index', () => {
+    // fleet = index 8 -> halved (floor) = index 4 = gentle
+    expect(computeEffectiveSpeed({ baseSpeed: 'fleet', engineFuelDamaged: true })).toBe('gentle');
+  });
+
+  test('Enhanced Performance and Rails raise the base before damage is applied', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'ponderous', enhancedPerformance: true })).toBe('sluggish');
+    expect(computeEffectiveSpeed({ baseSpeed: 'ponderous', rails: true })).toBe('mediocre');
+  });
+
+  test('modifiers and damage compose in one call', () => {
+    // ponderous(0) + rails(3) = mediocre(3); 1 drive hit -> slow(2)
+    expect(computeEffectiveSpeed({ baseSpeed: 'ponderous', rails: true, driveHitsTaken: 1 })).toBe('slow');
+  });
+
+  test('unrecognised base speed (e.g. supersonic) is returned unchanged, no step math applied', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'supersonic', driveHitsTaken: 3 })).toBe('supersonic');
+  });
+
+  test('never goes below ponderous or above fleet', () => {
+    expect(computeEffectiveSpeed({ baseSpeed: 'ponderous', driveHitsTaken: 99 })).toBe('ponderous');
+    expect(computeEffectiveSpeed({ baseSpeed: 'fleet', rails: true })).toBe('fleet');
   });
 });

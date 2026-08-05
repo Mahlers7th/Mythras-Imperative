@@ -394,9 +394,12 @@ export function resolveLossOfControl(d100) {
 }
 
 // The rulebook's own 9 Speed steps (p.54). VehicleData's schema additionally
-// allows a 10th 'supersonic' value not in this list (flagged, unconfirmed
-// with Chris — 2026-08-04 Vehicles audit finding F6) — shiftSpeedStep leaves
-// unrecognised values untouched rather than guessing where they'd sit.
+// allows a 10th 'supersonic' value not in this list — Chris's call
+// (2026-08-04 Vehicles audit finding F6) was to keep it as a deliberate
+// homebrew extension for sci-fi settings, so shiftSpeedStep/getMaxSpeedForSize
+// leave it untouched rather than guessing where it'd sit; it always reads as
+// "over cap" against every Size, which is the correct behaviour for a step
+// beyond anything the rulebook's own table defines.
 export const SPEED_STEPS = [
   'ponderous', 'sluggish', 'slow', 'mediocre', 'gentle',
   'moderate', 'rapid', 'fast', 'fleet'
@@ -416,5 +419,77 @@ export function shiftSpeedStep(speedId, steps) {
   if (idx === -1) return speedId;
   const next = Math.min(SPEED_STEPS.length - 1, Math.max(0, idx + steps));
   return SPEED_STEPS[next];
+}
+
+// Max normal Speed by Size (rules p.55, Vehicle Speed Table). Cross-checked
+// against two independent extractions (-layout and raw reading order) after
+// the PDF's 2-column layout interleaved this table with the neighbouring
+// Trait Allocation table on the first pass. The rulebook's table only labels
+// Small through Enormous; Colossal has no printed entry, so it's treated as
+// no more permissive than Enormous (same cap, Ponderous) rather than left
+// unbounded — a conservative inference, not a printed rule.
+export const MAX_SPEED_FOR_SIZE = {
+  small: 'fast', medium: 'rapid', large: 'gentle',
+  huge: 'slow', enormous: 'ponderous', colossal: 'ponderous'
+};
+
+/**
+ * The highest normal Speed rating a vehicle of this Size can hold, before
+ * accounting for traits that explicitly raise it (Enhanced Performance: +1
+ * step; Rails: +3 steps, rail-bound only). Unrecognised sizes fall back to
+ * 'fleet' (no cap) rather than silently under- or over-restricting.
+ *
+ * @param {string} size
+ * @param {{enhancedPerformance?: boolean, rails?: boolean}} [traits]
+ * @returns {string}
+ */
+export function getMaxSpeedForSize(size, traits = {}) {
+  let max = MAX_SPEED_FOR_SIZE[size] ?? 'fleet';
+  if (traits.rails) max = shiftSpeedStep(max, 3);
+  else if (traits.enhancedPerformance) max = shiftSpeedStep(max, 1);
+  return max;
+}
+
+/**
+ * Compute a vehicle's effective (current) Speed from its nominal/base rating
+ * plus live modifiers — rules p.56: "a Land Ironclad with a Speed of Slow
+ * would be reduced to Ponderous" after 2 hits to Drive on an Enormous
+ * vehicle. Each hit to Drive costs exactly 1 Speed step regardless of Size —
+ * a hit is already defined (System Hits table, p.53) as 1/(max hits for that
+ * Size) of the system's total capacity, so 1 hit = 1 step is consistent
+ * across all six sizes, not just the Enormous example given.
+ *
+ * Engine/Fuel damage "halves Max Speed" (p.59) — applied here as halving the
+ * step *index* (the only numeric handle Speed has, since it's a named
+ * ordinal scale with no other cardinal value anywhere in this system).
+ *
+ * Does NOT mutate `system.speed` — that field stays the vehicle's nominal
+ * rating; this returns the live effective value for display, the same
+ * base-vs-effective split this codebase already uses for Armour
+ * (getArmourAt vs the engine's internal effective-armour resolution).
+ *
+ * @param {object} params
+ * @param {string}  params.baseSpeed
+ * @param {number}  [params.driveHitsTaken]
+ * @param {boolean} [params.engineFuelDamaged]
+ * @param {boolean} [params.enhancedPerformance]
+ * @param {boolean} [params.rails]
+ * @returns {string}
+ */
+export function computeEffectiveSpeed({
+  baseSpeed, driveHitsTaken = 0, engineFuelDamaged = false,
+  enhancedPerformance = false, rails = false
+}) {
+  let idx = SPEED_STEPS.indexOf(baseSpeed);
+  if (idx === -1) return baseSpeed; // unrecognised (e.g. 'supersonic') — no step math to apply
+
+  if (rails) idx += 3;
+  else if (enhancedPerformance) idx += 1;
+
+  idx = Math.max(0, idx - driveHitsTaken);
+  if (engineFuelDamaged) idx = Math.floor(idx / 2);
+
+  idx = Math.min(SPEED_STEPS.length - 1, Math.max(0, idx));
+  return SPEED_STEPS[idx];
 }
 

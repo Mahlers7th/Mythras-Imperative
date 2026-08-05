@@ -2340,6 +2340,11 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-veh-manoeuvre-actions { display: flex; gap: 6px; margin: 4px 0 10px; }
 .mi-veh-manoeuvre-actions .mi-btn { flex: 0 0 auto; padding: 4px 10px; }
+.mi-veh-effective-speed { color: var(--mi-teal); font-weight: 600; }
+.mi-veh-speed-warning {
+  margin: 0 0 8px; font-size: 11px; color: var(--mi-wound-serious);
+  display: flex; align-items: center; gap: 5px;
+}
 
 /* Roll Vehicle Damage button — same look as mi-btn-dmg */
 .mi-btn-veh-dmg {

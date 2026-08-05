@@ -242,8 +242,15 @@
         <div class="mi-section-label">
           <i class="fas fa-steering-wheel mi-section-icon"></i>
           <span>Handling &amp; Manoeuvres</span>
-          <span class="mi-veh-handling-current">Handling: {{system.handling}} · Speed: {{system.speed}}</span>
+          <span class="mi-veh-handling-current">
+            Handling: {{system.handling}} · Speed: {{system.speed}}{{#if effectiveSpeedDiffers}} <span class="mi-veh-effective-speed" title="Effective Speed — accounts for Drive/Engine damage and Enhanced Performance/Rails">(effective: {{effectiveSpeed}})</span>{{/if}}
+          </span>
         </div>
+        {{#if speedOverCap}}
+        <p class="mi-veh-speed-warning">
+          <i class="fas fa-exclamation-triangle"></i> Speed exceeds the normal maximum for {{system.size}} ({{maxSpeedForSize}}) — GM's call whether that's intentional.
+        </p>
+        {{/if}}
         <div class="mi-veh-manoeuvre-actions">
           <button type="button" class="mi-veh-manoeuvre-btn mi-btn mi-btn--sm" title="Attempt an evasive manoeuvre — fails roll on the Loss of Control table">
             <i class="fas fa-car-crash"></i> Manoeuvre

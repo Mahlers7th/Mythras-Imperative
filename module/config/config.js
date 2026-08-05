@@ -1274,27 +1274,25 @@ export const MYTHRAS = {
     airborne:             { key: 'airborne',             label: 'Airborne',             description: 'The vehicle is capable of atmospheric flight.',                                                                                    engineEffect: false },
     allTerrain:           { key: 'allTerrain',           label: 'All Terrain',           description: 'Traverses inhospitable, difficult, and steep terrain. Ground vehicles only.',                                                      engineEffect: false },
     burrowing:            { key: 'burrowing',            label: 'Burrowing',             description: 'Designed to tunnel through ground to a max depth of Hull Rating × 5 metres.',                                                     engineEffect: false },
-    // camouflaged/enhancedPerformance/stealth: corrected to false 2026-08-04
-    // (Vehicles audit F4) — these were marked engineEffect:true with nothing
-    // anywhere in the codebase actually consuming vehicleTraits to apply
-    // them. Camouflaged/Stealth need a detection/spot-roll mechanic that
-    // doesn't exist for any actor type yet; Enhanced Performance needs the
-    // max-Speed-by-Size table (audit finding F6/F7), also unbuilt. Resilient
-    // and Superior Handling below ARE real as of the same date — see
-    // CombatEngine.initiateVehicleManoeuvre (Superior Handling) and
+    // camouflaged/stealth: still false — need a detection/spot-roll
+    // mechanic that doesn't exist for any actor type yet in this codebase.
+    // enhancedPerformance/rails/resilient/superiorHandling below ARE real
+    // as of 2026-08-04 (Vehicles audit F1/F4) — see
+    // CombatEngine.getVehicleEffectiveSpeed (Enhanced Performance, Rails),
+    // CombatEngine.initiateVehicleManoeuvre (Superior Handling), and
     // VehicleSheet._addSystemComponent (Resilient).
     camouflaged:          { key: 'camouflaged',          label: 'Camouflaged',           description: 'Camouflage paint or mimetic sensors. Visual detection is one grade harder.',                                                       engineEffect: false },
     cargo:                { key: 'cargo',                label: 'Cargo',                 description: 'Designed to haul cargo; speed is two steps lower when laden.',                                                                    engineEffect: false },
     carrier:              { key: 'carrier',              label: 'Carrier',               description: 'Carries smaller craft. Must be at least Enormous. Capacity = Structure rating.',                                                  engineEffect: false },
     construction:         { key: 'construction',         label: 'Construction',          description: 'Equipped for heavy construction. All Terrain included; speed two steps lower.',                                                   engineEffect: false },
     empResistant:         { key: 'empResistant',         label: 'EMP Resistant',         description: 'Shielded against electromagnetic pulse attacks.',                                                                                  engineEffect: false },
-    enhancedPerformance:  { key: 'enhancedPerformance',  label: 'Enhanced Performance',  description: 'Speed rating is one step higher than the maximum for its size.',                                                                  engineEffect: false },
+    enhancedPerformance:  { key: 'enhancedPerformance',  label: 'Enhanced Performance',  description: 'Speed rating is one step higher than the maximum for its size.',                                                                  engineEffect: true  },
     ejectorSeat:          { key: 'ejectorSeat',          label: 'Ejector Seat',          description: 'Propels occupants clear in emergencies; deploys parachute.',                                                                      engineEffect: false },
     ftl:                  { key: 'ftl',                  label: 'FTL',                   description: 'Spacecraft only. Faster-than-light engine with its own parsec-travel Speed rating.',                                             engineEffect: false },
     groundVehicle:        { key: 'groundVehicle',        label: 'Ground Vehicle',        description: 'Capable of ground travel. Inherent for all land-based vehicles.',                                                                 engineEffect: false },
     hover:                { key: 'hover',                label: 'Hover',                 description: 'Hovers above ground via air cushion or anti-gravity repulsor.',                                                                   engineEffect: false },
     luxurious:            { key: 'luxurious',            label: 'Luxurious',             description: 'Designed to carry passengers in luxury; excess space devoted to amenities.',                                                      engineEffect: false },
-    rails:                { key: 'rails',                label: 'Rails',                 description: 'Uses a rail system. Speed three steps higher than size allows, but restricted to rails.',                                         engineEffect: false },
+    rails:                { key: 'rails',                label: 'Rails',                 description: 'Uses a rail system. Speed three steps higher than size allows, but restricted to rails.',                                         engineEffect: true  },
     resilient:            { key: 'resilient',            label: 'Resilient',             description: 'Each system withstands one extra hit beyond the Size norm. Stackable.',                                                           engineEffect: true  },
     seaborne:             { key: 'seaborne',             label: 'Seaborne',              description: 'The vehicle is buoyant on water.',                                                                                                 engineEffect: false },
     spacecraft:           { key: 'spacecraft',           label: 'Spacecraft',            description: 'Sealed against vacuum and cosmic radiation; capable of atmospheric re-entry.',                                                    engineEffect: false },
