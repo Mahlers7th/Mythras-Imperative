@@ -14,7 +14,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **Fixed: spells never appeared anywhere on the character sheet.** Real bug, reported live by Chris. `CharacterSheet._onDrop` never special-cased `spell` items, so dropping one onto a character *did* successfully embed it — but `_prepareContext` only ever gathered `type === 'ability'` items for the Abilities tab, and no other tab rendered spells either. The drop silently succeeded at the data layer while looking, to a player, exactly like nothing happened: no error, no new row, no feedback. Root cause: the Magic system's "infrastructure first" build (v1.4.286) shipped `SpellData`/`SpellSheet`/the casting mechanic/a compendium, but never added character-sheet UI to list them — confirmed via a zero-hit grep for "spell" across the entire file before this fix.
 - New **Spells** section on the Abilities tab, directly below Abilities (the tab's own empty-state text — "Add spells, powers, or special abilities above" — already implied this was the intended home). Each row shows the spell's Magic Traits as pills, its Resist skill if it has one, and a **Cast** quick-action button that calls the same `castSpell()` entry point as the spell's own item sheet — no need to open the sheet just to cast.
 - Live-verified: dropped Bladesharp onto a fresh character, confirmed it renders in the new Spells section with its Touch trait pill and a working Cast button.
-- Not yet committed.
+- Committed as `fe29110`.
 
 ## v1.4.289 — August 2026
 - **Vehicles chapter — F3 (System Component Damage effects), F6 (max-Speed-by-Size cap), and the rest of F4 (Enhanced Performance, Rails).** Continuation of the 2026-08-04 audit batch, at Chris's "you can keep going on those."
