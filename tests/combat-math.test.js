@@ -16,7 +16,11 @@ import {
   DM_TABLE,
   weaponBaseMax,
   compareInitiative,
-  initiativeTieBreakSeed
+  initiativeTieBreakSeed,
+  resolveLossOfControl,
+  LOSS_OF_CONTROL_TABLE,
+  shiftSpeedStep,
+  SPEED_STEPS
 } from '../module/utils/combat-math.js';
 
 // =============================================================================
@@ -422,5 +426,117 @@ describe('initiativeTieBreakSeed', () => {
   test('handles empty/undefined seed without throwing', () => {
     expect(() => initiativeTieBreakSeed('')).not.toThrow();
     expect(() => initiativeTieBreakSeed(undefined)).not.toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Loss of Control table (rules p.58)
+// ---------------------------------------------------------------------------
+
+describe('resolveLossOfControl', () => {
+  test('exact 1d100 range boundaries map to the correct result, low to high severity', () => {
+    expect(resolveLossOfControl(1).key).toBe('swerve');
+    expect(resolveLossOfControl(25).key).toBe('swerve');
+    expect(resolveLossOfControl(26).key).toBe('skid');
+    expect(resolveLossOfControl(40).key).toBe('skid');
+    expect(resolveLossOfControl(41).key).toBe('severeSkid');
+    expect(resolveLossOfControl(50).key).toBe('severeSkid');
+    expect(resolveLossOfControl(51).key).toBe('roll');
+    expect(resolveLossOfControl(60).key).toBe('roll');
+    expect(resolveLossOfControl(61).key).toBe('severeRoll');
+    expect(resolveLossOfControl(70).key).toBe('severeRoll');
+    expect(resolveLossOfControl(71).key).toBe('writeOff');
+    expect(resolveLossOfControl(80).key).toBe('writeOff');
+    expect(resolveLossOfControl(81).key).toBe('explosion');
+    expect(resolveLossOfControl(90).key).toBe('explosion');
+    expect(resolveLossOfControl(91).key).toBe('immediateExplosion');
+    expect(resolveLossOfControl(98).key).toBe('immediateExplosion');
+    expect(resolveLossOfControl(99).key).toBe('catastrophicCrash');
+    expect(resolveLossOfControl(100).key).toBe('catastrophicCrash');
+  });
+
+  test('the 9 ranges are contiguous and exhaustive across 1-100', () => {
+    for (let roll = 1; roll <= 100; roll++) {
+      expect(resolveLossOfControl(roll)).toBeDefined();
+    }
+    // No gaps or overlaps: every table entry's own min/max is claimed by
+    // exactly that entry when queried at its boundaries.
+    for (const entry of LOSS_OF_CONTROL_TABLE) {
+      expect(resolveLossOfControl(entry.min).key).toBe(entry.key);
+      expect(resolveLossOfControl(entry.max).key).toBe(entry.key);
+    }
+  });
+
+  test('clamps out-of-range input instead of returning undefined', () => {
+    expect(resolveLossOfControl(0).key).toBe('swerve');
+    expect(resolveLossOfControl(-5).key).toBe('swerve');
+    expect(resolveLossOfControl(150).key).toBe('catastrophicCrash');
+  });
+
+  test('only Roll and above deal Structure damage or are a Write-Off', () => {
+    for (const entry of LOSS_OF_CONTROL_TABLE) {
+      const dealsStructureDamage = entry.structureFormula != null || entry.writeOff === true;
+      if (['swerve', 'skid', 'severeSkid'].includes(entry.key)) {
+        expect(dealsStructureDamage).toBe(false);
+      } else {
+        expect(dealsStructureDamage).toBe(true);
+      }
+    }
+  });
+
+  test('Write-Off, Explosion, Immediate Explosion, and Catastrophic Crash all reduce Structure to 0', () => {
+    for (const key of ['writeOff', 'explosion', 'immediateExplosion', 'catastrophicCrash']) {
+      expect(LOSS_OF_CONTROL_TABLE.find(e => e.key === key).writeOff).toBe(true);
+    }
+  });
+
+  test('only Catastrophic Crash carries an instant-death check', () => {
+    for (const entry of LOSS_OF_CONTROL_TABLE) {
+      const instantDeath = entry.occupantDamage?.instantDeathOnFail === true;
+      expect(instantDeath).toBe(entry.key === 'catastrophicCrash');
+    }
+  });
+
+  test('only Immediate Explosion auto-applies burn damage', () => {
+    for (const entry of LOSS_OF_CONTROL_TABLE) {
+      expect(entry.burnAutomatic === true).toBe(entry.key === 'immediateExplosion');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Vehicle Speed step shifting (rules p.54)
+// ---------------------------------------------------------------------------
+
+describe('shiftSpeedStep', () => {
+  test('shifts forward within bounds', () => {
+    expect(shiftSpeedStep('ponderous', 1)).toBe('sluggish');
+    expect(shiftSpeedStep('moderate', 2)).toBe('fast');
+  });
+
+  test('shifts backward within bounds', () => {
+    expect(shiftSpeedStep('fleet', -1)).toBe('fast');
+    expect(shiftSpeedStep('moderate', -2)).toBe('mediocre');
+  });
+
+  test('clamps at the top (fleet) and bottom (ponderous)', () => {
+    expect(shiftSpeedStep('fleet', 5)).toBe('fleet');
+    expect(shiftSpeedStep('ponderous', -5)).toBe('ponderous');
+  });
+
+  test('zero steps is a no-op', () => {
+    expect(shiftSpeedStep('gentle', 0)).toBe('gentle');
+  });
+
+  test('unrecognised speed values (e.g. a homebrew "supersonic") are returned unchanged', () => {
+    expect(shiftSpeedStep('supersonic', 1)).toBe('supersonic');
+    expect(shiftSpeedStep('supersonic', -3)).toBe('supersonic');
+  });
+
+  test('SPEED_STEPS has exactly the rulebook\'s 9 steps, in order', () => {
+    expect(SPEED_STEPS).toEqual([
+      'ponderous', 'sluggish', 'slow', 'mediocre', 'gentle',
+      'moderate', 'rapid', 'fast', 'fleet'
+    ]);
   });
 });

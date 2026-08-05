@@ -2329,6 +2329,17 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-veh-dmg-penetrate .mi-veh-dmg-label { color: var(--mi-wound-serious); }
 .mi-veh-dmg-system { background: var(--mi-fumble-bg); }
 .mi-veh-dmg-system .mi-veh-dmg-label { color: var(--mi-fumble-c); }
+.mi-veh-dmg-destroyed { background: var(--mi-fumble-bg); }
+.mi-veh-dmg-destroyed .mi-veh-dmg-val { color: var(--mi-wound-major); font-weight: 600; }
+.mi-veh-loc-desc { margin: 2px 10px 6px; font-size: 11px; }
+
+/* ── Handling & Manoeuvres action row ────────────────────────────────────── */
+.mi-veh-handling-current {
+  margin-left: auto; font-size: 10px; font-weight: 400; text-transform: none;
+  letter-spacing: 0; color: var(--mi-ink-3);
+}
+.mi-veh-manoeuvre-actions { display: flex; gap: 6px; margin: 4px 0 10px; }
+.mi-veh-manoeuvre-actions .mi-btn { flex: 0 0 auto; padding: 4px 10px; }
 
 /* Roll Vehicle Damage button — same look as mi-btn-dmg */
 .mi-btn-veh-dmg {

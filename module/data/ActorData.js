@@ -387,6 +387,12 @@ export class VehicleData extends foundry.abstract.TypeDataModel {
         max:   new fields.NumberField({ initial: 0, integer: true, min: 0 })
       }),
 
+      // Rules p.53: "If the vehicle is ever reduced to zero Structure it is
+      // either utterly destroyed, or so badly wrecked it must be scrapped."
+      // Stamped once by CombatEngine._checkVehicleDestroyed when Structure
+      // first hits 0; also drives the 'dead' status effect on its token.
+      destroyed: new fields.BooleanField({ initial: false }),
+
       // --- Crew Roster -----------------------------------------------------
       // Lightweight array of actor references. uuid may go stale if the
       // actor is deleted; cachedName provides a display fallback.

@@ -26,7 +26,11 @@
  */
 
 import { getFatigueSkillGrade } from '../utils/fatigue.js';
-import { classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared } from '../utils/combat-math.js';
+import {
+  classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
+  woundLevel, resolveLossOfControl, shiftSpeedStep,
+} from '../utils/combat-math.js';
+import { shiftGrade } from '../utils/roll-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -119,7 +123,7 @@ export class CombatEngine {
     if (crewActors.length === 1) {
       chosenCrew = crewActors[0].actor;
     } else {
-      chosenCrew = await CombatEngine._pickCrewMember(crewActors, weaponItem.name);
+      chosenCrew = await CombatEngine._pickCrewMember(crewActors, weaponItem.name, 'firing', 'Fire', '<i class="fas fa-crosshairs"></i>');
       if (!chosenCrew) return; // cancelled
     }
 
@@ -178,10 +182,13 @@ export class CombatEngine {
    * Shows a small dialog listing crew members. Returns the chosen Actor or null.
    *
    * @param {Array<{actor, role, uuid}>} crewActors
-   * @param {string} weaponName
+   * @param {string} actionName   The thing being done, e.g. a weapon's name or 'the manoeuvre'.
+   * @param {string} verb         Present-participle verb for the prompt ('firing', 'driving', ...).
+   * @param {string} buttonLabel  Confirm-button label.
+   * @param {string} buttonIcon   Confirm-button FontAwesome icon markup.
    * @returns {Promise<Actor|null>}
    */
-  static _pickCrewMember(crewActors, weaponName) {
+  static _pickCrewMember(crewActors, actionName, verb = 'firing', buttonLabel = 'Confirm', buttonIcon = '<i class="fas fa-check"></i>') {
     return new Promise(resolve => {
       const rows = crewActors.map((c, i) => {
         const role = c.role ? ` <span class="mi-muted mi-crew-role-label">(${c.role})</span>` : '';
@@ -194,7 +201,7 @@ export class CombatEngine {
 
       const content = `
         <div class="mi-crew-picker">
-          <p class="mi-crew-pick-prompt">Who is firing <strong>${weaponName}</strong>?</p>
+          <p class="mi-crew-pick-prompt">Who is ${verb} <strong>${actionName}</strong>?</p>
           <div class="mi-crew-pick-list">${rows}</div>
         </div>`;
 
@@ -203,8 +210,8 @@ export class CombatEngine {
         content,
         buttons: {
           ok: {
-            label: 'Fire',
-            icon: '<i class="fas fa-crosshairs"></i>',
+            label: buttonLabel,
+            icon: buttonIcon,
             callback: html => {
               const val = html[0].querySelector('input[name="crewPick"]:checked')?.value;
               resolve(val !== undefined ? crewActors[parseInt(val)].actor : null);
@@ -265,6 +272,427 @@ export class CombatEngine {
         close: () => resolve(null)
       }, { classes: ['mi-dialog', 'mi-crew-picker-dialog'], width: 300 }).render(true);
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Vehicle Manoeuvre / Loss of Control  (rules p.57-58 — 2026-08-04
+  // Vehicles audit findings F1, plus the real half of F4's Resilient/
+  // Superior Handling traits)
+  //
+  // requestSkillCheck lives in mythras.mjs, which itself imports this file —
+  // a direct import here would be circular. Called via game.system.api
+  // instead, which mythras.mjs freezes during its own init hook, long before
+  // any sheet button click can reach these methods.
+  //
+  // Speed-step penalty durations (5/10/15 seconds) and the Explosion escape
+  // window (1d20+10 seconds) are reported in the chat card but not deep-
+  // simulated — this codebase has no duration-tracking infrastructure for
+  // temporary numeric effects anywhere else to hook into (same documented
+  // engine-gap pattern as Kinetic Control's DM steps). The Speed *change*
+  // itself, and all Structure/occupant damage, are fully real.
+  // -------------------------------------------------------------------------
+
+  /**
+   * Entry point for the VehicleSheet "Manoeuvre" button. Resolves a driver,
+   * rolls Drive/Pilot against the vehicle's Handling (Superior Handling
+   * trait forces Easy regardless of the sheet field) shifted by the chosen
+   * manoeuvre difficulty. On failure, resolves the Loss of Control table:
+   * real Structure damage through the same _checkVehicleDestroyed
+   * chokepoint weapon fire uses, and real Endurance-gated occupant damage
+   * against every crew actor.
+   *
+   * @param {Actor} vehicle
+   */
+  static async initiateVehicleManoeuvre(vehicle) {
+    const driver = await CombatEngine._resolveVehicleDriver(vehicle, 'the manoeuvre');
+    if (!driver) return;
+
+    const shift = await CombatEngine._pickManoeuvreDifficulty();
+    if (shift === null) return;
+
+    const hasSuperiorHandling = Array.from(vehicle.items)
+      .some(i => i.type === 'trait' && i.system.key === 'superiorHandling');
+    const baseHandling = hasSuperiorHandling ? 'easy' : (vehicle.system.handling ?? 'standard');
+    const finalGrade   = shiftGrade(baseHandling, shift);
+
+    const result = await game.system.api.requestSkillCheck(driver, {
+      skillNames: ['Drive', 'Pilot'],
+      difficulty: finalGrade,
+      title: `${vehicle.name} — Manoeuvre`,
+      prompt: `Handling ${baseHandling}${hasSuperiorHandling ? ' (Superior Handling)' : ''}` +
+              `${shift ? `, manoeuvre ${shift > 0 ? '+' : ''}${shift} grade${Math.abs(shift) === 1 ? '' : 's'}` : ''}` +
+              ` → ${finalGrade} Drive/Pilot roll.`,
+      allowGMOverride: true
+    });
+    if (result.cancelled) return;
+
+    if (result.succeeds) {
+      await CombatEngine._postManoeuvreCard(vehicle, driver, result, finalGrade, null);
+      return;
+    }
+
+    const locRoll = new Roll('1d100');
+    await locRoll.evaluate();
+    const locEntry = resolveLossOfControl(locRoll.total);
+
+    let structureResult = null;
+    if (locEntry.structureFormula || locEntry.writeOff) {
+      structureResult = await CombatEngine._applyLossOfControlStructureDamage(vehicle, locEntry);
+    }
+    if (locEntry.speedStepPenalty || locEntry.standstill) {
+      await CombatEngine._applyLossOfControlSpeedPenalty(vehicle, locEntry);
+    }
+
+    const roster = vehicle.system.crew ?? [];
+    const crewActors = [];
+    for (const entry of roster) {
+      const actor = await fromUuid(entry.uuid).catch(() => null);
+      if (actor) crewActors.push(actor);
+    }
+
+    const occupantResults = locEntry.occupantDamage
+      ? await CombatEngine._applyLossOfControlOccupantDamage(crewActors, locEntry)
+      : [];
+    const burnResults = await CombatEngine._applyLossOfControlBurnDamage(crewActors, locEntry);
+
+    await CombatEngine._postManoeuvreCard(vehicle, driver, result, finalGrade, {
+      locRoll: locRoll.total, locEntry, structureResult, occupantResults, burnResults
+    });
+  }
+
+  /**
+   * Entry point for the VehicleSheet "Push Speed" button (rules p.54):
+   * +1 step on a standard Drive/Pilot roll, +2 steps on a Herculean one.
+   * Applies the Speed change immediately on success. The "sustainable for
+   * 1d6/1d12/1d3 minutes" duration is rolled and reported but not
+   * auto-reverted — see class doc-comment above.
+   *
+   * @param {Actor} vehicle
+   */
+  static async initiateVehiclePushSpeed(vehicle) {
+    const driver = await CombatEngine._resolveVehicleDriver(vehicle, 'the push');
+    if (!driver) return;
+
+    const steps = await CombatEngine._pickPushAmount();
+    if (!steps) return;
+
+    const difficulty = steps === 2 ? 'herculean' : 'standard';
+    const result = await game.system.api.requestSkillCheck(driver, {
+      skillNames: ['Drive', 'Pilot'],
+      difficulty,
+      title: `${vehicle.name} — Push Speed`,
+      prompt: `Pushing Speed by ${steps} step${steps > 1 ? 's' : ''} (${difficulty === 'herculean' ? 'Herculean' : 'Standard'} Drive/Pilot roll).`,
+      allowGMOverride: true
+    });
+    if (result.cancelled) return;
+
+    if (!result.succeeds) {
+      await CombatEngine._postPushSpeedCard(vehicle, driver, result, steps, null);
+      return;
+    }
+
+    const base = game.actors.get(vehicle.id) ?? vehicle;
+    const newSpeed = shiftSpeedStep(base.system.speed, steps);
+    await base.update({ 'system.speed': newSpeed });
+
+    const durFormula = steps === 2 ? '1d3' : (result.grade === 'critical' ? '1d12' : '1d6');
+    const durRoll = new Roll(durFormula);
+    await durRoll.evaluate();
+
+    await CombatEngine._postPushSpeedCard(vehicle, driver, result, steps, {
+      newSpeed, durationMinutes: durRoll.total, durFormula
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Shared driver-resolution helper for both entry points above. Returns
+  // the chosen Actor, or a falsy value if the caller should abort silently
+  // (no crew — already warned via ui.notifications; or the picker was
+  // cancelled).
+  // -------------------------------------------------------------------------
+
+  static async _resolveVehicleDriver(vehicle, actionName) {
+    const roster = vehicle.system.crew ?? [];
+    const crewActors = [];
+    for (const entry of roster) {
+      const actor = await fromUuid(entry.uuid).catch(() => null);
+      if (actor) crewActors.push({ actor, role: entry.role, uuid: entry.uuid });
+    }
+    if (crewActors.length === 0) {
+      ui.notifications.warn('No crew members assigned to this vehicle. Drag a driver onto the Crew list first.');
+      return null;
+    }
+    if (crewActors.length === 1) return crewActors[0].actor;
+
+    // Default the radio selection to a crew member whose role names
+    // Drive/Pilot, if any — the GM can still pick anyone from the list.
+    const preferred = crewActors.find(c => /driv|pilot/i.test(c.role ?? ''));
+    const ordered = preferred ? [preferred, ...crewActors.filter(c => c !== preferred)] : crewActors;
+    return CombatEngine._pickCrewMember(ordered, actionName, 'driving', 'Confirm', '<i class="fas fa-check"></i>');
+  }
+
+  static _pickManoeuvreDifficulty() {
+    return new Promise(resolve => {
+      const options = [
+        { v: -1, label: 'Routine (−1 grade easier)' },
+        { v: 0,  label: 'Standard manoeuvre (no shift)' },
+        { v: 1,  label: 'Difficult (+1 grade)' },
+        { v: 2,  label: 'Very Difficult (+2 grades)' },
+        { v: 3,  label: 'Extreme (+3 grades)' }
+      ];
+      const rows = options.map(o => `<option value="${o.v}"${o.v === 0 ? ' selected' : ''}>${o.label}</option>`).join('');
+      const content = `
+        <div class="mi-dialog-body">
+          <label>How difficult is this manoeuvre, on top of the vehicle's own Handling?</label>
+          <select name="shift" style="width:100%;">${rows}</select>
+        </div>`;
+      new Dialog({
+        title: 'Manoeuvre Difficulty',
+        content,
+        buttons: {
+          ok: {
+            label: 'Roll',
+            icon: '<i class="fas fa-dice"></i>',
+            callback: html => resolve(parseInt(html[0].querySelector('[name="shift"]').value, 10))
+          },
+          cancel: { label: 'Cancel', callback: () => resolve(null) }
+        },
+        default: 'ok',
+        close: () => resolve(null)
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
+    });
+  }
+
+  static _pickPushAmount() {
+    return new Promise(resolve => {
+      const content = `
+        <div class="mi-dialog-body">
+          <label>Push Speed by how many steps?</label>
+          <select name="steps" style="width:100%;">
+            <option value="1" selected>+1 step (Standard Drive/Pilot roll)</option>
+            <option value="2">+2 steps (Herculean Drive/Pilot roll)</option>
+          </select>
+        </div>`;
+      new Dialog({
+        title: 'Push Vehicle Speed',
+        content,
+        buttons: {
+          ok: {
+            label: 'Roll',
+            icon: '<i class="fas fa-dice"></i>',
+            callback: html => resolve(parseInt(html[0].querySelector('[name="steps"]').value, 10))
+          },
+          cancel: { label: 'Cancel', callback: () => resolve(null) }
+        },
+        default: 'ok',
+        close: () => resolve(null)
+      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
+    });
+  }
+
+  static async _applyLossOfControlStructureDamage(vehicle, locEntry) {
+    const base = game.actors.get(vehicle.id) ?? vehicle;
+    const vObj = base.system.toObject ? base.system.toObject() : { ...base.system };
+    const structureCurrent = vObj.structure?.value ?? 0;
+
+    let dealt, structureNew;
+    if (locEntry.writeOff) {
+      dealt = structureCurrent;
+      structureNew = 0;
+    } else {
+      const roll = new Roll(locEntry.structureFormula);
+      await roll.evaluate();
+      dealt = roll.total;
+      structureNew = Math.max(0, structureCurrent - dealt);
+    }
+
+    await base.update({ 'system.structure.value': structureNew });
+    const destroyed = await CombatEngine._checkVehicleDestroyed(base, structureNew);
+    return { dealt, structureNew, structureMax: vObj.structure?.max ?? '?', destroyed };
+  }
+
+  static async _applyLossOfControlSpeedPenalty(vehicle, locEntry) {
+    const base = game.actors.get(vehicle.id) ?? vehicle;
+    const newSpeed = locEntry.standstill
+      ? 'ponderous'
+      : shiftSpeedStep(base.system.speed, -locEntry.speedStepPenalty);
+    await base.update({ 'system.speed': newSpeed });
+    return newSpeed;
+  }
+
+  // Rolls `locationsSpec` (int or dice-formula string) hit locations on
+  // `actor`, each independently rolling fresh `formula` damage and writing
+  // system.current/system.wound directly. Deliberately does NOT route
+  // through CombatEngine._applyDamage — that pipeline pulls in damageHooks,
+  // opposed SE resolution, and trait checks meant for weapon attacks, none
+  // of which apply to environmental crash/burn damage.
+  static async _applyDiceDamageToLocations(actor, formula, locationsSpec) {
+    let count;
+    if (Number.isInteger(locationsSpec)) {
+      count = locationsSpec;
+    } else {
+      const countRoll = new Roll(String(locationsSpec));
+      await countRoll.evaluate();
+      count = countRoll.total;
+    }
+
+    const hits = [];
+    for (let i = 0; i < count; i++) {
+      const dmgRoll = new Roll(formula);
+      await dmgRoll.evaluate();
+      const hit = CombatEngine._rollHitLocation(actor);
+      let wound = null;
+      if (hit.id) {
+        const locItem   = actor.items.get(hit.id);
+        const maxHp     = locItem.system.hp ?? 4;
+        const currentHp = locItem.system.current ?? maxHp;
+        const newCurrent = currentHp - dmgRoll.total;
+        wound = woundLevel(dmgRoll.total, maxHp, newCurrent);
+        await locItem.update({ 'system.current': newCurrent, 'system.wound': wound });
+      }
+      hits.push({ location: hit.label, damage: dmgRoll.total, wound });
+    }
+    return hits;
+  }
+
+  // Catastrophic Crash reads "Damage as for Write-Off is sustained
+  // regardless" as: one Endurance roll per occupant does double duty —
+  // it both gates the instant-death check AND selects the Write-Off-style
+  // on-success/on-fail damage tier, rather than a second independent roll.
+  static async _applyCrashDamageToOccupant(actor, spec) {
+    const enduranceRes = await game.system.api.requestSkillCheck(actor, {
+      skillNames: ['Endurance'],
+      title: 'Crash — Endurance',
+      prompt: `${actor.name} must roll Endurance to reduce crash injuries.`
+    });
+
+    let died = false;
+    if (spec.instantDeathOnFail && !enduranceRes.succeeds && !enduranceRes.cancelled) {
+      await applyStatusToActor(actor, 'dead');
+      died = true;
+    }
+
+    const formula = enduranceRes.succeeds ? spec.onSuccessFormula : spec.onFailFormula;
+    const hits = formula ? await CombatEngine._applyDiceDamageToLocations(actor, formula, spec.locations) : [];
+
+    return { enduranceSucceeded: enduranceRes.succeeds, hits, died };
+  }
+
+  static async _applyLossOfControlOccupantDamage(crewActors, locEntry) {
+    const results = [];
+    for (const actor of crewActors) {
+      const r = await CombatEngine._applyCrashDamageToOccupant(actor, locEntry.occupantDamage);
+      results.push({ name: actor.name, ...r });
+    }
+    return results;
+  }
+
+  // Only 'Immediate Explosion' auto-applies burn damage (no escape window
+  // exists to model). 'Explosion' has a genuine 1d20+10 second escape
+  // chance the engine has no way to adjudicate — narrated in the chat card
+  // instead, matching this file's other documented engine-gap decisions.
+  static async _applyLossOfControlBurnDamage(crewActors, locEntry) {
+    if (!locEntry.burnAutomatic) return [];
+    const results = [];
+    for (const actor of crewActors) {
+      const hits = await CombatEngine._applyDiceDamageToLocations(actor, locEntry.burnFormula, locEntry.burnLocations);
+      results.push({ name: actor.name, hits });
+    }
+    return results;
+  }
+
+  static async _postManoeuvreCard(vehicle, driver, result, finalGrade, lossDetail) {
+    const outcomeLabel = { critical: 'Critical', success: 'Success', failure: 'Failure', fumble: 'Fumble' }[result.grade] ?? (result.grade ?? '—');
+
+    let body = `
+      <div class="mi-card-rolls">
+        <div class="mi-card-roll-row">
+          <div class="mi-card-roll-row-top">${driver.name} — ${result.chosenSkillName ?? 'Drive/Pilot'} (${finalGrade})</div>
+          <div class="mi-card-roll-row-bottom">
+            <span class="mi-card-roll-target">${result.chosenSkillTotal ?? '—'}%</span>
+            <span class="mi-card-roll-result">${result.roll ?? '—'}</span>
+            <span class="mi-outcome ${result.grade}">${outcomeLabel}</span>
+          </div>
+        </div>
+      </div>`;
+
+    if (!lossDetail) {
+      body += `<div class="mi-outcome-row"><span class="mi-outcome success"><i class="fas fa-check"></i> ${vehicle.name} holds its line.</span></div>`;
+    } else {
+      const { locRoll, locEntry, structureResult, occupantResults, burnResults } = lossDetail;
+      body += `
+        <div class="mi-outcome-row">
+          <span class="mi-outcome failure"><i class="fas fa-exclamation-triangle"></i> Loss of Control (1d100: ${locRoll}) — <strong>${locEntry.label}</strong></span>
+        </div>
+        <p class="mi-veh-loc-desc mi-muted">${locEntry.description}</p>`;
+
+      if (structureResult) {
+        body += `<div class="mi-veh-dmg-row"><span class="mi-veh-dmg-label">Structure</span><span class="mi-veh-dmg-val">${structureResult.structureNew} / ${structureResult.structureMax} <span class="mi-muted">(−${structureResult.dealt})</span></span></div>`;
+        if (structureResult.destroyed) {
+          body += `<div class="mi-veh-dmg-row mi-veh-dmg-destroyed"><span class="mi-veh-dmg-val"><i class="fas fa-skull-crossbones"></i> <strong>${vehicle.name} is destroyed</strong></span></div>`;
+        }
+      }
+
+      for (const occ of (occupantResults ?? [])) {
+        if (occ.hits.length === 0 && !occ.died) continue;
+        const hitText = occ.hits.map(h => `${h.location}: ${h.damage}${h.wound && h.wound !== 'none' ? ` (${h.wound})` : ''}`).join(', ');
+        body += `<div class="mi-veh-dmg-row"><span class="mi-veh-dmg-label">${occ.name}</span><span class="mi-veh-dmg-val">${occ.died ? '<strong>Killed instantly</strong>' + (hitText ? ' — ' : '') : ''}${hitText}</span></div>`;
+      }
+
+      for (const burn of (burnResults ?? [])) {
+        const hitText = burn.hits.map(h => `${h.location}: ${h.damage} burn${h.wound && h.wound !== 'none' ? ` (${h.wound})` : ''}`).join(', ');
+        if (hitText) body += `<div class="mi-veh-dmg-row"><span class="mi-veh-dmg-label">${burn.name} (burn)</span><span class="mi-veh-dmg-val">${hitText}</span></div>`;
+      }
+
+      if (locEntry.speedStepPenalty || locEntry.standstill) {
+        body += `<p class="mi-muted">Speed effect applied — lasts ${locEntry.speedPenaltyDuration}. GM reverts manually once the duration passes.</p>`;
+      }
+      if (locEntry.explodes && !locEntry.burnAutomatic) {
+        body += `<p class="mi-muted"><i class="fas fa-fire"></i> Fuel system ignites — explodes in ${locEntry.explosionDelayFormula} seconds unless occupants get clear. GM adjudicates escape; anyone who doesn't takes a further 1d6 burn damage to 1d6 locations.</p>`;
+      }
+    }
+
+    const content = `
+      <div class="mi-chat-card mi-chat-card--resolution">
+        <div class="mi-card-header mi-card-header--stacked">
+          <span class="mi-card-actor">${vehicle.name}</span>
+          <span class="mi-card-skill">Vehicle Manoeuvre</span>
+        </div>
+        <div class="mi-card-body">${body}</div>
+      </div>`;
+
+    await ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor: vehicle }) });
+  }
+
+  static async _postPushSpeedCard(vehicle, driver, result, steps, success) {
+    const outcomeLabel = { critical: 'Critical', success: 'Success', failure: 'Failure', fumble: 'Fumble' }[result.grade] ?? (result.grade ?? '—');
+
+    let body = `
+      <div class="mi-card-rolls">
+        <div class="mi-card-roll-row">
+          <div class="mi-card-roll-row-top">${driver.name} — ${result.chosenSkillName ?? 'Drive/Pilot'}</div>
+          <div class="mi-card-roll-row-bottom">
+            <span class="mi-card-roll-target">${result.chosenSkillTotal ?? '—'}%</span>
+            <span class="mi-card-roll-result">${result.roll ?? '—'}</span>
+            <span class="mi-outcome ${result.grade}">${outcomeLabel}</span>
+          </div>
+        </div>
+      </div>`;
+
+    body += success
+      ? `<div class="mi-outcome-row"><span class="mi-outcome success"><i class="fas fa-check"></i> Speed pushed to <strong>${success.newSpeed}</strong> — sustainable for ${success.durationMinutes} minutes (${success.durFormula}) before dropping back or risking engine damage.</span></div>`
+      : `<div class="mi-outcome-row"><span class="mi-outcome failure"><i class="fas fa-times"></i> Push failed — Speed unchanged.</span></div>`;
+
+    const content = `
+      <div class="mi-chat-card mi-chat-card--resolution">
+        <div class="mi-card-header mi-card-header--stacked">
+          <span class="mi-card-actor">${vehicle.name}</span>
+          <span class="mi-card-skill">Push Speed (+${steps})</span>
+        </div>
+        <div class="mi-card-body">${body}</div>
+      </div>`;
+
+    await ChatMessage.create({ content, speaker: ChatMessage.getSpeaker({ actor: vehicle }) });
   }
 
   /**
@@ -2599,7 +3027,11 @@ export class CombatEngine {
             structureDamage:    ctx.structureDamage,
             systemRoll:         ctx.systemRoll,
             systemResult:       ctx.systemResult,
+            vehicleDestroyed:   ctx.vehicleDestroyed ?? false,
           });
+          // Stop the burst early once destroyed — later rounds hitting an
+          // already-wrecked vehicle have nothing left to resolve.
+          if (ctx.vehicleDestroyed) break;
         }
 
         ctx.roundsHit           = roundsHit;
@@ -2727,6 +3159,7 @@ export class CombatEngine {
       ctx.systemResult = null;
     }
     await baseActor.update({ 'system.structure.value': structureNew });
+    ctx.vehicleDestroyed = await CombatEngine._checkVehicleDestroyed(baseActor, structureNew);
 
     if (chatMsg) await CombatEngine._updateVehicleCardWithDamage(chatMsg, ctx);
 
@@ -2734,6 +3167,24 @@ export class CombatEngine {
       console.error('MI | _applyVehicleDamage error:', err);
       throw err; // re-throw so the button handler can catch and show a notification
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // _checkVehicleDestroyed — rules p.53: "If the vehicle is ever reduced to
+  // zero Structure it is either utterly destroyed, or so badly wrecked it
+  // must be scrapped." Marks the vehicle exactly once, the moment Structure
+  // first reaches zero — idempotent, so every path that can zero out
+  // Structure (weapon damage here, Loss of Control's Write-Off/Explosion/
+  // Catastrophic Crash below) can call this unconditionally without
+  // double-marking an already-destroyed vehicle.
+  // -------------------------------------------------------------------------
+
+  static async _checkVehicleDestroyed(baseActor, structureValue) {
+    if (structureValue > 0) return false;
+    if (baseActor.system.destroyed) return false;
+    await baseActor.update({ 'system.destroyed': true });
+    await applyStatusToActor(baseActor, 'dead');
+    return true;
   }
 
   // -------------------------------------------------------------------------
@@ -2902,6 +3353,12 @@ export class CombatEngine {
       }
     }
 
+    const destroyedLine = ctx.vehicleDestroyed
+      ? `<div class="mi-veh-dmg-row mi-veh-dmg-destroyed">
+           <span class="mi-veh-dmg-val"><i class="fas fa-skull-crossbones"></i> <strong>${defender.name} is destroyed</strong> — Structure reduced to 0</span>
+         </div>`
+      : '';
+
     const resultBlock = `
       <div class="mi-veh-combat-result">
         <div class="mi-veh-dmg-row mi-veh-dmg-raw">
@@ -2911,6 +3368,7 @@ export class CombatEngine {
         ${shieldLine}
         ${hullLine}
         ${sysLine}
+        ${destroyedLine}
       </div>`;
 
     // Replace the empty result div placeholder or append
@@ -2998,6 +3456,13 @@ export class CombatEngine {
     const structNow = vObjFresh.structure?.value ?? '?';
     const structMax = vObjFresh.structure?.max   ?? '?';
 
+    const destroyedRound = rounds.find(r => r.vehicleDestroyed);
+    const destroyedLine = destroyedRound
+      ? `<div class="mi-veh-dmg-row mi-veh-dmg-destroyed">
+           <span class="mi-veh-dmg-val"><i class="fas fa-skull-crossbones"></i> <strong>${defender.name} is destroyed</strong> — Structure reduced to 0 (round ${destroyedRound.round})</span>
+         </div>`
+      : '';
+
     const resultBlock = `
       <div class="mi-veh-combat-result">
         <div class="mi-veh-dmg-row mi-veh-dmg-burst-header">
@@ -3009,6 +3474,7 @@ export class CombatEngine {
           <span class="mi-veh-dmg-label">Structure</span>
           <span class="mi-veh-dmg-val">${structNow} / ${structMax}</span>
         </div>
+        ${destroyedLine}
       </div>`;
 
     let newContent = chatMsg.content;
@@ -4196,12 +4662,7 @@ export class CombatEngine {
   // 5 goes Major (newCurrent = −5, maxHp = 5 → −5 ≤ −5).
   // -------------------------------------------------------------------------
 
-  static _woundLevel(damage, maxHp, newCurrent) {
-    if (damage <= 0)          return 'none';
-    if (newCurrent <= -maxHp) return 'major';
-    if (newCurrent <= 0)      return 'serious';
-    return 'minor';
-  }
+  static _woundLevel(damage, maxHp, newCurrent) { return woundLevel(damage, maxHp, newCurrent); }
 
   // -------------------------------------------------------------------------
   // _classifyLocation — returns 'limb' | 'torso' | 'head' from a location name

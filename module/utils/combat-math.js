@@ -291,3 +291,130 @@ export function compareInitiative(a, b) {
   return a.id > b.id ? 1 : -1;
 }
 
+// ---------------------------------------------------------------------------
+// Vehicle Handling & Manoeuvres — Loss of Control table (rules p.58)
+// ---------------------------------------------------------------------------
+
+// Exact 1d100 → result mapping, cross-checked against a second, non--layout
+// PDF extraction (pdftotext without -layout) after the first -layout pass
+// interleaved the range column and the result-text column into a garbled
+// order — see the 2026-08-04 Vehicles audit. Nine ranges, nine named
+// results, matched 1:1 in increasing severity as the roll climbs, the same
+// pattern this rulebook uses for its other d100 tables (Impale, fumbles).
+//
+// occupantDamage.locations is informational only — automated resolution
+// (see CombatEngine.initiateVehicleManoeuvre) always applies to one rolled
+// hit location per crew member; multi-location text is preserved here for
+// the chat card's rules citation.
+export const LOSS_OF_CONTROL_TABLE = [
+  {
+    min: 1, max: 25, key: 'swerve', label: 'Swerve',
+    description: 'The loss of control is temporary. Vehicle drops its speed by 1 step for 5 seconds.',
+    speedStepPenalty: 1, standstill: false, speedPenaltyDuration: '5 seconds',
+    structureFormula: null, writeOff: false, occupantDamage: null,
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 26, max: 40, key: 'skid', label: 'Skid',
+    description: 'Driver must fight to keep the vehicle under control. Vehicle drops its speed by 2 steps for 10 seconds.',
+    speedStepPenalty: 2, standstill: false, speedPenaltyDuration: '10 seconds',
+    structureFormula: null, writeOff: false, occupantDamage: null,
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 41, max: 50, key: 'severeSkid', label: 'Severe Skid',
+    description: 'Vehicle ends up facing in the wrong direction and at a standstill for 15 seconds.',
+    speedStepPenalty: null, standstill: true, speedPenaltyDuration: '15 seconds',
+    structureFormula: null, writeOff: false, occupantDamage: null,
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 51, max: 60, key: 'roll', label: 'Roll',
+    description: 'Vehicle skids and rolls, sustaining 3d10 damage to its Structure. Occupants must succeed at Endurance or sustain 1d10 damage to 1d3 Hit Locations.',
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: '3d10', writeOff: false,
+    occupantDamage: { onFailFormula: '1d10', onSuccessFormula: null, locations: '1d3', instantDeathOnFail: false },
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 61, max: 70, key: 'severeRoll', label: 'Severe Roll',
+    description: 'As Roll, but the vehicle sustains 3d10+10 damage and occupants take 1d10 damage even on a successful Endurance roll, or 2d10 on a failure.',
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: '3d10+10', writeOff: false,
+    occupantDamage: { onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: false },
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 71, max: 80, key: 'writeOff', label: 'Write-Off',
+    description: 'As Severe Roll, but the vehicle is reduced to 0 Structure.',
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: null, writeOff: true,
+    occupantDamage: { onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: false },
+    explodes: false, catastrophicCrash: false
+  },
+  {
+    min: 81, max: 90, key: 'explosion', label: 'Explosion',
+    description: "As Write-Off, but the vehicle's fuel system ignites and explodes within 1d20+10 seconds. Occupants unable to get clear suffer a further 1d6 burn damage to 1d6 locations.",
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: null, writeOff: true,
+    occupantDamage: { onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: false },
+    explodes: true, explosionDelayFormula: '1d20+10', burnFormula: '1d6', burnLocations: '1d6', burnAutomatic: false,
+    catastrophicCrash: false
+  },
+  {
+    min: 91, max: 98, key: 'immediateExplosion', label: 'Immediate Explosion',
+    description: 'As Explosion, but the explosion is immediate — occupants have no chance to get clear.',
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: null, writeOff: true,
+    occupantDamage: { onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: false },
+    explodes: true, explosionDelayFormula: null, burnFormula: '1d6', burnLocations: '1d6', burnAutomatic: true,
+    catastrophicCrash: false
+  },
+  {
+    min: 99, max: 100, key: 'catastrophicCrash', label: 'Catastrophic Crash',
+    description: 'Occupants must succeed at an Endurance roll or be killed instantly. Damage as for Write-Off is sustained regardless.',
+    speedStepPenalty: null, standstill: false, speedPenaltyDuration: null,
+    structureFormula: null, writeOff: true,
+    occupantDamage: { onFailFormula: '2d10', onSuccessFormula: '1d10', locations: 1, instantDeathOnFail: true },
+    explodes: false, catastrophicCrash: true
+  }
+];
+
+/**
+ * Look up the Loss of Control table entry for a 1d100 result.
+ * Clamped to [1,100] — a raw 100 represents the table's "00" row.
+ *
+ * @param {number} d100
+ * @returns {object}  One row of LOSS_OF_CONTROL_TABLE.
+ */
+export function resolveLossOfControl(d100) {
+  const roll = Math.min(100, Math.max(1, Math.round(d100)));
+  return LOSS_OF_CONTROL_TABLE.find(e => roll >= e.min && roll <= e.max)
+    ?? LOSS_OF_CONTROL_TABLE[LOSS_OF_CONTROL_TABLE.length - 1];
+}
+
+// The rulebook's own 9 Speed steps (p.54). VehicleData's schema additionally
+// allows a 10th 'supersonic' value not in this list (flagged, unconfirmed
+// with Chris — 2026-08-04 Vehicles audit finding F6) — shiftSpeedStep leaves
+// unrecognised values untouched rather than guessing where they'd sit.
+export const SPEED_STEPS = [
+  'ponderous', 'sluggish', 'slow', 'mediocre', 'gentle',
+  'moderate', 'rapid', 'fast', 'fleet'
+];
+
+/**
+ * Shift a Speed rating by N steps (positive = faster, negative = slower),
+ * clamped to the table's ends. Unrecognised speed ids (e.g. a homebrew
+ * value outside the rulebook's 9 steps) are returned unchanged.
+ *
+ * @param {string} speedId
+ * @param {number} steps
+ * @returns {string}
+ */
+export function shiftSpeedStep(speedId, steps) {
+  const idx = SPEED_STEPS.indexOf(speedId);
+  if (idx === -1) return speedId;
+  const next = Math.min(SPEED_STEPS.length - 1, Math.max(0, idx + steps));
+  return SPEED_STEPS[next];
+}
+

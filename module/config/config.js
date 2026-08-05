@@ -1274,12 +1274,21 @@ export const MYTHRAS = {
     airborne:             { key: 'airborne',             label: 'Airborne',             description: 'The vehicle is capable of atmospheric flight.',                                                                                    engineEffect: false },
     allTerrain:           { key: 'allTerrain',           label: 'All Terrain',           description: 'Traverses inhospitable, difficult, and steep terrain. Ground vehicles only.',                                                      engineEffect: false },
     burrowing:            { key: 'burrowing',            label: 'Burrowing',             description: 'Designed to tunnel through ground to a max depth of Hull Rating × 5 metres.',                                                     engineEffect: false },
-    camouflaged:          { key: 'camouflaged',          label: 'Camouflaged',           description: 'Camouflage paint or mimetic sensors. Visual detection is one grade harder.',                                                       engineEffect: true  },
+    // camouflaged/enhancedPerformance/stealth: corrected to false 2026-08-04
+    // (Vehicles audit F4) — these were marked engineEffect:true with nothing
+    // anywhere in the codebase actually consuming vehicleTraits to apply
+    // them. Camouflaged/Stealth need a detection/spot-roll mechanic that
+    // doesn't exist for any actor type yet; Enhanced Performance needs the
+    // max-Speed-by-Size table (audit finding F6/F7), also unbuilt. Resilient
+    // and Superior Handling below ARE real as of the same date — see
+    // CombatEngine.initiateVehicleManoeuvre (Superior Handling) and
+    // VehicleSheet._addSystemComponent (Resilient).
+    camouflaged:          { key: 'camouflaged',          label: 'Camouflaged',           description: 'Camouflage paint or mimetic sensors. Visual detection is one grade harder.',                                                       engineEffect: false },
     cargo:                { key: 'cargo',                label: 'Cargo',                 description: 'Designed to haul cargo; speed is two steps lower when laden.',                                                                    engineEffect: false },
     carrier:              { key: 'carrier',              label: 'Carrier',               description: 'Carries smaller craft. Must be at least Enormous. Capacity = Structure rating.',                                                  engineEffect: false },
     construction:         { key: 'construction',         label: 'Construction',          description: 'Equipped for heavy construction. All Terrain included; speed two steps lower.',                                                   engineEffect: false },
     empResistant:         { key: 'empResistant',         label: 'EMP Resistant',         description: 'Shielded against electromagnetic pulse attacks.',                                                                                  engineEffect: false },
-    enhancedPerformance:  { key: 'enhancedPerformance',  label: 'Enhanced Performance',  description: 'Speed rating is one step higher than the maximum for its size.',                                                                  engineEffect: true  },
+    enhancedPerformance:  { key: 'enhancedPerformance',  label: 'Enhanced Performance',  description: 'Speed rating is one step higher than the maximum for its size.',                                                                  engineEffect: false },
     ejectorSeat:          { key: 'ejectorSeat',          label: 'Ejector Seat',          description: 'Propels occupants clear in emergencies; deploys parachute.',                                                                      engineEffect: false },
     ftl:                  { key: 'ftl',                  label: 'FTL',                   description: 'Spacecraft only. Faster-than-light engine with its own parsec-travel Speed rating.',                                             engineEffect: false },
     groundVehicle:        { key: 'groundVehicle',        label: 'Ground Vehicle',        description: 'Capable of ground travel. Inherent for all land-based vehicles.',                                                                 engineEffect: false },
@@ -1289,7 +1298,7 @@ export const MYTHRAS = {
     resilient:            { key: 'resilient',            label: 'Resilient',             description: 'Each system withstands one extra hit beyond the Size norm. Stackable.',                                                           engineEffect: true  },
     seaborne:             { key: 'seaborne',             label: 'Seaborne',              description: 'The vehicle is buoyant on water.',                                                                                                 engineEffect: false },
     spacecraft:           { key: 'spacecraft',           label: 'Spacecraft',            description: 'Sealed against vacuum and cosmic radiation; capable of atmospheric re-entry.',                                                    engineEffect: false },
-    stealth:              { key: 'stealth',              label: 'Stealth',               description: 'Aircraft only. Electronic sensor detection is one grade harder.',                                                                 engineEffect: true  },
+    stealth:              { key: 'stealth',              label: 'Stealth',               description: 'Aircraft only. Electronic sensor detection is one grade harder.',                                                                 engineEffect: false },
     submersible:          { key: 'submersible',          label: 'Submersible',           description: 'Submerges to Hull Rating × 10 m operating depth; collapse depth is 1.5×.',                                                      engineEffect: false },
     superiorHandling:     { key: 'superiorHandling',     label: 'Superior Handling',     description: 'Handling is rated as Easy.',                                                                                                      engineEffect: true  },
     surveillanceSuite:    { key: 'surveillanceSuite',    label: 'Surveillance Suite',    description: 'Onboard comms interception and smartphone-signal capture within 100 metres.',                                                    engineEffect: false },

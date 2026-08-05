@@ -225,6 +225,16 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       })
     );
 
+    // ── Handling & Manoeuvres ─────────────────────────────────────────────
+    html.querySelector('.mi-veh-manoeuvre-btn')?.addEventListener('click', async () => {
+      const { CombatEngine } = await import('../combat/CombatEngine.js');
+      CombatEngine.initiateVehicleManoeuvre(this.document);
+    });
+    html.querySelector('.mi-veh-push-speed-btn')?.addEventListener('click', async () => {
+      const { CombatEngine } = await import('../combat/CombatEngine.js');
+      CombatEngine.initiateVehiclePushSpeed(this.document);
+    });
+
     // ── Structure / Shields track +/− ────────────────────────────────────
     html.querySelectorAll('.mi-veh-track-btn').forEach(btn =>
       btn.addEventListener('click', async () => {
@@ -379,6 +389,13 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
   async _addSystemComponent() {
     const sizeStep = { small:1, medium:2, large:3, huge:4, enormous:5, colossal:6 }[this.document.system.size] ?? 2;
+    // Resilient trait (rules p.56): "All systems can withstand one
+    // additional hit more than normally determined by Size. This Trait can
+    // be stacked." Stack count read from the trait item's system.value.
+    const resilientBonus = Array.from(this.document.items)
+      .filter(i => i.type === 'trait' && i.system.key === 'resilient')
+      .reduce((sum, i) => sum + (i.system.value ?? 1), 0);
+    const maxHits  = sizeStep + resilientBonus;
     const existing = Array.from(this.document.items).filter(i => i.type === 'hit-location');
     const maxSort  = existing.reduce((m, i) => Math.max(m, i.system.sort ?? 0), -1);
     await this.document.createEmbeddedDocuments('Item', [{
@@ -386,8 +403,8 @@ export class VehicleSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       type:   'hit-location',
       system: {
         label:    'New System',
-        hp:       sizeStep,
-        current:  sizeStep,
+        hp:       maxHits,
+        current:  maxHits,
         ap:       0,
         wound:    'none',
         group:    'system',

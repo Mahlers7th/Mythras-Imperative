@@ -238,6 +238,21 @@
         </div>
         {{/if}}
 
+        {{! ── HANDLING & MANOEUVRES (rules p.57-58) ────────────────────────── }}
+        <div class="mi-section-label">
+          <i class="fas fa-steering-wheel mi-section-icon"></i>
+          <span>Handling &amp; Manoeuvres</span>
+          <span class="mi-veh-handling-current">Handling: {{system.handling}} · Speed: {{system.speed}}</span>
+        </div>
+        <div class="mi-veh-manoeuvre-actions">
+          <button type="button" class="mi-veh-manoeuvre-btn mi-btn mi-btn--sm" title="Attempt an evasive manoeuvre — fails roll on the Loss of Control table">
+            <i class="fas fa-car-crash"></i> Manoeuvre
+          </button>
+          <button type="button" class="mi-veh-push-speed-btn mi-btn mi-btn--sm" title="Push Speed by 1 or 2 steps beyond the vehicle's rating">
+            <i class="fas fa-tachometer-alt"></i> Push Speed
+          </button>
+        </div>
+
         {{! ── SYSTEM DAMAGE + WEAPONS (side-by-side) ─────────────────────── }}
         <div class="mi-veh-combat-columns">
 
