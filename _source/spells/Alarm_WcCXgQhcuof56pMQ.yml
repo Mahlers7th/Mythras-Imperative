@@ -1,0 +1,33 @@
+_id: WcCXgQhcuof56pMQ
+name: Alarm
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits: []
+  resistSkill: ''
+  duration: Special (see description)
+  description: >-
+    Casting Alarm on a location such as a room or small clearing creates a
+    temporary psychic bond between the area and the caster. If the area is
+    accessed by a living creature with a SIZ greater than 1, the caster is
+    automatically made aware that something has transgressed no matter how
+    great the distance. The Alarm is usually a distinct tingling sensation
+    or mental twinge which will awaken the caster. Alarm can also be used
+    on an individual object, triggering when touched or moved.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!WcCXgQhcuof56pMQ'

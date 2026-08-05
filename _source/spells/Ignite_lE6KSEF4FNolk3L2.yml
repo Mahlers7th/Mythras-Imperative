@@ -1,0 +1,35 @@
+_id: lE6KSEF4FNolk3L2
+name: Ignite
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - ranged
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Ignite only works on flammable inorganic matter, causing a small
+    object or hand-sized area to burst into flame. Depending on what was
+    set alight, once burning, the flames may then spread unless quenched
+    or countered in some way. This spell is normally used to light
+    candles, torches or lanterns from afar. It can also be used to start a
+    camp or cooking fire in adverse conditions, such as using damp
+    kindling or in strong winds.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!lE6KSEF4FNolk3L2'

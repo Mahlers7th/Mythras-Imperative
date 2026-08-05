@@ -1,0 +1,33 @@
+_id: cfOycvJQlzg06Sfj
+name: Phantasm
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - concentration
+    - ranged
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Phantasm allows the caster to weave together insubstantial or near
+    weightless objects so that they take a shape or ghostly form. Thus a
+    spectral figure could be woven from a naturally occurring mist, or a
+    face formed in a pile of dead leaves. Beyond this the spell has little
+    effect, save to frighten, intrigue or disconcert those that view it.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!cfOycvJQlzg06Sfj'

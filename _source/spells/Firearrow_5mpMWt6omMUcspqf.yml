@@ -1,0 +1,35 @@
+_id: 5mpMWt6omMUcspqf
+name: Firearrow
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Firearrow causes all missiles thrown or fired by the recipient to
+    burst into flame when released. Ostensibly created to act as a signal
+    flare, it has since evolved into a combat magic. Missiles under its
+    effect add an additional 1d3 damage, but are extinguished if they
+    impale flesh. Those that strike flammable material have a chance
+    equal to the caster's Folk Magic skill of setting alight whatever they
+    lodge in, such as wooden shields, thatched roofs and so on. Wooden
+    ammunition is consumed as part of the spell.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!5mpMWt6omMUcspqf'

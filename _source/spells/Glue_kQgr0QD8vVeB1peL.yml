@@ -1,0 +1,35 @@
+_id: kQgr0QD8vVeB1peL
+name: Glue
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Glue cements together two solid, inanimate objects for the duration of
+    the spell, for example a cart wheel to its axle or a door to its
+    frame. Whilst under the effects of the spell the items, no matter how
+    disparate, cannot be parted unless something actively tries to wrench
+    them apart. In this circumstance the spell has a Brawn skill equal to
+    five times the caster's POW and fails when a superior Brawn is set
+    against it, defeating it in an Opposed Roll. Once the spell concludes
+    or fails the items part completely unharmed.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!kQgr0QD8vVeB1peL'

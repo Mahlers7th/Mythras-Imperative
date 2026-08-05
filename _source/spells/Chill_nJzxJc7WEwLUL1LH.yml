@@ -1,0 +1,33 @@
+_id: nJzxJc7WEwLUL1LH
+name: Chill
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Chill dramatically reduces the temperature of small objects (no larger
+    than the caster's hand) down to the temperature of ice water. Useful
+    for rapidly cooling hot items, chilling drinks, and so forth. The
+    spell does not freeze an object and neither does it cause any damage
+    to its structure: it merely renders it very cold.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!nJzxJc7WEwLUL1LH'

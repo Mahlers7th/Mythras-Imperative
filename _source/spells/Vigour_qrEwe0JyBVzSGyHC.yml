@@ -1,0 +1,31 @@
+_id: qrEwe0JyBVzSGyHC
+name: Vigour
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Vigour makes the recipient feel alive and energetic, being used to
+    offset the effects of strenuous physical labour. For the spell's
+    duration, all Fatigue effects gained from laborious activity are
+    ignored (but return on the spell's dismissal).
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!qrEwe0JyBVzSGyHC'

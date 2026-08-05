@@ -1,0 +1,44 @@
+_id: OLmNO9xM064xcnur
+name: Find (X)
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - concentration
+    - ranged
+    - resist
+  resistSkill: special
+  duration: ''
+  description: >-
+    Find has many variations; always specific and learned as separate
+    spells. Some common examples are given below. It works by attuning to
+    the natural emanations of a creature or thing, alerting the caster to
+    its presence within the spell's range. Find can be blocked by dense or
+    thick materials such as metal, or earth and stone at least one metre
+    thick. The spell cannot discern emotions or thoughts.
+
+    <ul>
+    <li><b>Find Arrows:</b> Locates ammunition shot by hunters, which miss their target.</li>
+    <li><b>Find Flaw:</b> Identifies any flaws in an object, such as hidden imperfections or physical damage.</li>
+    <li><b>Find Livestock:</b> Locates a particular type of animal. Can be resisted with Willpower.</li>
+    <li><b>Find Loot:</b> Locates precious metals and gems.</li>
+    <li><b>Find Object:</b> Locates a lost personal possession.</li>
+    <li><b>Find Sickness:</b> Identifies the existence of disease and illness, whether magical or mundane.</li>
+    </ul>
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!OLmNO9xM064xcnur'

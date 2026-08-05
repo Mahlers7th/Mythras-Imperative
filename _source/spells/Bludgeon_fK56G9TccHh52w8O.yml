@@ -1,0 +1,31 @@
+_id: fK56G9TccHh52w8O
+name: Bludgeon
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Bludgeon is similar to Bladesharp but used on weapons and tools that
+    deal blunt-force trauma rather than cutting or piercing damage. It is
+    normally used to aid with threshing grain, fulling wool, or similar
+    heavy duty work.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!fK56G9TccHh52w8O'

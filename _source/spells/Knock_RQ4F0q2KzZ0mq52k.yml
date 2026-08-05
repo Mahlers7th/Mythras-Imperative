@@ -1,0 +1,33 @@
+_id: RQ4F0q2KzZ0mq52k
+name: Knock
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Knock magically unfastens any device that is currently secured with a
+    mechanical bar or lock. It does not work on magically locked objects,
+    only mundane ones. The spell only affects a single fastening, so if
+    there are several locks and bars securing the object, the spell will
+    need to be recast for each one.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!RQ4F0q2KzZ0mq52k'

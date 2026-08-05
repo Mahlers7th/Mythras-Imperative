@@ -1,0 +1,36 @@
+_id: lOmQmtLBUZKb2obt
+name: Lock
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: Special (see description)
+  description: >-
+    Lock magically secures any device that already has a mechanical bar or
+    lock present. A Locked device can be opened only by the caster and
+    cannot be picked by mundane means (such as by a thief using
+    lock-picks) since the magic renders the mechanism immobile; however it
+    could still be forced open by breaking the object the lock is set
+    into. The magic remains in place until opened by the caster, after
+    which the device must be subject to a further casting of Lock to
+    restore the enchantment. The Magic Point used to cast Lock does not
+    recover until the spell is dismissed or concludes naturally.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!lOmQmtLBUZKb2obt'

@@ -1,0 +1,35 @@
+_id: D0xMYNP5mMAI5TWD
+name: Disruption
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - ranged
+    - resist
+  resistSkill: endurance
+  duration: ''
+  description: >-
+    Disruption is used for damaging or dissembling physical objects
+    without the need for tools. It is commonly employed to drive off or
+    kill living creatures, such as birds or vermin. When successfully
+    cast, Disruption inflicts 1d3 damage to a single random Hit Location
+    or the overall Hit Points of an object. In both cases the damage
+    ignores any armour or natural protection.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!D0xMYNP5mMAI5TWD'

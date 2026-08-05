@@ -1,0 +1,33 @@
+_id: uEq8cRo28wT7z1xa
+name: Light
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - concentration
+    - ranged
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Light must be cast on an inanimate object (this could be a branch,
+    sword blade, spear point, torch and so on). It produces enough light
+    to illuminate an area as though with a lantern. It can also be cast
+    directly against a Darkness spell to counter it. In this case both
+    spells are consumed, leaving the ambient light to illuminate the area.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!uEq8cRo28wT7z1xa'

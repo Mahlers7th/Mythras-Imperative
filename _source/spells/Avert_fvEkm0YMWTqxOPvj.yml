@@ -1,0 +1,31 @@
+_id: fvEkm0YMWTqxOPvj
+name: Avert
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - ranged
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Avert is used to dismiss another spell within range. Avert can be cast
+    reactively to neutralise offensive spells, by using the Counter Magic
+    Reactive Action.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!fvEkm0YMWTqxOPvj'

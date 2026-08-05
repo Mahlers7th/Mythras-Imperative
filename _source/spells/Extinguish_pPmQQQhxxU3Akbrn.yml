@@ -1,0 +1,32 @@
+_id: pPmQQQhxxU3Akbrn
+name: Extinguish
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - instant
+    - ranged
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Extinguish immediately quenches flames and small fires of modest size
+    and heat. It is useful for dousing candles, lanterns, torches or small
+    cook fires, but it will not work on magical or larger, more ferocious
+    conflagrations such as pyres, burning houses or dragon flames.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!pPmQQQhxxU3Akbrn'

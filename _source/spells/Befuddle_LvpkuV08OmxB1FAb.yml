@@ -1,0 +1,36 @@
+_id: LvpkuV08OmxB1FAb
+name: Befuddle
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - ranged
+    - resist
+  resistSkill: willpower
+  duration: ''
+  description: >-
+    Befuddle causes confusion within the mind of a corporeal target. The
+    subject of the spell has difficulty thinking straight, forgetting
+    where it is, what it is doing and why — often lapsing into
+    disassociated lines of thought. Befuddled targets can still act in
+    self defence, but cannot initiate any constructive activity until the
+    spell ends. Any sort of attack or threatening action instantly breaks
+    the spell, whether or not it was directed specifically at the
+    befuddled target.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!LvpkuV08OmxB1FAb'

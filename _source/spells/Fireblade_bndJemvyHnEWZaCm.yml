@@ -1,0 +1,35 @@
+_id: bndJemvyHnEWZaCm
+name: Fireblade
+type: spell
+img: icons/svg/item-bag.svg
+system:
+  traits:
+    - touch
+  resistSkill: ''
+  duration: ''
+  description: >-
+    Fireblade is similar to Firearrow but is instead cast on hand tools
+    and melee weapons. The original purpose of the spell is to sterilise
+    surgical equipment, aid in slash and burn agriculture or provide
+    illumination during darkness without the need to carry an additional
+    light source. If cast on a weapon it inflicts an additional 1d3
+    damage, and has the chance of setting flammable materials alight if
+    held to them for several rounds. Wooden hafted weapons under the
+    effects of Fireblade will be consumed as part of the spell.
+effects: []
+folder: null
+sort: 0
+ownership:
+  default: 0
+flags: {}
+_stats:
+  coreVersion: '14.363'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+_key: '!items!bndJemvyHnEWZaCm'
