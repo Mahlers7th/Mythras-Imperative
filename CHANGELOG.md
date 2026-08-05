@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - Comparator logic (`compareInitiative`, `initiativeTieBreakSeed`) lives in `module/utils/combat-math.js`, not inline in `mythras.mjs` — zero-Foundry-dependency, directly unit-testable, matching this file's established "pure math extracted for testability" convention.
 - 12 new tests in `tests/combat-math.test.js`, 515/515 pass. Live-verified via Playwright against a real Combat/Combatant pair: tied initiative with differing DEX sorts the higher-DEX combatant first, order is stable across repeated reads, and a full tie (same initiative and DEX) falls back to a stable (non-flickering) hash-based order.
 - Closes the last open item from the 2026-08-01 rulebook audit — see `project_rulebook-audit-2026-08-01` memory; that pass's other findings were resolved in v1.4.280-283, and 3 items were deliberately left narrative per Chris's call.
-- Not yet committed.
+- Committed as `4babc40`.
 
 ## v1.4.286 — August 2026
 - **Mythras Imperative's own Magic system, infrastructure + 3 proof spells** (rules p.62-67) — a new `spell` Item type, sheet, casting mechanic, and a `spells` compendium pack. Deliberately does not model Classic Fantasy Imperative's separate, more complex magic system (checked the real CFI SRD before starting: two casting skills, variable Intensity/Magnitude scaling, a different and partly-inverted MP-cost-by-outcome table) — that's a different ruleset, a later decision, not more content for this schema.
