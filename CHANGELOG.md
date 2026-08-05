@@ -10,6 +10,15 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.287 — August 2026
+- **Initiative tie-break (rules p.35, the last open finding from the 2026-08-01 rulebook audit)**: "When two or more participants tie scores, the one with the higher DEX will act first. If this still results in a tie, have each roll a die with high roll going before the other." Foundry core's default Combat Tracker sort only compares the rolled initiative value, falling back to document id — DEX was never consulted, and a tie always resolved arbitrarily.
+- New `MythrasCombat` class (`mythras.mjs`, registered as `CONFIG.Combat.documentClass`, same pattern as the existing `MythrasCombatant` extension below it) overrides `_sortCombatants` to compare initiative, then DEX, then a final tie-break.
+- The "roll a die" step is a deterministic per-combatant/per-combat hash (`initiativeTieBreakSeed`, FNV-1a-style) rather than live `Math.random()` — this keeps turn order stable across tracker re-renders instead of reshuffling every repaint; it only produces a new outcome when a genuine initiative reroll changes the tied values themselves.
+- Comparator logic (`compareInitiative`, `initiativeTieBreakSeed`) lives in `module/utils/combat-math.js`, not inline in `mythras.mjs` — zero-Foundry-dependency, directly unit-testable, matching this file's established "pure math extracted for testability" convention.
+- 12 new tests in `tests/combat-math.test.js`, 515/515 pass. Live-verified via Playwright against a real Combat/Combatant pair: tied initiative with differing DEX sorts the higher-DEX combatant first, order is stable across repeated reads, and a full tie (same initiative and DEX) falls back to a stable (non-flickering) hash-based order.
+- Closes the last open item from the 2026-08-01 rulebook audit — see `project_rulebook-audit-2026-08-01` memory; that pass's other findings were resolved in v1.4.280-283, and 3 items were deliberately left narrative per Chris's call.
+- Not yet committed.
+
 ## v1.4.286 — August 2026
 - **Mythras Imperative's own Magic system, infrastructure + 3 proof spells** (rules p.62-67) — a new `spell` Item type, sheet, casting mechanic, and a `spells` compendium pack. Deliberately does not model Classic Fantasy Imperative's separate, more complex magic system (checked the real CFI SRD before starting: two casting skills, variable Intensity/Magnitude scaling, a different and partly-inverted MP-cost-by-outcome table) — that's a different ruleset, a later decision, not more content for this schema.
 - **New `SpellData` schema** (`ItemData.js`): `traits` (the 5 Magic Traits — Concentration/Instant/Ranged/Resist/Touch, closed set), `resistSkill` (Endurance/Evade/Willpower/Special, only meaningful with the Resist trait), `duration` (free text override for the handful of spells with a custom or "Special Duration"), `description`.

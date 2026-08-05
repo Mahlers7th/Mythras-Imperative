@@ -38,6 +38,7 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
+import { compareInitiative }          from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 
@@ -281,6 +282,32 @@ Hooks.once('init', () => {
     }
   }
   CONFIG.Combatant.documentClass = MythrasCombatant;
+
+  // ---------------------------------------------------------------------------
+  // Extend Combat to apply the rulebook's Initiative tie-break (p.35):
+  // "When two or more participants tie scores, the one with the higher DEX
+  // will act first. If this still results in a tie, have each roll a die
+  // with high roll going before the other." Foundry core only sorts by the
+  // rolled initiative value, falling back to document id — DEX was never
+  // consulted. The final "roll a die" step is implemented as a deterministic
+  // per-combatant/per-combat hash rather than live randomness, so the turn
+  // order stays stable across re-renders instead of reshuffling on every
+  // tracker repaint; it only changes when a genuine reroll produces a new
+  // value tie.
+  // ---------------------------------------------------------------------------
+  const _BaseCombat = CONFIG.Combat.documentClass;
+  class MythrasCombat extends _BaseCombat {
+    _sortCombatants(a, b) {
+      const toRow = c => ({
+        initiative: Number.isNumeric(c.initiative) ? c.initiative : -Infinity,
+        dex: (c.token?.actor ?? c.actor)?.system?.characteristics?.dex?.value,
+        seed: `${c.parent?.id ?? ''}:${c.id ?? ''}`,
+        id: c.id
+      });
+      return compareInitiative(toRow(a), toRow(b));
+    }
+  }
+  CONFIG.Combat.documentClass = MythrasCombat;
 
   console.log('Mythras Imperative | Init complete');
 });

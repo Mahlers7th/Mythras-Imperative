@@ -14,7 +14,9 @@ import {
   stepUpDamageModifier,
   getImpaleGrade,
   DM_TABLE,
-  weaponBaseMax
+  weaponBaseMax,
+  compareInitiative,
+  initiativeTieBreakSeed
 } from '../module/utils/combat-math.js';
 
 // =============================================================================
@@ -355,4 +357,70 @@ describe('weaponBaseMax', () => {
   test('Bodkin 1d10:  ceil(10/2) = 5',() => expect(Math.ceil(weaponBaseMax('1d10')  / 2)).toBe(5));
   test('Bodkin 1d6:   ceil(6/2) = 3', () => expect(Math.ceil(weaponBaseMax('1d6')   / 2)).toBe(3));
   test('Bodkin 2d6:   ceil(12/2) = 6',() => expect(Math.ceil(weaponBaseMax('2d6')   / 2)).toBe(6));
+});
+
+// ---------------------------------------------------------------------------
+// Initiative tie-break (rules p.35)
+// ---------------------------------------------------------------------------
+
+describe('compareInitiative', () => {
+  test('higher initiative acts first, regardless of DEX/seed', () => {
+    const a = { initiative: 15, dex: 5,  seed: 'a', id: 'a' };
+    const b = { initiative: 20, dex: 99, seed: 'b', id: 'b' };
+    expect(compareInitiative(a, b)).toBeGreaterThan(0); // b sorts first
+  });
+
+  test('tied initiative: higher DEX acts first', () => {
+    const a = { initiative: 15, dex: 10, seed: 'a', id: 'a' };
+    const b = { initiative: 15, dex: 16, seed: 'b', id: 'b' };
+    expect(compareInitiative(a, b)).toBeGreaterThan(0); // b (higher DEX) first
+  });
+
+  test('tied initiative and DEX: falls back to the deterministic seed hash', () => {
+    const a = { initiative: 15, dex: 12, seed: 'combat1:combatantA', id: 'a' };
+    const b = { initiative: 15, dex: 12, seed: 'combat1:combatantB', id: 'b' };
+    const result = compareInitiative(a, b);
+    expect(result).not.toBe(0);
+    // Stable: re-running the comparison produces the identical ordering.
+    expect(compareInitiative(a, b)).toBe(result);
+  });
+
+  test('fully tied (identical seed) falls back to id comparison, never returns 0', () => {
+    const a = { initiative: 15, dex: 12, seed: 'same', id: 'a' };
+    const b = { initiative: 15, dex: 12, seed: 'same', id: 'b' };
+    expect(compareInitiative(a, b)).toBe(-1); // 'a' < 'b'
+    expect(compareInitiative(b, a)).toBe(1);
+  });
+
+  test('missing/non-finite initiative treated as -Infinity, not crashing', () => {
+    const a = { initiative: undefined, dex: 10, seed: 'a', id: 'a' };
+    const b = { initiative: 5, dex: 10, seed: 'b', id: 'b' };
+    expect(compareInitiative(a, b)).toBeGreaterThan(0); // b sorts first
+  });
+
+  test('missing dex treated as lowest priority, not crashing', () => {
+    const a = { initiative: 15, dex: undefined, seed: 'a', id: 'a' };
+    const b = { initiative: 15, dex: 3, seed: 'b', id: 'b' };
+    expect(compareInitiative(a, b)).toBeGreaterThan(0); // b (has DEX) first
+  });
+});
+
+describe('initiativeTieBreakSeed', () => {
+  test('same seed string always produces the same hash', () => {
+    expect(initiativeTieBreakSeed('combat1:combatantA')).toBe(initiativeTieBreakSeed('combat1:combatantA'));
+  });
+
+  test('different seed strings produce different hashes (no trivial collision)', () => {
+    expect(initiativeTieBreakSeed('combat1:combatantA')).not.toBe(initiativeTieBreakSeed('combat1:combatantB'));
+  });
+
+  test('always returns a non-negative integer', () => {
+    expect(initiativeTieBreakSeed('anything')).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(initiativeTieBreakSeed('anything'))).toBe(true);
+  });
+
+  test('handles empty/undefined seed without throwing', () => {
+    expect(() => initiativeTieBreakSeed('')).not.toThrow();
+    expect(() => initiativeTieBreakSeed(undefined)).not.toThrow();
+  });
 });

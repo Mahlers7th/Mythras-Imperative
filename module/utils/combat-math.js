@@ -238,3 +238,56 @@ export function classifyLocation(locationName) {
   return 'torso'; // abdomen, chest, thorax, and unknown default
 }
 
+// ---------------------------------------------------------------------------
+// Initiative tie-break  (rules p.35)
+// ---------------------------------------------------------------------------
+
+/**
+ * Deterministic FNV-1a-style hash, used only as the final Initiative
+ * tie-break step (rules p.35: "...have each roll a die with high roll going
+ * before the other"). Stable per seed string so re-sorting the combat
+ * tracker doesn't reshuffle already-tied combatants on every render.
+ *
+ * @param {string} seed  Typically `${combatId}:${combatantId}`.
+ * @returns {number}  Unsigned 32-bit integer.
+ */
+export function initiativeTieBreakSeed(seed) {
+  let hash = 0x811c9dc5;
+  const str = seed ?? '';
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/**
+ * Compare two combatants for turn-order sorting per rules p.35:
+ * 1. Higher Initiative acts first.
+ * 2. Tied Initiative: higher DEX acts first.
+ * 3. Still tied: "roll a die" — a stable per-combatant hash stands in for
+ *    the literal die roll so the order doesn't flicker on re-sort.
+ * 4. Still tied (identical seed inputs): fall back to id comparison, same
+ *    as Foundry core's own default tie-break, so sorting stays a strict
+ *    total order.
+ *
+ * @param {{initiative: number, dex: number, seed: string, id: string}} a
+ * @param {{initiative: number, dex: number, seed: string, id: string}} b
+ * @returns {number}
+ */
+export function compareInitiative(a, b) {
+  const ia = Number.isFinite(a.initiative) ? a.initiative : -Infinity;
+  const ib = Number.isFinite(b.initiative) ? b.initiative : -Infinity;
+  if (ib !== ia) return ib - ia;
+
+  const dexA = Number.isFinite(a.dex) ? a.dex : -Infinity;
+  const dexB = Number.isFinite(b.dex) ? b.dex : -Infinity;
+  if (dexB !== dexA) return dexB - dexA;
+
+  const seedA = initiativeTieBreakSeed(a.seed);
+  const seedB = initiativeTieBreakSeed(b.seed);
+  if (seedB !== seedA) return seedB - seedA;
+
+  return a.id > b.id ? 1 : -1;
+}
+
