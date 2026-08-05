@@ -653,6 +653,37 @@
       <div class="mi-empty-state">No abilities yet. Add spells, powers, or special abilities above.</div>
       {{/if}}
 
+      <div class="mi-section-label mi-section-with-add">
+        <span>Spells</span>
+        <a class="mi-add-btn" data-type="spell" title="Add spell"><i class="fas fa-plus"></i></a>
+      </div>
+
+      {{#if spells.length}}
+      <ul class="mi-ability-list">
+        {{#each spells as |spell|}}
+        <li class="mi-ability-row" data-item-id="{{spell.id}}">
+          <div class="mi-ability-main">
+            <span class="mi-ability-name mi-item-open" data-item-id="{{spell.id}}">{{spell.name}}</span>
+            {{#each spell.system.traits as |trait|}}
+            <span class="mi-ability-type-pill">{{capitalize trait}}</span>
+            {{/each}}
+            {{#if spell.system.resistSkill}}
+            <span class="mi-ability-rank mi-muted">Resist: {{capitalize spell.system.resistSkill}}</span>
+            {{/if}}
+          </div>
+          <div class="mi-spell-row-actions">
+            <button type="button" class="mi-btn mi-btn--xs mi-spell-cast-btn" data-item-id="{{spell.id}}" title="Cast this spell">
+              <i class="fas fa-magic"></i> Cast
+            </button>
+            <a class="mi-item-delete mi-faint" data-item-id="{{spell.id}}"><i class="fas fa-times"></i></a>
+          </div>
+        </li>
+        {{/each}}
+      </ul>
+      {{else}}
+      <div class="mi-empty-state">No spells yet. Drag a spell from the compendium, or add one above.</div>
+      {{/if}}
+
     </section>
 
     {{! ══════════════════════════════════════════════════════════════════

@@ -62,6 +62,8 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const gearItems          = allItems.filter(i => i.type === 'gear');
     const ammoItems          = allItems.filter(i => i.type === 'ammo');
     const abilities          = allItems.filter(i => i.type === 'ability').sort((a, b) => a.name.localeCompare(b.name));
+    const spells              = allItems.filter(i => i.type === 'spell')
+                                       .sort((a, b) => a.name.localeCompare(b.name));
     const creatureTraits     = allItems
       .filter(i => i.type === 'trait' && i.system.category === 'creature')
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -195,6 +197,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       gear,
       ammoItems,
       abilities,
+      spells,
       creatureTraits,
       isCreature: actor.type === 'creature',
       currencyItems,
@@ -402,6 +405,10 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Experience rolls +/-
     html.querySelectorAll('.mi-exp-btn').forEach(btn =>
       btn.addEventListener('click', ev => this._onExperienceRollsChange(ev)));
+
+    // Spell cast — quick-action button on the Abilities tab's Spells row
+    html.querySelectorAll('.mi-spell-cast-btn').forEach(btn =>
+      btn.addEventListener('click', ev => this._onCastSpell(ev)));
 
     // Item controls
     html.querySelectorAll('.mi-item-delete').forEach(btn =>
@@ -1024,6 +1031,25 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     ev.preventDefault();
     const item = this.document.items.get(ev.currentTarget.dataset.itemId);
     if (item) await item.delete();
+  }
+
+  // Quick-cast from the Abilities tab's Spells row — same castSpell() entry
+  // point as the spell item sheet's own Cast button (SpellSheet.js).
+  async _onCastSpell(ev) {
+    ev.preventDefault();
+    const spell = this.document.items.get(ev.currentTarget.dataset.itemId);
+    if (!spell) return;
+
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    try {
+      const { castSpell } = await import('../combat/effects/spellcasting.js');
+      const targetToken = Array.from(game.user.targets)[0] ?? null;
+      const target = targetToken?.actor ?? null;
+      await castSpell(this.document, spell, target);
+    } finally {
+      btn.disabled = false;
+    }
   }
 
   async _onItemEdit(ev) {
