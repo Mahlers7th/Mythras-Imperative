@@ -1,0 +1,17 @@
+{
+  "description": "Flat list of the current game.system.api member names, assembled in mythras.mjs's Object.freeze({...}) block. tests/frozen-api.test.js asserts set-equality between this list and that block on every `npm test` run. Adding or removing an api member requires updating this file in the same commit — see frozen-api-updated.md.",
+  "members": [
+    "syncHitLocationHP",
+    "determineOutcome",
+    "shiftGrade",
+    "GRADE_ORDER",
+    "applyDifficulty",
+    "DIFFICULTY_GRADES",
+    "requestSkillCheck",
+    "getArmourAt",
+    "triggerOpposedSE",
+    "triggerFollowUpAttack",
+    "applyMythrasTheme",
+    "explainHookSum"
+  ]
+}

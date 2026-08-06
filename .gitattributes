@@ -1,0 +1,18 @@
+# Normalize line endings to LF in the repository, regardless of platform or
+# local core.autocrlf. Same rationale as the destined-module repo's
+# .gitattributes: a zip round-trip or a second machine's autocrlf setting
+# can flip every source file's line endings, producing a phantom whole-file
+# diff that only vanishes under --ignore-cr-at-eol. That's poison for a
+# workflow built on diff-reading, and will recur with any second machine,
+# contributor, or future work.
+*                text=auto eol=lf
+
+# Explicit binary declarations so a zip round-trip or a different machine's
+# autocrlf setting can never mangle these — `text=auto`'s content-sniffing
+# heuristic is usually right, but "usually" is exactly the gap this file
+# exists to close.
+*.png            binary
+*.webp           binary
+*.jpg            binary
+*.jpeg           binary
+*.pdf            binary

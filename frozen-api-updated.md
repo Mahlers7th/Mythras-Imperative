@@ -6,12 +6,25 @@ commitment: **do not change a frozen signature's shape (parameters, return
 type, or observable behavior) without a major version bump, and update this
 doc in the same change as the runtime.** A signature change here is a
 breaking change for every listed caller (the Destined module today; the
-planned node editor and third-party modules in the future). This is a
-documentation-only commitment, not a CI-enforced one — no automated check
-currently fails a build that breaks this promise; the discipline lives in
-this header and in the "update the doc in the same change" rule below, which
-this doc's own change log shows has already been missed twice historically
-and caught in later doc-sync passes, not by tooling.
+planned node editor and third-party modules in the future).
+
+**Membership is CI-enforced as of the repo hygiene sweep (H7): `frozen-api.json`
+is a flat manifest of the current `game.system.api` member names, and
+`tests/frozen-api.test.js` (pure text-level, no Foundry globals) asserts
+set-equality between that manifest and the real `Object.freeze({...})` block
+in `mythras.mjs` on every `npm test` run — a member added or removed without
+updating `frozen-api.json` in the same commit now fails the suite, which
+already runs in CI.** This is deliberately a membership check only — it
+cannot validate a signature's shape, so **signature drift on an existing
+member is still a documentation-only commitment**, not CI-enforced; no
+automated check currently fails a build that silently changes a frozen
+signature's parameters or return type. The discipline for THAT half still
+lives in this header and in the "update the doc in the same change" rule
+below, which this doc's own change log shows has already been missed twice
+historically and caught in later doc-sync passes, not by tooling. Signature
+validation is left for the node editor's own conformance tests (see the
+design brief) — the membership check above is the cheap 80%, not the whole
+100%.
 
 Signatures on this page are called directly by external consumers (the
 planned node editor, modules, macros). **Do not change a frozen signature
@@ -23,11 +36,14 @@ entries verified as part of the HP-max lock work. It is not yet a complete
 audit of every frozen surface in the codebase; expand it as other
 already-frozen entry points are confirmed.
 
-**`game.system.api` currently has 12 members** (`mythras.mjs:488`–`507`) — count
-this table's `game.system.api.*` rows against that number whenever either
-changes; a mismatch means this doc has drifted. This header's own rule (update
-the doc in the same change as a frozen signature) was missed for two
-consecutive additions — `getArmourAt` (v1.4.267) and `triggerOpposedSE`
+**`game.system.api` currently has 12 members** (`mythras.mjs:521`–`540` as of
+the repo hygiene sweep; this line range drifts as the file changes — the
+count itself is now the CI-enforced part, via `frozen-api.json` above, so
+treat this citation as approximate) — count this table's `game.system.api.*`
+rows against that number whenever either changes; a mismatch means this doc
+has drifted. This header's own rule (update the doc in the same change as a
+frozen signature) was missed for two consecutive additions — `getArmourAt`
+(v1.4.267) and `triggerOpposedSE`
 (v1.4.271) both shipped without a row here until this doc-sync pass added
 them — worth stating plainly rather than letting a third miss go unremarked.
 `triggerFollowUpAttack` (v1.4.272), `applyMythrasTheme` (v1.4.275), and

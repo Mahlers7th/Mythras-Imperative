@@ -10,6 +10,15 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.292 — August 2026
+- **Repo hygiene sweep (external audit, both repos).** `.gitattributes` added (`* text=auto eol=lf` plus explicit `binary` declarations for images/PDFs) — a zip round-trip during the audit flipped every source file's line endings, producing a 9,342-line phantom diff that vanishes under `--ignore-cr-at-eol`. Did **not** run a repo-wide renormalization commit; that's Chris's call.
+- **Removed `spike-a2-typetest/`** (a tracked `module.json` + `spike-a2.mjs` spike from early type experiments) — confirmed via grep that no doc references it before deletion. Not something that should ship in anything resembling a public v1.0.
+- **`system-CLAUDE.md`'s hardcoded "365 tests" replaced** with "the suite's test count changes every batch — don't hardcode it here, just keep it green," since the real count (verified by running the suite) was already stale at 542.
+- **`frozen-api.json` + `tests/frozen-api.test.js`** — turns `frozen-api-updated.md`'s manual "count this table's rows against the runtime" discipline into an automated check. The new test reads `mythras.mjs` as plain text (no Foundry globals), extracts the `game.system.api` member names from the real `Object.freeze({...})` assembly block via regex, and asserts set-equality against the new manifest — a member added or removed without updating `frozen-api.json` in the same commit now fails `npm test`, which already runs in CI. Deliberately membership-only, not signature validation (still a documentation commitment, per `frozen-api-updated.md`'s own updated header) — verified the check actually catches drift by temporarily deleting a manifest entry and confirming the suite fails, then restored it.
+- 544/544 tests (542 + 2 new `frozen-api.test.js` cases).
+- Live-verified against the running world: `game.system.api` still exposes exactly the 12 frozen members the new manifest lists, confirmed via Playwright.
+- Not yet committed.
+
 ## v1.4.291 — August 2026
 - **Spell compendium filled out from 3 to all 24 named spells in the rulebook** (p.65-67), at Chris's request alongside the v1.4.290 display fix. Alarm, Avert, Befuddle, Bludgeon, Breath, Chill, Darkness, Disruption, Extinguish, Find (X), Firearrow, Fireblade, Glue, Ignite, Knock, Light, Lock, Phantasm, Sleep, Vigour, Witchsight — each with its real Magic Traits, Resist skill where applicable, and full rules text. Find (X) is packaged as one spell item (matching how the rulebook itself presents it — one entry, six named sub-variants as a bullet list in the description) rather than six separate compendium entries, since all six share identical traits/cost and differ only narratively.
 - Two spells (**Alarm**, **Lock**) use the "Special Duration" trait from the rulebook's own text, which isn't one of the 5 canonical Magic Traits (Concentration/Instant/Ranged/Resist/Touch) — it's flagged via `SpellData`'s existing free-text `duration` override field instead, exactly what that field was built for.
