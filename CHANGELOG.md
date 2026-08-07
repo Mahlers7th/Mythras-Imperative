@@ -13,7 +13,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 ## v1.4.293 — August 2026
 - **Merchant shop "sell" path made discoverable — no logic change.** Chris flagged that selling to a shop-mode merchant felt unwired; on inspection the trade-in flow (`MerchantSheet._onDrop` → `_onTradeIn` → `_executeTradeIn`) was already fully implemented — drag an item from a character/npc sheet onto a shop-mode merchant to open a Trade-in dialog (offer = list price × the merchant's Trade-in %), Accept to pay the seller and stock the item. The actual gap was UI: nothing on the sheet told a player this existed. The shop-mode drop hint (both the section header and the empty-inventory placeholder in `merchant-sheet.hbs`) now explicitly says players can drag their own items there to sell, alongside the existing "GMs drag items here to stock" wording. Note this still requires the item to have a price set (`system.price`), same requirement Buy already has.
 - CSS/template only — no JS touched, no automated tests apply. Verified `mi-merchant-drop-hint` has no `white-space: nowrap`/overflow rule that would clip the longer hint text.
-- Not yet committed.
+- Committed as `f1184e1`.
 
 ## v1.4.292 — August 2026
 - **Repo hygiene sweep (external audit, both repos).** `.gitattributes` added (`* text=auto eol=lf` plus explicit `binary` declarations for images/PDFs) — a zip round-trip during the audit flipped every source file's line endings, producing a 9,342-line phantom diff that vanishes under `--ignore-cr-at-eol`. Did **not** run a repo-wide renormalization commit; that's Chris's call.
