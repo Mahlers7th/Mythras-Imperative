@@ -79,7 +79,7 @@
   <div class="mi-section-label">
     <span>Inventory</span>
     {{#if isShop}}
-      <span class="mi-muted mi-merchant-drop-hint">— drag items here to stock</span>
+      <span class="mi-muted mi-merchant-drop-hint">— GMs drag items here to stock; players drag their own items here to sell</span>
     {{else}}
       <span class="mi-muted mi-merchant-drop-hint">— drag items here</span>
     {{/if}}
@@ -114,7 +114,7 @@
   <div class="mi-cs-weapons-empty mi-merchant-inv-empty">
     <span class="mi-cs-drop-hint">
       <i class="fas fa-arrow-down"></i>
-      {{#if isShop}}Drag items here to stock the shop{{else}}Drag items here to fill the container{{/if}}
+      {{#if isShop}}Drag items here to stock the shop, or drag your own items here to sell them{{else}}Drag items here to fill the container{{/if}}
     </span>
   </div>
   {{/if}}
