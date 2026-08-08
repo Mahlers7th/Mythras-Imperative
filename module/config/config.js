@@ -882,6 +882,7 @@ export const MYTHRAS = {
     { id: 'tripOpponent',     label: 'MYTHRAS.SETripOpponent',     who: 'both',     restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'tripOpponent'     },
     // ── Defender SEs ──────────────────────────────────────────────────────
     { id: 'accidentalInjury', label: 'MYTHRAS.SEAccidentalInjury', who: 'defender', restriction: 'attackerFumbles',         phase: 'opposed',        requiresDamage: false, requiresFumble: true,  resolver: 'accidentalInjury' },
+    { id: 'arise',            label: 'MYTHRAS.SEArise',            who: 'defender', restriction: 'defenderProne',           phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'arise'            },
     { id: 'blindOpponent',    label: 'MYTHRAS.SEBlindOpponent',    who: 'defender', restriction: 'defenderCritical',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'blindOpponent'    },
     { id: 'damageWeapon',     label: 'MYTHRAS.SEDamageWeapon',     who: 'both',     restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'damageWeapon'     },
     { id: 'enhanceParry',     label: 'MYTHRAS.SEEnhanceParry',     who: 'defender', restriction: 'defenderCritical',        phase: 'damage',         requiresDamage: false, requiresFumble: false, resolver: null                       },
@@ -1206,6 +1207,12 @@ export const MYTHRAS = {
       label:        'Poison Immunity',
       description:  'Immune to all poisons. Automatic for creatures without SIZ.',
       engineEffect: false
+    },
+    quadruped: {
+      key:          'quadruped',
+      label:        'Quadruped',
+      description:  'Moves on four (or more) legs. Resisting Trip Opponent, may substitute Athletics for Evade at one Difficulty Grade easier (automated). Also affects Charging (Damage Modifier +2 steps instead of +1) and Leaping Attacks (defender\'s attack roll one grade harder) — not yet automated for either.',
+      engineEffect: true
     },
     regeneration: {
       key:          'regeneration',

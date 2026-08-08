@@ -5,6 +5,13 @@
  * Rules p.45: On a Defender Critical, the defender automatically escapes all
  * active Entangle, Grip, and Pin holds. No opposed roll, no dialog.
  *
+ * "Pin" covers both this system's pin mechanics: Pin Weapon (pin-weapon.js,
+ * flag 'pinnedWeapons' — the defender's own weapon was pinned by someone
+ * else's Pin Weapon SE in an earlier exchange where they were the attacker)
+ * and Pin Object (pin-object.js, flag 'pinnedBy' — the defender's own
+ * clothing/item was pinned). Both are keyed on the pinned actor themselves,
+ * same as grippedBy/entangledBy, so they clear the same way.
+ *
  * Dependencies:
  *   helpers.js — removeStatusFromActor
  */
@@ -20,6 +27,7 @@ const NS = 'mythras-imperative';
 //   - grippedBy, pendingGripCheck
 //   - entangledBy, pendingEntangleBreakFree
 //   - entangled token status (if entangled entries exist)
+//   - pinnedWeapons (Pin Weapon), pinnedBy (Pin Object)
 //
 // Cross-reference cleanup on attacker-side actors:
 //   - pendingEntangleTrip entries keyed by entangleId (so the trip prompt
@@ -36,17 +44,22 @@ export async function resolveSlipFree(ctx) {
   const baseDefender = game.actors.get(defender.id) ?? defender;
 
   // Count what we are about to clear (for the card display)
-  const grippedBy       = baseDefender.getFlag(NS, 'grippedBy')   ?? {};
-  const entangledBy     = baseDefender.getFlag(NS, 'entangledBy') ?? {};
+  const grippedBy       = baseDefender.getFlag(NS, 'grippedBy')      ?? {};
+  const entangledBy     = baseDefender.getFlag(NS, 'entangledBy')    ?? {};
+  const pinnedWeapons   = baseDefender.getFlag(NS, 'pinnedWeapons')  ?? {};
+  const pinnedBy        = baseDefender.getFlag(NS, 'pinnedBy')       ?? {};
   const gripIds         = Object.keys(grippedBy);
   const entangleEntries = Object.entries(entangledBy);
+  const pinnedWeaponIds = Object.keys(pinnedWeapons);
+  const pinnedByIds     = Object.keys(pinnedBy);
   const clearedGrips     = gripIds.length;
   const clearedEntangles = entangleEntries.length;
+  const clearedPins       = pinnedWeaponIds.length + pinnedByIds.length;
 
   // Post card FIRST so it always appears even if cleanup throws
-  const hadHolds   = clearedGrips + clearedEntangles > 0;
+  const hadHolds   = clearedGrips + clearedEntangles + clearedPins > 0;
   const effectNote = hadHolds
-    ? `${defender.name} slips free — all grips and entanglements broken`
+    ? `${defender.name} slips free — all grips, entanglements, and pins broken`
     : `${defender.name} uses Slip Free — no active holds to escape`;
 
   await ChatMessage.create({
@@ -71,6 +84,11 @@ export async function resolveSlipFree(ctx) {
           <div class="mi-se-roll-row">
             <span class="mi-se-roll-label">Entangles cleared</span>
             <span class="mi-se-roll-val">${clearedEntangles}</span>
+          </div>` : ''}
+          ${clearedPins > 0 ? `
+          <div class="mi-se-roll-row">
+            <span class="mi-se-roll-label">Pins cleared</span>
+            <span class="mi-se-roll-val">${clearedPins}</span>
           </div>` : ''}
         </div>
       </div>`,
@@ -118,6 +136,12 @@ export async function resolveSlipFree(ctx) {
         }
       }
     }
+
+    // Clear pinnedWeapons (Pin Weapon) and pinnedBy (Pin Object) — both are
+    // single flags with no cross-turn pending queue or companion actor-side
+    // flag to clean up (see pin-weapon.js/pin-object.js's own headers).
+    if (pinnedWeaponIds.length > 0) await baseDefender.unsetFlag(NS, 'pinnedWeapons');
+    if (pinnedByIds.length > 0)     await baseDefender.unsetFlag(NS, 'pinnedBy');
   } catch (err) {
     console.error('Mythras | Slip Free flag cleanup error:', err);
   }

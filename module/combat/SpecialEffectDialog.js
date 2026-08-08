@@ -26,6 +26,7 @@
  *                 'sunderWeapon'      — weapon must have 'sundering' trait or be two-handed
  *                 'rangedWeapon'      — weapon category must be 'ranged'
  *                 'firearmsOnly'      — weapon must have 'firearm' trait
+ *                 'defenderProne'     — defender must currently have the 'prone' status (Arise)
  *
  * Stackable SEs: Maximise Damage and Bypass Armour may be selected multiple
  * times (up to seCount), as noted in the rules. All others are single-select.
@@ -291,6 +292,10 @@ function _filterSEs(ctx, isAttackerWinner) {
         // Falls back gracefully: any firearm is eligible so the SE at least appears;
         // the GM decides at the table whether the weapon qualifies.
         return traits.includes('firearm') && (traits.includes('hightech') || traits.includes('highTech'));
+
+      case 'defenderProne':
+        // Arise: only meaningful while actually prone.
+        return ctx.defender?.statuses?.has('prone') ?? false;
 
       default:
         return true;

@@ -122,6 +122,9 @@ export async function resolveBleed(ctx, damage, forcesFail) {
 // resolveTripOpponent — SE: Trip Opponent
 // Rules p.47: no damage requirement. Offensive or defensive — the resisting
 // actor rolls Brawn/Evade/Acrobatics vs the SE winner's original roll.
+// Quadruped opponents (or creatures with even more legs) substitute Athletics
+// for Evade and treat that roll as one Difficulty Grade easier — gated on the
+// 'quadruped' creatureTrait (config.js).
 // -------------------------------------------------------------------------
 export async function resolveTripOpponent(ctx, damage, forcesFail) {
   const { attacker, defender } = ctx;
@@ -134,15 +137,28 @@ export async function resolveTripOpponent(ctx, damage, forcesFail) {
   const seWinnerRoll    = tripIsOffensive ? attackRoll            : (ctx.defenceResult ?? 0);
   const seWinnerTotal   = tripIsOffensive ? (ctx.attackerSkillTotal ?? 0) : (ctx.defenderSkillTotal ?? 0);
 
+  const isQuadruped = Array.from(resistingActor.items).some(
+    i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'quadruped'
+  );
+
   const brawnSkill = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-  const evadeSkill = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === 'Evade');
+  // Quadrupeds substitute Athletics for Evade (rules p.47).
+  const movementSkillName = isQuadruped ? 'Athletics' : 'Evade';
+  const movementSkill = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === movementSkillName);
   const acroSkill  = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === 'Acrobatics');
 
   const _adj = raw => applyFatigueToSkill(raw, resistingActor);
+  let movementTotal = movementSkill ? _adj(movementSkill.system.total ?? 0) : 0;
+  if (isQuadruped && movementSkill) {
+    // "...treat the roll as one Difficulty Grade easier."
+    const easyMultiplier = CONFIG.MYTHRAS?.difficultyGrades?.easy?.multiplier ?? 1.5;
+    movementTotal = Math.max(0, Math.ceil(movementTotal * easyMultiplier));
+  }
+
   const skillOptions = [
-    brawnSkill && { name: 'Brawn',       rawTotal: brawnSkill.system.total ?? 0, total: _adj(brawnSkill.system.total ?? 0) },
-    evadeSkill && { name: 'Evade',        rawTotal: evadeSkill.system.total ?? 0, total: _adj(evadeSkill.system.total ?? 0) },
-    acroSkill  && { name: 'Acrobatics',   rawTotal: acroSkill.system.total  ?? 0, total: _adj(acroSkill.system.total  ?? 0) }
+    brawnSkill    && { name: 'Brawn', rawTotal: brawnSkill.system.total ?? 0, total: _adj(brawnSkill.system.total ?? 0) },
+    movementSkill && { name: movementSkillName, rawTotal: movementSkill.system.total ?? 0, total: movementTotal },
+    acroSkill     && { name: 'Acrobatics', rawTotal: acroSkill.system.total  ?? 0, total: _adj(acroSkill.system.total  ?? 0) }
   ].filter(Boolean);
 
   if (skillOptions.length === 0) skillOptions.push({ name: 'Brawn', rawTotal: 0, total: 0 });
