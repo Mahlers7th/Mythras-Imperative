@@ -79,8 +79,6 @@ export default [
     // macros/ — raw Foundry Macro documents, pasted into the Macro UI and run
     // with Foundry's own implicit top-level-await wrapper; not real ES
     // modules and not shipped in system.json's esmodules list.
-    // spike-a2-typetest/ — a throwaway Phase 0 prototype (its own stub
-    // module.json), never wired into the real system.
-    ignores: ['packs/**', 'node_modules/**', '**/*.min.js', 'macros/**', 'spike-a2-typetest/**'],
+    ignores: ['packs/**', 'node_modules/**', '**/*.min.js', 'macros/**'],
   },
 ];
