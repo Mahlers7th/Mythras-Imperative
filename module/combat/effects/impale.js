@@ -7,6 +7,18 @@
  *   - applyImpaleLodge        — called from mythras.mjs "Leave In" button handler
  *   - resolveImpaleYank       — called from mythras.mjs "Yank Free" button handler
  *
+ * Timing (rules p.44): "the attacker has the option of leaving the weapon in
+ * the wound or yanking it free on their next turn." Only yanking is bound to
+ * "next turn" — that's the Ready Weapon + Brawn action the attacker can't
+ * spend mid-attack. Leaving it in has no such action cost; it's simply the
+ * default state from the instant the wound is caused. The Difficulty Grade
+ * penalty (`impaledBy` flag, read by `getActiveImpaleGrade`) is therefore
+ * applied immediately in `resolveImpale`, not deferred to a next-turn button
+ * click — a defender hit by Impale is already penalised on their own turn in
+ * between, and on any reactive rolls before the attacker acts again.
+ * `postImpaleDecisionCard` only offers the next-turn Yank Free attempt now;
+ * "Leave In" is just an acknowledgement, not the thing that applies the flag.
+ *
  * Dependencies:
  *   helpers.js     — applyStatusToActor, applyFatigueToSkill, getItem
  *   combat-math.js — getImpaleGrade, resolveOpposedRoll
@@ -32,8 +44,11 @@ const GRADE_LABELS = {
 
 // -------------------------------------------------------------------------
 // resolveImpale — SE: Impale (requires damage > 0)
-// Rules p.44: weapon lodges in the wound; posts a notification card and
-// queues the lodge/yank decision for the start of the attacker's next turn.
+// Rules p.44: weapon lodges in the wound immediately — the Difficulty Grade
+// penalty is applied to the defender right here, not deferred. Also posts a
+// notification card and queues the Yank Free offer for the start of the
+// attacker's next turn (the only part of this SE actually bound to "next
+// turn" — see the timing note at the top of this file).
 // -------------------------------------------------------------------------
 export async function resolveImpale(ctx, damage) {
   const { attacker, defender, weapon } = ctx;
@@ -63,14 +78,36 @@ export async function resolveImpale(ctx, damage) {
             </span>
           </div>
           <div class="mi-se-roll-row">
-            <span class="mi-se-roll-label">Penalty while lodged</span>
+            <span class="mi-se-roll-label">Penalty now in effect</span>
             <span class="mi-se-roll-val">${gradeDisplay}</span>
           </div>
-          <p class="mi-se-roll-note">Leave In / Yank Free decision will appear at the start of ${attacker.name}'s next turn.</p>
+          <p class="mi-se-roll-note">${weapon.name} stays lodged by default. ${attacker.name} may attempt to yank it free (Ready Weapon + Brawn roll) starting their next turn.</p>
         </div>
       </div>`,
     speaker: ChatMessage.getSpeaker({ actor: attacker })
   });
+
+  // Weapon is left in by default the instant the wound is caused — yanking it
+  // free is the only part of this SE actually bound to "next turn" (it costs
+  // a Ready Weapon action the attacker can't spend mid-attack). Write the
+  // defender's penalty flag now, not when a next-turn button gets clicked.
+  const hitLocationId    = ctx.hitLocationId    ?? '';
+  const hitLocationLabel = ctx.hitLocationLabel ?? '';
+  const existingImpaledBy = defender.getFlag(NS, 'impaledBy') ?? {};
+  existingImpaledBy[impaleEntryId] = {
+    attackerId:  baseAttacker.id,
+    weaponId:    weapon.id,
+    weaponName:  weapon.name,
+    weaponSize:  weapon.system?.size ?? 'M',
+    halfDmgFormula,
+    gradeId,
+    hitLocationId,
+    hitLocationLabel
+  };
+  await defender.setFlag(NS, 'impaledBy', existingImpaledBy);
+  if (gradeId === 'incapacitated') {
+    await applyStatusToActor(defender, 'incapacitated');
+  }
 
   const pendingImpales = baseAttacker.getFlag(NS, 'pendingImpales') ?? {};
   pendingImpales[impaleEntryId] = {
@@ -79,8 +116,8 @@ export async function resolveImpale(ctx, damage) {
     impaleEntryId,
     gradeId,
     gradeDisplay,
-    hitLocationId:      ctx.hitLocationId   ?? '',
-    hitLocationLabel:   ctx.hitLocationLabel ?? '',
+    hitLocationId,
+    hitLocationLabel,
     halfDmgFormula,
     attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
     lastCardId:         ctx.chatMessageId,
@@ -92,7 +129,10 @@ export async function resolveImpale(ctx, damage) {
 
 // -------------------------------------------------------------------------
 // postImpaleDecisionCard — called from updateCombat at the start of the
-// attacker's next turn. Posts the Leave In / Yank Free decision card.
+// attacker's next turn. The penalty is already active (applied immediately
+// in resolveImpale) — this card only offers the Yank Free attempt, which is
+// the one part of this SE actually bound to "next turn". "Leave It In" is
+// just an acknowledgement that dismisses the card without changing anything.
 // entry: one entry from flags['mythras-imperative'].pendingImpales
 // -------------------------------------------------------------------------
 export async function postImpaleDecisionCard(attacker, entry) {
@@ -107,7 +147,7 @@ export async function postImpaleDecisionCard(attacker, entry) {
       <div class="mi-chat-card">
         <div class="mi-card-header mi-card-header--stacked">
           <span class="mi-card-actor">${attacker.name} → ${defenderName}</span>
-          <span class="mi-card-skill">Impale — Leave In or Yank Free?</span>
+          <span class="mi-card-skill">Impale — Leave It In or Yank Free?</span>
         </div>
         <div class="mi-card-body">
           <div class="mi-outcome-row">
@@ -116,14 +156,14 @@ export async function postImpaleDecisionCard(attacker, entry) {
             </span>
           </div>
           <div class="mi-se-roll-row">
-            <span class="mi-se-roll-label">Penalty while lodged</span>
+            <span class="mi-se-roll-label">Penalty (already in effect)</span>
             <span class="mi-se-roll-val">${gradeDisplay}</span>
           </div>
           <div class="mi-se-roll-row">
             <span class="mi-se-roll-label">Yank damage</span>
             <span class="mi-se-roll-val">½ ${halfDmgFormula} (no DM, ignores armour)</span>
           </div>
-          <p class="mi-se-roll-note">Costs Ready Weapon action. Yanking requires a Brawn roll — failure means it stays (retry next turn).</p>
+          <p class="mi-se-roll-note">Yanking costs a Ready Weapon action and a Brawn roll — failure means it stays (retry next turn). Leaving it in needs no action; the penalty already applies.</p>
           <div class="mi-manual-actions">
             <button class="mi-btn mi-btn-impale-leave"
               data-attacker-id="${attacker.id}"
@@ -134,7 +174,7 @@ export async function postImpaleDecisionCard(attacker, entry) {
               data-hit-location-id="${hitLocationId}"
               data-hit-location-label="${hitLocationLabel}"
               data-half-dmg-formula="${halfDmgFormula}">
-              <i class="fas fa-hand-paper"></i> Leave In
+              <i class="fas fa-hand-paper"></i> Leave It In
             </button>
             <button class="mi-btn mi-btn-impale-yank"
               data-attacker-id="${attacker.id}"
@@ -170,35 +210,24 @@ export async function postImpaleDecisionCard(attacker, entry) {
 }
 
 // -------------------------------------------------------------------------
-// applyImpaleLodge — called when attacker clicks "Leave In".
-// Writes the impaledBy flag to the defender; applies Incapacitated if needed.
+// applyImpaleLodge — called when attacker clicks "Leave It In".
+// The impaledBy flag and any Incapacitated status were already applied
+// immediately in resolveImpale (see the timing note at the top of this
+// file) — this handler just acknowledges the choice: clears the pending
+// entry so no further decision card is queued, and stamps this card
+// resolved. No action cost, nothing further to write.
 // -------------------------------------------------------------------------
 export async function applyImpaleLodge(btn) {
-  const attackerId       = btn.dataset.attackerId;
-  const defenderId       = btn.dataset.defenderId;
-  const weaponId         = btn.dataset.weaponId;
-  const impaleEntryId    = btn.dataset.impaleEntryId;
-  const gradeId          = btn.dataset.gradeId;
-  const hitLocationId    = btn.dataset.hitLocationId;
-  const hitLocationLabel = btn.dataset.hitLocationLabel;
-  const halfDmgFormula   = btn.dataset.halfDmgFormula;
+  const attackerId    = btn.dataset.attackerId;
+  const defenderId    = btn.dataset.defenderId;
+  const weaponId      = btn.dataset.weaponId;
+  const impaleEntryId = btn.dataset.impaleEntryId;
+  const gradeId       = btn.dataset.gradeId;
 
   const attacker = game.actors.get(attackerId);
   const defender = game.actors.get(defenderId);
   const weapon   = getItem(attacker, weaponId);
   if (!defender || !weapon) return;
-
-  const existing = defender.getFlag(NS, 'impaledBy') ?? {};
-  existing[impaleEntryId] = {
-    attackerId, weaponId,
-    weaponName:      weapon.name,
-    weaponSize:      weapon.system?.size ?? 'M',
-    halfDmgFormula,
-    gradeId,
-    hitLocationId,
-    hitLocationLabel
-  };
-  await defender.setFlag(NS, 'impaledBy', existing);
 
   // Clear the pending impale — decision made
   const pending = attacker?.getFlag(NS, 'pendingImpales') ?? {};
@@ -212,19 +241,15 @@ export async function applyImpaleLodge(btn) {
   );
   if (decisionMsg) await decisionMsg.setFlag(NS, 'impaleResolved', true);
 
-  if (gradeId === 'incapacitated') {
-    await applyStatusToActor(defender, 'incapacitated');
-  }
-
   const gradeShortLabels = {
     none: 'no additional penalty', hard: 'Hard', formidable: 'Formidable',
     herculean: 'Herculean', incapacitated: 'Incapacitated'
   };
   const msg = gradeId === 'none'
-    ? `${weapon.name} lodges in ${defender.name} — no skill penalty for this creature's size.`
+    ? `${weapon.name} stays in ${defender.name} — no skill penalty for this creature's size.`
     : gradeId === 'incapacitated'
-      ? `${weapon.name} lodges in ${defender.name} — Incapacitated (too large for this creature).`
-      : `${weapon.name} lodges in ${defender.name} — all skill rolls at ${gradeShortLabels[gradeId]} while it remains.`;
+      ? `${weapon.name} stays in ${defender.name} — Incapacitated (too large for this creature).`
+      : `${weapon.name} stays in ${defender.name} — all skill rolls remain at ${gradeShortLabels[gradeId]} while it remains.`;
 
   await ChatMessage.create({
     content: `<div class="mi-chat-card"><div class="mi-card-body"><div class="mi-outcome-row"><span class="mi-outcome mi-wound-serious"><i class="fas fa-khanda"></i> ${msg}</span></div></div></div>`,
@@ -362,22 +387,8 @@ export async function resolveImpaleYank(btn) {
     };
     await attacker.setFlag(NS, 'pendingImpales', pending);
 
-    // Ensure impaledBy is written on the defender (may not be set yet if this
-    // is the first yank attempt — lodge is only written on "Leave In")
-    const existing = defender.getFlag(NS, 'impaledBy') ?? {};
-    if (!existing[impaleEntryId]) {
-      existing[impaleEntryId] = {
-        attackerId, weaponId,
-        weaponName:      weapon.name,
-        weaponSize:      weapon.system?.size ?? 'M',
-        halfDmgFormula,
-        gradeId,
-        hitLocationId,
-        hitLocationLabel
-      };
-      await defender.setFlag(NS, 'impaledBy', existing);
-      if (gradeId === 'incapacitated') await applyStatusToActor(defender, 'incapacitated');
-    }
+    // impaledBy is already set (resolveImpale writes it immediately on the
+    // original hit) and untouched here — the penalty simply continues.
 
     await ChatMessage.create({
       content: `<div class="mi-chat-card"><div class="mi-card-body">
