@@ -46,13 +46,18 @@
  *                consumer as AttackerDialog/MythrasRoll.rollDialog, the
  *                attack-side floor.
  *
- * 'attack' and 'defence' differ by exactly one floor here: blind. That
- * is not an oversight in this file — it is the shipped bug this seam's
- * Step 3 exists to fix ("a blinded defender parries at full skill while
- * a blinded attacker takes the penalty"), reproduced faithfully rather
- * than silently corrected in what is supposed to be a zero-behaviour-
- * change extraction. Once Step 3 lands, 'attack' and 'defence' become
- * identical in composition.
+ * STEP 3 UPDATE: 'attack' and 'defence' used to differ by exactly one
+ * floor — blind — deliberately reproduced here in Step 1 rather than
+ * silently corrected in what was supposed to be a zero-behaviour-change
+ * extraction ("a blinded defender parries at full skill while a blinded
+ * attacker takes the penalty"). Chris ruled this a bug, not an intended
+ * asymmetry ("defenders do not get a free pass"), and Step 3 fixed it
+ * below: blind now floors 'defence' identically to 'attack'. The two
+ * roles are numerically identical as of this change, kept as distinct
+ * names rather than collapsed into one — future floors may need to
+ * differentiate them again, and the role parameter documents intent,
+ * not just current output (same reasoning as keeping 'resist' distinct
+ * from the other two even where its current floors happen to overlap).
  *
  * NOT reconciled here, left for Step 2's migration to decide per call
  * site: CombatEngine._resolveAttackSkill's OWN numeric skill-total
@@ -141,9 +146,10 @@ export function getConditionGrade(actor, role) {
     floorTo('formidable');
   }
 
-  // Blind — 'attack' only today, faithfully reproducing the current gap
-  // rather than silently closing it. See this file's own header comment.
-  if (role === 'attack') {
+  // Blind — 'attack' and 'defence' (Step 3, seam-design-outcomes.md's
+  // "Ruling — fix blind in full"). Not 'resist': blind should not make an
+  // Endurance check against poison harder, same reasoning as prone.
+  if (role === 'attack' || role === 'defence') {
     floorTo(getActiveBlindGrade(actor));
   }
 

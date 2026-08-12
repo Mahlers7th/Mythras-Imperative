@@ -1382,15 +1382,13 @@ export class CombatEngine {
       raw = ctx.defenceStyle?.system.total ?? ctx.defenceWeapon?.system.total ?? 0;
     }
 
-    // Fatigue + prone, worst-of, applied to combat skill rolls (p.47).
-    // Seam 2, Step 2 (Population B): delegated to the condition-grade
-    // chokepoint instead of applying fatigue then separately Math.min-ing
-    // a number-space prone result — role 'defence' was built in Step 1 to
-    // match this exact composition (see condition-grade.js's own header
-    // comment and its bidirectional parity tests), so this is zero
-    // behaviour change, not a redesign. Blind stays excluded from
-    // 'defence' on purpose — that asymmetry is the bug Step 3 fixes, not
-    // this migration.
+    // Fatigue + prone + impale + entangle + blind, worst-of, applied to
+    // combat skill rolls (p.47). Seam 2, Step 2 (Population B) delegated
+    // this to the condition-grade chokepoint (role 'defence') as a zero-
+    // behaviour-change migration; Step 3 then closed the blind gap at the
+    // chokepoint itself (condition-grade.js) rather than here — a blinded
+    // defender now takes the same penalty a blinded attacker always did,
+    // per Chris's ruling ("defenders do not get a free pass").
     return applyGradeToSkill(raw, getConditionGrade(ctx.defender, 'defence'));
   }
 

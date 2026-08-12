@@ -159,11 +159,40 @@ describe('getConditionGrade', () => {
     expect(getConditionGrade(a, 'resist')).toBe('standard'); // prone does not reach resist
   });
 
-  test('blind floors attack ONLY — reproduces the shipped defence gap, not a fix', () => {
+  test('blind floors attack AND defence (Step 3 fix), NOT resist', () => {
     const a = makeActor({ flags: { blindedBy: { turnsRemaining: 2, grade: 'formidable' } } });
     expect(getConditionGrade(a, 'attack')).toBe('formidable');
-    expect(getConditionGrade(a, 'defence')).toBe('standard'); // the bug, faithfully reproduced
-    expect(getConditionGrade(a, 'resist')).toBe('standard');
+    expect(getConditionGrade(a, 'defence')).toBe('formidable'); // the gap, closed
+    expect(getConditionGrade(a, 'resist')).toBe('standard'); // still excluded — not an SE resistance-roll floor
+  });
+
+  test('expired blind is ignored for both attack and defence', () => {
+    const a = makeActor({ flags: { blindedBy: { turnsRemaining: 0, grade: 'formidable' } } });
+    expect(getConditionGrade(a, 'attack')).toBe('standard');
+    expect(getConditionGrade(a, 'defence')).toBe('standard');
+  });
+
+  test("'attack' and 'defence' are numerically identical post-Step-3, across every floor", () => {
+    const scenarios = [
+      {},
+      { fatigue: 'wearied' },
+      { prone: true },
+      { flags: { impaledBy: { x: { gradeId: 'herculean' } } } },
+      { flags: { entangledBy: { x: { gradeHard: true } } } },
+      { flags: { blindedBy: { turnsRemaining: 2, grade: 'formidable' } } },
+      {
+        fatigue: 'tired', prone: true,
+        flags: {
+          impaledBy: { x: { gradeId: 'hard' } },
+          entangledBy: { x: { gradeHard: true } },
+          blindedBy: { turnsRemaining: 1, grade: 'herculean' },
+        },
+      },
+    ];
+    for (const opts of scenarios) {
+      const a = makeActor(opts);
+      expect(getConditionGrade(a, 'defence')).toBe(getConditionGrade(a, 'attack'));
+    }
   });
 
   test('worst-of composition across multiple simultaneous conditions', () => {
