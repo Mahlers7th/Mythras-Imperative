@@ -21,7 +21,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - `extension-point-api-updated.md` updated with a full dedicated section and a summary-table row, matching every other hook family's documentation depth.
   - 663/663 tests green, lint clean (0 errors, 73 warnings, unchanged).
   - **Not part of this change**: any actual module-side consumer registering into this new family (CFI's three abilities, Kinetic Control's DM tiers) — this unblocks them, registering is separate, module-repo work. Range doubling, explicitly deferred above.
-- Not yet committed.
+- Committed as `8ef6a46`.
 
 ## v1.4.303 — August 2026
 - **Seam 2, Step 4 of 4 (`seam-design-outcomes.md` §2, §6) — added `conditionGradeHooks`, the last step in this arc.** Everything from Step 1 (extract the composer) through Step 3 (deliberate behaviour changes) existed specifically so this step would have exactly one place to add a hook — every real condition-grade call site in the engine (opposed.js's 7 SE resolvers, bash/entangle/grip/impale.js, the Endurance/wound-consequence check, `_resolveDefenceSkill`, `_getConditionFloorGrade` → `AttackerDialog`/`MythrasRoll`, `spellcasting.js`) reaches this hook through `getConditionGrade`'s one chokepoint, none of them touched individually.
