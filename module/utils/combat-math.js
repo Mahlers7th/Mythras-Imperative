@@ -213,16 +213,34 @@ export const DM_TABLE = [
 ];
 
 /**
+ * Shift a damage modifier string by N steps along the 15-step table
+ * (negative = weaker, positive = stronger, 0 = unchanged). Clamps at
+ * the table's own ends rather than overflowing. An unrecognized DM
+ * string passes through unchanged, same fallback as shiftGrade
+ * (roll-math.js) for the parallel Difficulty Grade table.
+ *
+ * @param {string} currentDM  e.g. '+1d6'
+ * @param {number} steps
+ * @returns {string}
+ */
+export function shiftDamageModifier(currentDM, steps) {
+  const dm  = (currentDM === '' || currentDM === '0') ? '+0' : currentDM;
+  const idx = DM_TABLE.indexOf(dm);
+  if (idx === -1) return currentDM;
+  return DM_TABLE[Math.max(0, Math.min(DM_TABLE.length - 1, idx + steps))];
+}
+
+/**
  * Step a damage modifier string one position higher on the 15-step table.
+ * Thin wrapper over shiftDamageModifier(currentDM, 1) — kept as its own
+ * named export since "step up one" (Charge, rules p.XX) is a distinct,
+ * frequently-used case worth naming, not just an inline `shiftDamageModifier(dm, 1)`.
  *
  * @param {string} currentDM  e.g. '+1d6'
  * @returns {string}
  */
 export function stepUpDamageModifier(currentDM) {
-  const dm  = (currentDM === '' || currentDM === '0') ? '+0' : currentDM;
-  const idx = DM_TABLE.indexOf(dm);
-  if (idx === -1) return currentDM;
-  return DM_TABLE[Math.min(idx + 1, DM_TABLE.length - 1)];
+  return shiftDamageModifier(currentDM, 1);
 }
 
 // ---------------------------------------------------------------------------

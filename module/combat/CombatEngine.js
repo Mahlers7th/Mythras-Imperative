@@ -28,7 +28,7 @@
 import { getConditionGrade, applyGradeToSkill } from '../utils/condition-grade.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
-  woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed,
+  woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
 import { shiftGrade } from '../utils/roll-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
@@ -1607,9 +1607,8 @@ export class CombatEngine {
 
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';
     const applyMod   = weapon.system.damageModApplies ?? true;
-    // Charge steps DM up one category; the button carries the already-stepped formula
-    const effectiveDM1 = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const effectiveDM1 = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge) : dmMod;
     const baseDamage1 = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM1 && effectiveDM1 !== '+0' && effectiveDM1 !== '0')
       ? `${baseDamage1}${effectiveDM1}` : baseDamage1;
@@ -1720,8 +1719,8 @@ export class CombatEngine {
 
     const dmMod      = ctx.attacker.system.attributes?.damageModifier ?? '';
     const applyMod   = ctx.weapon.system.damageModApplies ?? true;
-    const effectiveDM2 = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const effectiveDM2 = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, ctx.weapon, ctx.attacker, ctx.isCharge) : dmMod;
     const baseDamage2 = CombatEngine._getWeaponDamage(ctx.weapon, ctx.attacker);
     const dmgFormula = (applyMod && effectiveDM2 && effectiveDM2 !== '+0' && effectiveDM2 !== '0')
       ? `${baseDamage2}${effectiveDM2}` : baseDamage2;
@@ -1904,9 +1903,8 @@ export class CombatEngine {
     // Damage formula
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';
     const applyMod   = weapon.system.damageModApplies ?? true;
-    // Charge: step DM up one category before building the formula
-    const effectiveDM = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod)
+    const effectiveDM = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge)
       : dmMod;
     const baseDamageFullAuto = CombatEngine._getWeaponDamage(weapon, attacker);
     let dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
@@ -2051,9 +2049,11 @@ export class CombatEngine {
     // Damage formula (no DM for firearms — damageModApplies is false)
     const dmMod    = attacker.system.attributes?.damageModifier ?? '';
     const applyMod = weapon.system.damageModApplies ?? true;
+    const effectiveDMBurst = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, false) : dmMod;
     const baseDamageBurst = CombatEngine._getWeaponDamage(weapon, attacker);
-    const dmgFormula = (applyMod && dmMod && dmMod !== '+0' && dmMod !== '0')
-      ? `${baseDamageBurst}${dmMod}` : baseDamageBurst;
+    const dmgFormula = (applyMod && effectiveDMBurst && effectiveDMBurst !== '+0' && effectiveDMBurst !== '0')
+      ? `${baseDamageBurst}${effectiveDMBurst}` : baseDamageBurst;
 
     const burstResults = [];
     let firstRound = true;
@@ -3082,8 +3082,8 @@ export class CombatEngine {
     try {
     const dmMod    = attacker.system.attributes?.damageModifier ?? '';
     const applyMod = weapon.system.damageModApplies ?? true;
-    const effectiveDM = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const effectiveDM = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge) : dmMod;
     const baseDamageVeh = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
       ? `${baseDamageVeh}${effectiveDM}` : baseDamageVeh;
@@ -3320,8 +3320,8 @@ export class CombatEngine {
 
     const dmMod    = attacker.system.attributes?.damageModifier ?? '';
     const applyMod = weapon.system.damageModApplies ?? true;
-    const effectiveDM = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const effectiveDM = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge) : dmMod;
     const baseDamageVehCard = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
       ? `${baseDamageVehCard}${effectiveDM}` : baseDamageVehCard;
@@ -3924,9 +3924,11 @@ export class CombatEngine {
     // Build damage formula — attacker rolls their own weapon against themselves
     const applyMod   = weapon.system.damageModApplies ?? true;
     const attackerDM = attacker.system.attributes?.damageModifier ?? '';
+    const effectiveDMAI = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(attackerDM, weapon, attacker, false) : attackerDM;
     const baseDamageAI = CombatEngine._getWeaponDamage(weapon, attacker);
-    const dmgFormula = (applyMod && attackerDM && attackerDM !== '+0' && attackerDM !== '0')
-      ? `${baseDamageAI}${attackerDM}` : baseDamageAI;
+    const dmgFormula = (applyMod && effectiveDMAI && effectiveDMAI !== '+0' && effectiveDMAI !== '0')
+      ? `${baseDamageAI}${effectiveDMAI}` : baseDamageAI;
 
     // ── Semi-Auto: post a card with Roll Hit Location + Roll Damage buttons ──
     // The buttons target the attacker as the wounded actor (defender slot),
@@ -4970,9 +4972,8 @@ export class CombatEngine {
     // Damage modifier string e.g. "+1d4", "-1d2", "+0"
     const dmMod     = attacker.system.attributes?.damageModifier ?? '';
     const applyMod  = weapon.system.damageModApplies ?? true;
-    // Charge steps DM up one category
-    const effectiveDM = (ctx.isCharge && applyMod)
-      ? CombatEngine._stepUpDamageModifier(dmMod) : dmMod;
+    const effectiveDM = applyMod
+      ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge) : dmMod;
     const baseDamageManual = CombatEngine._getWeaponDamage(weapon, attacker);
     const dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
       ? `${baseDamageManual}${effectiveDM}`
@@ -5124,28 +5125,43 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
-  // _stepUpDamageModifier — Charge combat action (rules p.XX)
+  // _getEffectiveDamageModifier — Damage Modifier chokepoint
+  // (CONFIG.MYTHRAS.weaponDamageModOffsetHooks)
   //
-  // Charge steps the attacker's Damage Modifier up one category on the table.
-  // The DM table in order: -1d8,-1d6,-1d4,-1d2,+0,+1d2,+1d4,+1d6,+1d8,
-  //                         +1d10,+1d12,+2d6,+2d8,+2d10,+2d12
+  // Every damage-formula build in the engine reads the attacker's stepped
+  // Damage Modifier through this instead of inlining its own Charge-only
+  // ternary — the 8-call-site duplication this replaces was the same
+  // "no chokepoint to hook" shape every other seam in this project has
+  // turned out to have. Delegates the actual table walk to
+  // shiftDamageModifier (combat-math.js) — CombatEngine previously carried
+  // its own second, hand-duplicated copy of the 15-step table
+  // (former _stepUpDamageModifier), independently drifted from the real,
+  // tested, already-exported one combat-math.js has had all along; this
+  // retires that duplicate rather than keeping it.
   //
-  // If the actor has no DM ('' or '+0' or '0') it is treated as '+0'.
-  // If already at the top of the table, stays there.
-  // Returns the new DM string (e.g. "+1d6" → "+1d8").
+  // `dmMod` is the actor's ALREADY-DERIVED damageModifier string (post
+  // dmOffset/damageModOffsetHooks — see CharacterData.js) — this function
+  // does not re-derive it, only shifts it further, so actor-level and
+  // weapon-scoped offsets compose without double-counting.
+  //
+  // With no hooks registered and isCharge=false, returns dmMod completely
+  // unchanged — no table round-trip at all, bit-for-bit identical to
+  // every call site's old inline fallback.
+  //
+  // @param {string} dmMod - the actor's derived damageModifier
+  // @param {Item} weapon
+  // @param {Actor} actor - the wielder (see _getWeaponDamage's own note on why this is never weapon.actor for a vehicle-mounted weapon)
+  // @param {boolean} [isCharge=false] - Charge combat action, +1 step (rules p.XX)
+  // @returns {string}
   // -------------------------------------------------------------------------
 
-  static _stepUpDamageModifier(currentDM) {
-    const TABLE = [
-      '-1d8', '-1d6', '-1d4', '-1d2',
-      '+0',
-      '+1d2', '+1d4', '+1d6', '+1d8', '+1d10', '+1d12',
-      '+2d6', '+2d8', '+2d10', '+2d12'
-    ];
-    const dm = (currentDM === '' || currentDM === '0') ? '+0' : currentDM;
-    const idx = TABLE.indexOf(dm);
-    if (idx === -1) return dm;               // unknown format — leave unchanged
-    return TABLE[Math.min(idx + 1, TABLE.length - 1)];
+  static _getEffectiveDamageModifier(dmMod, weapon, actor, isCharge = false) {
+    const hookSteps = sumHookContributions(
+      CONFIG.MYTHRAS?.weaponDamageModOffsetHooks, [weapon, actor], { errorLabel: 'weaponDamageModOffsetHook' }
+    ).total;
+    const totalSteps = (isCharge ? 1 : 0) + hookSteps;
+    if (totalSteps === 0) return dmMod;
+    return shiftDamageModifier(dmMod, totalSteps);
   }
 
   // -------------------------------------------------------------------------

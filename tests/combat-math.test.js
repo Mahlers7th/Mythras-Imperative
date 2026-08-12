@@ -14,6 +14,7 @@ import {
   woundState,
   resolveWoundSync,
   stepUpDamageModifier,
+  shiftDamageModifier,
   getImpaleGrade,
   DM_TABLE,
   weaponBaseMax,
@@ -409,6 +410,53 @@ describe('stepUpDamageModifier', () => {
   });
   test('DM_TABLE has 15 entries', () => {
     expect(DM_TABLE).toHaveLength(15);
+  });
+});
+
+// =============================================================================
+// shiftDamageModifier
+// =============================================================================
+
+describe('shiftDamageModifier', () => {
+  test('stepUpDamageModifier is a thin wrapper over shiftDamageModifier(dm, 1)', () => {
+    for (const dm of ['+0', '-1d2', '+1d6', '+2d12', '-1d8', '', '+99d99']) {
+      expect(stepUpDamageModifier(dm)).toBe(shiftDamageModifier(dm, 1));
+    }
+  });
+
+  test('positive multi-step shift', () => {
+    expect(shiftDamageModifier('+0', 2)).toBe('+1d4');
+  });
+
+  test('negative multi-step shift', () => {
+    expect(shiftDamageModifier('+1d6', -2)).toBe('+1d2');
+  });
+
+  test('zero-step shift returns the same table entry unchanged', () => {
+    expect(shiftDamageModifier('+1d8', 0)).toBe('+1d8');
+  });
+
+  test('clamps at the top of the table, does not overflow', () => {
+    expect(shiftDamageModifier('+2d10', 5)).toBe('+2d12');
+  });
+
+  test('clamps at the bottom of the table, does not underflow', () => {
+    expect(shiftDamageModifier('-1d6', -5)).toBe('-1d8');
+  });
+
+  test('large positive and negative shifts both clamp correctly from the middle', () => {
+    expect(shiftDamageModifier('+0', 99)).toBe('+2d12');
+    expect(shiftDamageModifier('+0', -99)).toBe('-1d8');
+  });
+
+  test('empty string treated as +0 before shifting', () => {
+    expect(shiftDamageModifier('', 1)).toBe('+1d2');
+    expect(shiftDamageModifier('0', 1)).toBe('+1d2');
+  });
+
+  test('unrecognized DM string passes through unchanged regardless of steps', () => {
+    expect(shiftDamageModifier('+99d99', 3)).toBe('+99d99');
+    expect(shiftDamageModifier('garbage', -3)).toBe('garbage');
   });
 });
 

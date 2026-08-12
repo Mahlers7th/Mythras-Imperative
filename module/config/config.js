@@ -603,6 +603,61 @@ export const MYTHRAS = {
   weaponForceHooks: [],
 
   // -----------------------------------------------------------------------
+  // WEAPON DAMAGE MODIFIER OFFSET HOOKS
+  //   weaponDamageModOffsetHook : (weapon, actor) => number
+  //   Called from CombatEngine._getEffectiveDamageModifier, the chokepoint
+  //   every damage-formula build in the engine reads the attacker's Damage
+  //   Modifier through. Return a signed integer number of STEPS to shift
+  //   the actor's ALREADY-DERIVED damageModifier (dmOffset +
+  //   damageModOffsetHooks already applied — see CharacterData.js) further
+  //   along the 15-step DM table, scoped to a specific weapon rather than
+  //   the whole actor. Multiple hooks are summed, and this composes with
+  //   the Charge combat action's own +1 step in the same table walk — a
+  //   charging attacker with a registered hook gets both, not one
+  //   overwriting the other. Clamped to the table's own bounds.
+  //
+  //   Distinct from damageModOffsetHooks (actor-scoped, prepareDerivedData,
+  //   baked into attributes.damageModifier once per derivation cycle) —
+  //   this family exists because a real gap sits underneath that one:
+  //   composing a weapon- or single-attack-scoped shift ON TOP of the
+  //   already-derived actor value, without either double-counting it (an
+  //   additive extra damage term stacks a second, independent die roll) or
+  //   unsafely toggling a real weapon's persistent damageModApplies field.
+  //   Confirmed as a genuine unserved gap by an independent CFI mechanics
+  //   survey (Weapon Master +1 step/mastered weapon, Grand Master +1
+  //   further, Forceful Strike +2 steps/one attack) AND by Destined's own
+  //   Kinetic Control implementation, which already automates that power's
+  //   Size/Force (via weaponForceHooks) and self-damage but left its
+  //   Damage Modifier tiers GM-adjudicated specifically because this hook
+  //   didn't exist yet (see destined-module's kinetic-control-hooks.test.js
+  //   and the block comment above kineticControlResolveTier for the full
+  //   "why", independently arriving at the identical missing primitive).
+  //
+  //   Persistence/consumption (a mastery bonus that lasts as long as a
+  //   weapon is in use, vs. a one-shot boost consumed on the next attack)
+  //   is deliberately NOT this hook's concern — it is a pure per-call
+  //   query, same as weaponForceHooks. A one-shot consumer manages its own
+  //   flag lifecycle exactly the way Kinetic Control already does for its
+  //   Size charge (stamp on activation, sweep via attackResolvedHooks),
+  //   just returning a DM step instead of a Size step.
+  //
+  //   Like weaponDamageHooks/weaponForceHooks immediately above, this is a
+  //   roll-time hook, not prepareDerivedData — hooks MUST be pure and side-
+  //   effect free (no actor/item writes, no PP spend, no chat output),
+  //   same contract, same reason (unpredictable call frequency per turn).
+  //
+  //   Range doubling (Kinetic Control's OTHER stated gap) is deliberately
+  //   NOT covered here — no weaponRangeHooks exists anywhere in the
+  //   engine, and doubling range means mutating a real shared weapon's own
+  //   persistent range fields, a deeper revert-safety risk than a roll-
+  //   time-only DM shift. A separate, later decision; do not add
+  //   speculatively.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed DM-table step offset scoped to one weapon. Receives (weapon, actor) */
+  weaponDamageModOffsetHooks: [],
+
+  // -----------------------------------------------------------------------
   // CONDITION GRADE HOOKS (seam 2, Step 4)
   //   conditionGradeHook : (actor, role) => number
   //   Called from module/utils/condition-grade.js's getConditionGrade,
