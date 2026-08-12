@@ -20,7 +20,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - 654/654 tests green, lint clean (0 errors, 73 warnings, unchanged).
   - **Seam 2 is now fully complete — all four steps shipped (v1.4.299–303).** `seam-design-outcomes.md`'s sequencing table updated to reflect it.
   - **Not part of this change**: any actual module-side consumer registering into this new family — Destined's eleven Difficulty-Grade consumers and CFI's Forceful Strike (skill-grade half) are now unblocked but registering them is separate, module-repo work.
-- Not yet committed.
+- Committed as `c42c342`.
 
 ## v1.4.302 — August 2026
 - **Seam 2, Step 3 of 4 (`seam-design-outcomes.md` §2, §6) — second and final deliberate behaviour change: spellcasting's missing floors, plus the `_runManual` gap found during v1.4.300's trace, folded in per Chris's ruling rather than deferred to its own batch.**
