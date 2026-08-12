@@ -94,6 +94,21 @@ export function getActiveEntangleGrade(actor) {
 }
 
 // -------------------------------------------------------------------------
+// getActiveBlindGrade — extracted from CombatEngine._getActiveBlindGrade
+// (seam 2, Step 1) to match this file's own existing getActiveImpaleGrade/
+// getActiveEntangleGrade pattern: a real, standalone, exported condition-
+// grade getter, with CombatEngine's own static method becoming a thin
+// delegating wrapper (see CombatEngine.js) rather than a fourth private
+// copy of the same 'blindedBy' flag read. Zero behaviour change — the
+// logic is unchanged, only its location and callability are.
+// -------------------------------------------------------------------------
+export function getActiveBlindGrade(actor) {
+  const blindedBy = actor?.getFlag?.('mythras-imperative', 'blindedBy');
+  if (!blindedBy || !blindedBy.turnsRemaining || blindedBy.turnsRemaining <= 0) return null;
+  return blindedBy.grade ?? 'hard';
+}
+
+// -------------------------------------------------------------------------
 export function applyFatigueToSkill(skillTotal, actor) {
   if (!actor) return skillTotal;
 

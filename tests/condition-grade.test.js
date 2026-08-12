@@ -1,0 +1,284 @@
+/**
+ * tests/condition-grade.test.js
+ *
+ * Jest tests for module/utils/condition-grade.js (seam 2, Step 1).
+ *
+ * CombatEngine.js itself cannot be imported under Jest (too Foundry-
+ * coupled — same reason no other test file in this repo imports it).
+ * So this file does two things:
+ *   1. Unit-tests getConditionGrade/applyGradeToSkill directly, against
+ *      real fake-actor fixtures, importing the REAL underlying getters
+ *      (getFatigueSkillGrade, getActiveImpaleGrade, getActiveEntangleGrade,
+ *      getActiveBlindGrade) rather than mirroring them.
+ *   2. Mirrors ONLY the composition/orchestration logic that lives inline
+ *      in CombatEngine.js's _getConditionFloorGrade and _resolveDefenceSkill
+ *      (the part that can't be imported), built from the same real
+ *      getters, and asserts getConditionGrade + applyGradeToSkill produce
+ *      IDENTICAL numeric results to those two existing composers across a
+ *      battery of scenarios — the actual "zero behaviour change" claim,
+ *      not just each piece tested in isolation.
+ *
+ * CONFIG.MYTHRAS is the REAL config object (config.js has no Foundry
+ * dependency beyond the bare DIFFICULTY_GRADES import, and imports
+ * cleanly under Jest), stubbed onto globalThis.CONFIG per this project's
+ * own documented testing convention (system-CLAUDE.md's "mocked Foundry
+ * globals... CONFIG.MYTHRAS" step).
+ */
+
+import { getConditionGrade, applyGradeToSkill, CONDITION_GRADE_ORDER } from '../module/utils/condition-grade.js';
+import { getFatigueSkillGrade, applyFatigueToSkill as applyFatigueOnly } from '../module/utils/fatigue.js';
+import {
+  getActiveImpaleGrade, getActiveEntangleGrade, getActiveBlindGrade,
+  applyFatigueToSkill as applyFatigueImpaleEntangle,
+} from '../module/combat/effects/helpers.js';
+import { MYTHRAS } from '../module/config/config.js';
+
+globalThis.CONFIG = { MYTHRAS };
+
+// ---------------------------------------------------------------------------
+// Fake actor fixture — only the surface these functions actually touch:
+// system.fatigue, statuses.has(), getFlag(scope, key).
+// ---------------------------------------------------------------------------
+function makeActor({ fatigue = 'fresh', prone = false, flags = {} } = {}) {
+  return {
+    system: { fatigue },
+    statuses: { has: (s) => (s === 'prone' ? prone : false) },
+    getFlag: (_scope, key) => flags[key],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mirrors of the two CombatEngine composers this file cannot import,
+// built from the REAL getters above — faithful to CombatEngine.js as of
+// the seam 2 Step 1 anchor re-verification (see condition-grade.js's own
+// header comment for the exact line-by-line trace).
+// ---------------------------------------------------------------------------
+
+/** Mirror of CombatEngine._getConditionFloorGrade. */
+function mirrorConditionFloorGrade(actor) {
+  if (!actor) return 'standard';
+  let worstIdx = CONDITION_GRADE_ORDER.indexOf('standard');
+  const floor = (g) => { if (!g) return; const i = CONDITION_GRADE_ORDER.indexOf(g); if (i > worstIdx) worstIdx = i; };
+  floor(getFatigueSkillGrade(actor));
+  if (actor.statuses?.has?.('prone')) floor('formidable');
+  const imp = getActiveImpaleGrade(actor);
+  if (imp && imp !== 'none' && imp !== 'incapacitated') floor(imp);
+  floor(getActiveEntangleGrade(actor));
+  floor(getActiveBlindGrade(actor));
+  return CONDITION_GRADE_ORDER[worstIdx];
+}
+
+/** Mirror of CombatEngine._resolveDefenceSkill's fatigue+prone composition (raw -> effective total). */
+function mirrorResolveDefenceSkill(raw, actor) {
+  const afterFatigue = applyFatigueImpaleEntangle(raw, actor);
+  const isProne = actor.statuses?.has?.('prone') ?? false;
+  if (!isProne) return afterFatigue;
+  const formidableDef = MYTHRAS.difficultyGrades['formidable'];
+  if (!formidableDef || formidableDef.multiplier === null) return afterFatigue;
+  const proneResult = Math.max(0, Math.ceil(raw * formidableDef.multiplier));
+  return Math.min(afterFatigue, proneResult);
+}
+
+// =============================================================================
+// getConditionGrade
+// =============================================================================
+
+describe('getConditionGrade', () => {
+  test('no actor: standard', () => {
+    expect(getConditionGrade(null, 'defence')).toBe('standard');
+  });
+
+  test('no active conditions, any role: standard', () => {
+    const a = makeActor();
+    expect(getConditionGrade(a, 'attack')).toBe('standard');
+    expect(getConditionGrade(a, 'defence')).toBe('standard');
+    expect(getConditionGrade(a, 'resist')).toBe('standard');
+  });
+
+  test('fatigue alone floors every role identically', () => {
+    const a = makeActor({ fatigue: 'wearied' }); // skillGrade: 'formidable'
+    expect(getConditionGrade(a, 'attack')).toBe('formidable');
+    expect(getConditionGrade(a, 'defence')).toBe('formidable');
+    expect(getConditionGrade(a, 'resist')).toBe('formidable');
+  });
+
+  test('impale floors every role identically', () => {
+    const a = makeActor({ flags: { impaledBy: { x: { gradeId: 'herculean' } } } });
+    expect(getConditionGrade(a, 'attack')).toBe('herculean');
+    expect(getConditionGrade(a, 'defence')).toBe('herculean');
+    expect(getConditionGrade(a, 'resist')).toBe('herculean');
+  });
+
+  test('entangle floors every role identically', () => {
+    const a = makeActor({ flags: { entangledBy: { x: { gradeHard: true } } } });
+    expect(getConditionGrade(a, 'attack')).toBe('hard');
+    expect(getConditionGrade(a, 'defence')).toBe('hard');
+    expect(getConditionGrade(a, 'resist')).toBe('hard');
+  });
+
+  test('prone floors attack and defence to at least formidable, NOT resist', () => {
+    const a = makeActor({ prone: true });
+    expect(getConditionGrade(a, 'attack')).toBe('formidable');
+    expect(getConditionGrade(a, 'defence')).toBe('formidable');
+    expect(getConditionGrade(a, 'resist')).toBe('standard'); // prone does not reach resist
+  });
+
+  test('blind floors attack ONLY — reproduces the shipped defence gap, not a fix', () => {
+    const a = makeActor({ flags: { blindedBy: { turnsRemaining: 2, grade: 'formidable' } } });
+    expect(getConditionGrade(a, 'attack')).toBe('formidable');
+    expect(getConditionGrade(a, 'defence')).toBe('standard'); // the bug, faithfully reproduced
+    expect(getConditionGrade(a, 'resist')).toBe('standard');
+  });
+
+  test('worst-of composition across multiple simultaneous conditions', () => {
+    const a = makeActor({
+      fatigue: 'winded', // hard
+      prone: true,       // formidable
+      flags: { entangledBy: { x: { gradeHard: true } } }, // hard
+    });
+    // worst of hard/formidable/hard = formidable
+    expect(getConditionGrade(a, 'defence')).toBe('formidable');
+  });
+
+  test('never returns easier than standard even with no conditions', () => {
+    const a = makeActor({ fatigue: 'fresh' });
+    expect(CONDITION_GRADE_ORDER.indexOf(getConditionGrade(a, 'attack')))
+      .toBeGreaterThanOrEqual(CONDITION_GRADE_ORDER.indexOf('standard'));
+  });
+
+  test('incapacitated impale is excluded from the floor, matching getActiveImpaleGrade\'s own contract', () => {
+    // Mirrors the existing exclusion in both _getConditionFloorGrade and
+    // helpers.js's own applyFatigueToSkill — 'incapacitated' impale is
+    // deliberately not folded in as a skill-check floor.
+    const a = makeActor({ flags: { impaledBy: { x: { gradeId: 'incapacitated' } } } });
+    expect(getConditionGrade(a, 'defence')).toBe('standard');
+  });
+});
+
+// =============================================================================
+// applyGradeToSkill
+// =============================================================================
+
+describe('applyGradeToSkill', () => {
+  test('standard grade: unchanged (multiplier 1)', () => {
+    expect(applyGradeToSkill(60, 'standard')).toBe(60);
+  });
+
+  test('hard grade: matches the real DIFFICULTY_GRADES multiplier, ceiling-rounded', () => {
+    const expected = Math.max(0, Math.ceil(60 * MYTHRAS.difficultyGrades.hard.multiplier));
+    expect(applyGradeToSkill(60, 'hard')).toBe(expected);
+  });
+
+  test('hopeless grade: always 0, regardless of raw', () => {
+    expect(applyGradeToSkill(200, 'hopeless')).toBe(0);
+  });
+
+  test('unknown grade id: raw returned unchanged rather than throwing', () => {
+    expect(applyGradeToSkill(60, 'not-a-real-grade')).toBe(60);
+  });
+
+  test('never returns negative, even for a very low raw skill at a harsh grade', () => {
+    expect(applyGradeToSkill(1, 'herculean')).toBeGreaterThanOrEqual(0);
+  });
+});
+
+// =============================================================================
+// Parity with the two existing composers — the actual "zero behaviour
+// change" claim, not just each piece in isolation.
+// =============================================================================
+
+describe('parity with CombatEngine._getConditionFloorGrade (role: attack)', () => {
+  const scenarios = [
+    { name: 'clean actor', opts: {} },
+    { name: 'fatigued', opts: { fatigue: 'exhausted' } },
+    { name: 'prone', opts: { prone: true } },
+    { name: 'impaled', opts: { flags: { impaledBy: { x: { gradeId: 'hard' } } } } },
+    { name: 'entangled', opts: { flags: { entangledBy: { x: { gradeHard: true } } } } },
+    { name: 'blinded', opts: { flags: { blindedBy: { turnsRemaining: 1, grade: 'hard' } } } },
+    {
+      name: 'everything at once',
+      opts: {
+        fatigue: 'tired', prone: true,
+        flags: {
+          impaledBy: { x: { gradeId: 'formidable' } },
+          entangledBy: { x: { gradeHard: true } },
+          blindedBy: { turnsRemaining: 3, grade: 'herculean' },
+        },
+      },
+    },
+  ];
+
+  for (const { name, opts } of scenarios) {
+    test(name, () => {
+      const actor = makeActor(opts);
+      expect(getConditionGrade(actor, 'attack')).toBe(mirrorConditionFloorGrade(actor));
+    });
+  }
+});
+
+describe('parity with CombatEngine._resolveDefenceSkill (role: defence, folded into grade space)', () => {
+  const rawSkills = [30, 55, 91, 12];
+  const scenarios = [
+    { name: 'clean actor', opts: {} },
+    { name: 'fatigued only', opts: { fatigue: 'winded' } },
+    { name: 'prone only', opts: { prone: true } },
+    { name: 'fatigued and prone, fatigue worse', opts: { fatigue: 'debilitated', prone: true } },
+    { name: 'fatigued and prone, prone worse', opts: { fatigue: 'winded', prone: true } },
+    {
+      name: 'impaled, entangled, and prone together',
+      opts: {
+        prone: true,
+        flags: { impaledBy: { x: { gradeId: 'herculean' } }, entangledBy: { x: { gradeHard: true } } },
+      },
+    },
+  ];
+
+  for (const { name, opts } of scenarios) {
+    for (const raw of rawSkills) {
+      test(`${name}, raw ${raw}`, () => {
+        const actor = makeActor(opts);
+        const oldWay = mirrorResolveDefenceSkill(raw, actor);
+        const newWay = applyGradeToSkill(raw, getConditionGrade(actor, 'defence'));
+        expect(newWay).toBe(oldWay);
+      });
+    }
+  }
+});
+
+describe('parity with helpers.js applyFatigueToSkill (role: resist)', () => {
+  const rawSkills = [20, 47, 88];
+  const scenarios = [
+    { name: 'clean actor', opts: {} },
+    { name: 'fatigued', opts: { fatigue: 'wearied' } },
+    { name: 'impaled', opts: { flags: { impaledBy: { x: { gradeId: 'hard' } } } } },
+    { name: 'entangled', opts: { flags: { entangledBy: { x: { gradeHard: true } } } } },
+    {
+      name: 'prone and blinded present but must NOT affect resist',
+      opts: { prone: true, flags: { blindedBy: { turnsRemaining: 2, grade: 'herculean' } } },
+    },
+  ];
+
+  for (const { name, opts } of scenarios) {
+    for (const raw of rawSkills) {
+      test(`${name}, raw ${raw}`, () => {
+        const actor = makeActor(opts);
+        const oldWay = applyFatigueImpaleEntangle(raw, actor);
+        const newWay = applyGradeToSkill(raw, getConditionGrade(actor, 'resist'));
+        expect(newWay).toBe(oldWay);
+      });
+    }
+  }
+});
+
+describe('sanity: fatigue.js\'s bare applyFatigueToSkill is a stricter subset, not reproduced by any role here', () => {
+  test('documents the known fourth shape (spellcasting.js) rather than silently assuming it is covered', () => {
+    // spellcasting.js imports fatigue.js's OWN bare applyFatigueToSkill
+    // (fatigue only, no impale/entangle) directly -- not routed through
+    // this file at all, and Step 1 does not change that. Recorded here so
+    // a future reader does not assume 'resist' already covers it.
+    const a = makeActor({ flags: { impaledBy: { x: { gradeId: 'formidable' } } } });
+    const bareFatigueOnly = applyFatigueOnly(50, a); // ignores the impale flag entirely
+    const resistRole = applyGradeToSkill(50, getConditionGrade(a, 'resist')); // does not ignore it
+    expect(bareFatigueOnly).not.toBe(resistRole);
+  });
+});

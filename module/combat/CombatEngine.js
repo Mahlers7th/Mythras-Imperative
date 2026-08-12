@@ -44,6 +44,7 @@ import {
   applyFatigueToSkill,
   getActiveImpaleGrade,
   getActiveEntangleGrade,
+  getActiveBlindGrade,
   spendActionPoint,
   getItem,
 } from './effects/helpers.js';
@@ -4142,11 +4143,7 @@ export class CombatEngine {
   // for an actor, or null if not currently blinded.
   // -------------------------------------------------------------------------
 
-  static _getActiveBlindGrade(actor) {
-    const blindedBy = actor?.getFlag?.('mythras-imperative', 'blindedBy');
-    if (!blindedBy || !blindedBy.turnsRemaining || blindedBy.turnsRemaining <= 0) return null;
-    return blindedBy.grade ?? 'hard';
-  }
+  static _getActiveBlindGrade(actor) { return getActiveBlindGrade(actor); }
 
   // -------------------------------------------------------------------------
   // _resolvePrepareCounter — Phase 1: Declaration
