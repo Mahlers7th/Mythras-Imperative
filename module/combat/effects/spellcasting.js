@@ -23,11 +23,24 @@
  * Does NOT model Classic Fantasy Imperative's separate, more complex magic
  * system (two casting skills, variable Intensity/Magnitude, a different
  * MP-cost-by-outcome table) — see ItemData.js's SpellData doc comment.
+ *
+ * Magic skill total: seam 2, Step 3 (seam-design-outcomes.md's "spellcasting's
+ * missing floors") — this used to import utils/fatigue.js's bare, fatigue-
+ * only composer, so casting took no impale/entangle penalty even though
+ * casting is a proactive Combat Action like any other. Migrated to
+ * helpers.js's applyFatigueToSkill (role 'resist' — fatigue+impale+entangle,
+ * no prone/blind), a deliberate choice, not the obvious "casting is an
+ * attack" default: this file already carries CFI's Resist mechanic on the
+ * same skill total, and 'resist' is the shape that already fits both.
+ * Prone/blind stay excluded — rules p.47's prone penalty is framed as
+ * "fighting while prone," and nothing in the Magic rules ties casting to
+ * being able to see. A real behaviour change (impale/entangle now apply),
+ * not a zero-change migration.
  */
 
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
 import { determineOutcome } from '../../utils/roll-math.js';
-import { applyFatigueToSkill } from '../../utils/fatigue.js';
+import { applyFatigueToSkill } from './helpers.js';
 
 const NS = 'mythras-imperative';
 

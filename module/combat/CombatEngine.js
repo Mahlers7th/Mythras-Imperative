@@ -5353,11 +5353,27 @@ export class CombatEngine {
    * Compute the effective attack skill total for this weapon/style combination.
    * Applies the actor's fatigue difficulty grade (worst-of with any other grade).
    */
+  // Seam 2, Step 3 (Population C, second half): role 'attack', not
+  // 'resist' — a deliberate behaviour change, not the zero-change
+  // delegation the rest of Population C's siblings got in Step 2.
+  //
+  // Traced end to end before this change (seam-design-outcomes.md's Step 2
+  // inventory): this function's result is NOT double-applied on top of
+  // _getConditionFloorGrade's grade on the normal (dialog) attack path —
+  // AttackerDialog's confirm handler overwrites ctx.attackerSkillTotal
+  // from a fresh raw total, discarding whatever this function returned.
+  // The ONLY path where this function's own output survives to a real
+  // roll is _runManual (automationLevel === 'manual', which skips
+  // AttackerDialog/_getConditionFloorGrade entirely) — there, using role
+  // 'resist' left manual-mode attacks with fatigue+impale+entangle but
+  // never prone or blind, an under-count relative to dialog-mode attacks.
+  // Switching to role 'attack' here closes that gap; it changes nothing
+  // on the dialog path, where this value was always discarded.
   static _resolveAttackSkill(actor, weapon, style) {
     const raw = style?.system.total
       ?? Array.from(actor.items).find(i => i.type === 'skill' && i.name === 'Unarmed')?.system.total
       ?? 0;
-    return CombatEngine._applyFatigueToSkill(raw, actor);
+    return applyGradeToSkill(raw, getConditionGrade(actor, 'attack'));
   }
 
 
@@ -5369,27 +5385,13 @@ export class CombatEngine {
   //
   // Standard (index 2) is the minimum floor — never easier than unmodified.
   //
-  // NOTE: Prone and blind are NOT applied here.
-  // - _resolveDefenceSkill no longer calls this for its prone handling —
-  //   as of Step 2 it composes fatigue+impale+entangle+prone directly via
-  //   getConditionGrade(actor, 'defence'). AttackerDialog/MythrasRoll get
-  //   their combined floor from _getConditionFloorGrade (role 'attack').
-  // - _resolveAttackSkill (below) still calls this function directly, but
-  //   traced end to end (Chris, post-Step-2) its result is NOT double-
-  //   applied on top of _getConditionFloorGrade's grade on the normal
-  //   attack path: _buildContext sets ctx.attackerSkillTotal from this
-  //   function as a placeholder, but AttackerDialog's confirm handler
-  //   (:782-804) reads a fresh raw total from chosenStyle.system.total —
-  //   not from this function's output — and overwrites ctx.attackerSkillTotal
-  //   with _applyDifficulty(rawTotal, worstGrade). The _resolveAttackSkill
-  //   value is computed and discarded on that path. The ONLY path where it
-  //   survives to a real roll is _runManual (automationLevel === 'manual',
-  //   which skips AttackerDialog and _getConditionFloorGrade entirely) —
-  //   there it's not a double-count, it's an UNDER-count: manual-mode
-  //   attack rolls get fatigue+impale+entangle but never prone or blind.
-  //   Migrating this call site to role 'attack' (Population C, Step 3)
-  //   would fix that gap, not correct a double-application — there isn't
-  //   one. Full trace in seam-design-outcomes.md's Step 2 inventory.
+  // NOTE: Prone and blind are NOT applied here. _resolveDefenceSkill
+  // composes fatigue+impale+entangle+prone+blind directly via
+  // getConditionGrade(actor, 'defence') as of Step 2/3. _resolveAttackSkill
+  // (above) used to call this function but was migrated off it in Step 3
+  // to role 'attack' (fatigue+impale+entangle+prone+blind) — see its own
+  // comment. As of Step 3, this wrapper's only remaining caller is the
+  // Endurance/Serious-or-Major-Wound check, which genuinely wants 'resist'.
   // -------------------------------------------------------------------------
 
   static _applyFatigueToSkill(skillTotal, actor) { return applyFatigueToSkill(skillTotal, actor); }
