@@ -18,7 +18,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Live-verified against the running world**: reproduced the actual historical bug scenario end to end — a real actor with a real `blindedBy` flag, `_resolveDefenceSkill` called through a `'parry'` ctx exactly as combat would build it. Pre-fix this would have returned the raw skill total (70) unchanged; post-fix it correctly returns 35 (Formidable's ×0.5). Expired blind confirmed to still not floor defence (70, unchanged); `'resist'` role confirmed to still exclude blind (70, unchanged) through the real, Step-2-delegated `helpers.js applyFatigueToSkill`. Zero console errors. Test actor deleted afterward, confirmed zero left in the world.
   - 644/644 tests green, lint clean (0 errors, 73 warnings, unchanged from v1.4.300).
   - **Not part of this change**: spellcasting's missing floors (the second half of Step 3 — which role(s) apply to a Magic skill check is a genuine judgement call, not yet settled) and the separately-found `_runManual` missing-prone/blind gap (not in the original Step 3 scope; needs its own ruling). `conditionGradeHooks` (Step 4) remains untouched.
-- Not yet committed.
+- Committed as `9465f28`.
 
 ## v1.4.300 — August 2026
 - **Seam 2, Step 2 of 4 (`seam-design-outcomes.md` §2, §6) — migrated the zero-behaviour-change call sites, split into three named populations before touching anything, per Chris's explicit instruction that the migration risk deserved its own inventory pass rather than one undifferentiated batch.**
