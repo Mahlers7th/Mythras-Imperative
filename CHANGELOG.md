@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - 16 new tests (7 for `getTraitsByCategory` in `trait-registry.test.js`, 9 for `magicPointOffsetHooks`'s branching in `extension-hooks.test.js` — including the clamp, the traced spend-then-hold sequence, and a text-level regression guard confirming `ActorData.js` never references the new hook family). Suite 564 → 580. `frozen-api.json`/`frozen-api-updated.md`/`extension-point-api-updated.md` all updated in the same change.
   - **Live-verified against the running world** (Playwright, real GM login): `getTraitsByCategory('mechanical')` returns exactly 15 keys, `'damageType'` returns none. A real character actor with POW 15 and no hooks registered derives `magicPoints.max = 15`; registering a test hook returning `-4` and forcing a real recompute (both via a direct `prepareData()` call and via a genuine characteristic update) correctly derives `max = 11` / `max = 16` respectively, and the pre-existing clamp correctly pulls `value` down from 15 to 11 alongside it. An NPC actor with the *identical* hook registered derives `max = 15`, completely unaffected — the character-only boundary holds live, not just in a unit test. Test hook unregistered and both test actors deleted afterward; confirmed zero left in the world and the hook array back to empty.
   - 580/580 tests green, lint clean (0 errors, same 75 pre-existing warnings).
-- Not yet committed.
+- Committed as `79e053f`.
 
 ## v1.4.297 — August 2026
 - **Follow-up to v1.4.296, from a post-merge review (three items, one substantive).**
