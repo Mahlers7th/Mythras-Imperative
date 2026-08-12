@@ -20,7 +20,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Live-verified against the running world**: the new module dynamic-imports cleanly under real Foundry (not just Jest), `getConditionGrade` correctly reads a real `blindedBy` flag for `'attack'` but not `'defence'` (the bug, faithfully reproduced live), an expired blind flag is correctly ignored, and the refactored `getActiveBlindGrade` delegation works correctly through the real production import path. Test actor cleaned up, confirmed zero left in the world.
   - 642/642 tests green, lint clean (0 errors, same 75 pre-existing warnings).
   - **Not part of this change, by design**: the ~25-call-site migration (Step 2), the deliberate blind-on-defence behaviour change and spellcasting's missing floors (Step 3), and `conditionGradeHooks` itself (Step 4). No production code path's *observable* behaviour changed in this batch — the module is dormant, and the one production refactor (blind-grade extraction) is a pure relocation, live-verified identical.
-- Not yet committed.
+- Committed as `ac92108`.
 
 ## v1.4.298 — August 2026
 - **Workstream B of `seam-design-outcomes.md` (seams 5 + 1) — both small and independent, shipped together.**
