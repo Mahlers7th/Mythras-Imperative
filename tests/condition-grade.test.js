@@ -1,22 +1,35 @@
 /**
  * tests/condition-grade.test.js
  *
- * Jest tests for module/utils/condition-grade.js (seam 2, Step 1).
+ * Jest tests for module/utils/condition-grade.js (seam 2, Step 1), plus
+ * regression coverage for Step 2's delegation of Population A/B call sites
+ * to it (helpers.js's applyFatigueToSkill, CombatEngine's
+ * _resolveDefenceSkill and _getConditionFloorGrade).
  *
  * CombatEngine.js itself cannot be imported under Jest (too Foundry-
- * coupled — same reason no other test file in this repo imports it).
- * So this file does two things:
+ * coupled — same reason no other test file in this repo imports it), so
+ * CombatEngine's two delegated methods are still covered via hand-written
+ * mirrors, not direct import. helpers.js IS importable (no Foundry access
+ * at module scope), so its delegated applyFatigueToSkill is tested via a
+ * REAL import, against an independent mirror of its pre-Step-2 inline body
+ * — comparing the real function to the exact expression it now literally
+ * is would be a tautology, so the mirror preserves independent ground
+ * truth. This file does three things:
  *   1. Unit-tests getConditionGrade/applyGradeToSkill directly, against
  *      real fake-actor fixtures, importing the REAL underlying getters
  *      (getFatigueSkillGrade, getActiveImpaleGrade, getActiveEntangleGrade,
  *      getActiveBlindGrade) rather than mirroring them.
- *   2. Mirrors ONLY the composition/orchestration logic that lives inline
- *      in CombatEngine.js's _getConditionFloorGrade and _resolveDefenceSkill
- *      (the part that can't be imported), built from the same real
- *      getters, and asserts getConditionGrade + applyGradeToSkill produce
- *      IDENTICAL numeric results to those two existing composers across a
- *      battery of scenarios — the actual "zero behaviour change" claim,
- *      not just each piece tested in isolation.
+ *   2. Mirrors the composition/orchestration logic that lived inline in
+ *      CombatEngine.js's _getConditionFloorGrade and _resolveDefenceSkill,
+ *      and in helpers.js's applyFatigueToSkill, before each was delegated
+ *      to this file's composer — built from the same real getters, kept
+ *      as independent ground truth even after the delegation.
+ *   3. Asserts getConditionGrade + applyGradeToSkill produce IDENTICAL
+ *      numeric results to each of those three pre-delegation composers
+ *      across a battery of scenarios, AND (for helpers.js, the one that's
+ *      actually importable) that the real post-delegation production
+ *      function still matches — the "zero behaviour change" claim
+ *      verified end to end, not just at the composer boundary.
  *
  * CONFIG.MYTHRAS is the REAL config object (config.js has no Foundry
  * dependency beyond the bare DIFFICULTY_GRADES import, and imports
@@ -68,9 +81,32 @@ function mirrorConditionFloorGrade(actor) {
   return CONDITION_GRADE_ORDER[worstIdx];
 }
 
-/** Mirror of CombatEngine._resolveDefenceSkill's fatigue+prone composition (raw -> effective total). */
+/**
+ * Mirror of helpers.js applyFatigueToSkill's PRE-Step-2 inline body
+ * (fatigue+impale+entangle, worst-of grade-space). Kept as an independent
+ * ground truth after Step 2 delegated the real function's body to
+ * getConditionGrade+applyGradeToSkill — without this, the "parity with
+ * helpers.js applyFatigueToSkill" block below would compare the real
+ * function against the exact expression it now literally is, which
+ * proves nothing. This mirror is what makes that comparison meaningful.
+ */
+function mirrorApplyFatigueImpaleEntangle(raw, actor) {
+  if (!actor) return raw;
+  let worstIdx = CONDITION_GRADE_ORDER.indexOf('standard');
+  const floor = (g) => { if (!g) return; const i = CONDITION_GRADE_ORDER.indexOf(g); if (i > worstIdx) worstIdx = i; };
+  floor(getFatigueSkillGrade(actor));
+  const imp = getActiveImpaleGrade(actor);
+  if (imp && imp !== 'none' && imp !== 'incapacitated') floor(imp);
+  floor(getActiveEntangleGrade(actor));
+  const gradeDef = MYTHRAS.difficultyGrades[CONDITION_GRADE_ORDER[worstIdx]];
+  if (!gradeDef) return raw;
+  if (gradeDef.multiplier === null) return 0;
+  return Math.max(0, Math.ceil(raw * gradeDef.multiplier));
+}
+
+/** Mirror of CombatEngine._resolveDefenceSkill's PRE-Step-2 fatigue+prone composition (raw -> effective total). */
 function mirrorResolveDefenceSkill(raw, actor) {
-  const afterFatigue = applyFatigueImpaleEntangle(raw, actor);
+  const afterFatigue = mirrorApplyFatigueImpaleEntangle(raw, actor);
   const isProne = actor.statuses?.has?.('prone') ?? false;
   if (!isProne) return afterFatigue;
   const formidableDef = MYTHRAS.difficultyGrades['formidable'];
@@ -262,9 +298,18 @@ describe('parity with helpers.js applyFatigueToSkill (role: resist)', () => {
     for (const raw of rawSkills) {
       test(`${name}, raw ${raw}`, () => {
         const actor = makeActor(opts);
-        const oldWay = applyFatigueImpaleEntangle(raw, actor);
+        // oldWay: independent mirror of the pre-Step-2 inline body, NOT the
+        // real function — applyFatigueImpaleEntangle now literally IS
+        // applyGradeToSkill(raw, getConditionGrade(actor,'resist')), so
+        // comparing against itself would be a tautology.
+        const oldWay = mirrorApplyFatigueImpaleEntangle(raw, actor);
         const newWay = applyGradeToSkill(raw, getConditionGrade(actor, 'resist'));
         expect(newWay).toBe(oldWay);
+        // Also confirm the REAL, now-delegated production function
+        // (Step 2, Population A) still returns the same number a live
+        // caller in opposed.js/bash.js/entangle.js/grip.js/impale.js would
+        // have gotten before the delegation.
+        expect(applyFatigueImpaleEntangle(raw, actor)).toBe(oldWay);
       });
     }
   }

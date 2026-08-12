@@ -10,8 +10,8 @@
  */
 
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
-import { getFatigueSkillGrade } from '../../utils/fatigue.js';
 import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
+import { getConditionGrade, applyGradeToSkill } from '../../utils/condition-grade.js';
 
 const NS = 'mythras-imperative';
 
@@ -109,40 +109,17 @@ export function getActiveBlindGrade(actor) {
 }
 
 // -------------------------------------------------------------------------
+// applyFatigueToSkill — seam 2, Step 2 (seam-design-outcomes.md §"Step 2
+// inventory", Population A): delegates to the condition-grade chokepoint
+// (module/utils/condition-grade.js) instead of composing fatigue/impale/
+// entangle inline. Role 'resist' was built in Step 1 to match this
+// function's exact prior composition (see condition-grade.js's own header
+// comment), and that equivalence is what Step 1's 62 parity tests prove —
+// this delegation is zero behaviour change, not a new implementation.
+// -------------------------------------------------------------------------
 export function applyFatigueToSkill(skillTotal, actor) {
   if (!actor) return skillTotal;
-
-  const grades     = CONFIG.MYTHRAS?.difficultyGrades ?? {};
-  const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
-
-  let worstIdx = 2; // minimum: standard (index 2)
-
-  // Fatigue grade — delegated to shared utility
-  const fatGrade = getFatigueSkillGrade(actor);
-  if (fatGrade) {
-    const idx = gradeOrder.indexOf(fatGrade);
-    if (idx > worstIdx) worstIdx = idx;
-  }
-
-  // Impale grade floor — worst grade from any active impalements
-  const impaleGrade = getActiveImpaleGrade(actor);
-  if (impaleGrade && impaleGrade !== 'none' && impaleGrade !== 'incapacitated') {
-    const idx = gradeOrder.indexOf(impaleGrade);
-    if (idx > worstIdx) worstIdx = idx;
-  }
-
-  // Entangle grade floor — head/chest/abdomen entanglement imposes Hard
-  const entangleGrade = getActiveEntangleGrade(actor);
-  if (entangleGrade) {
-    const idx = gradeOrder.indexOf(entangleGrade);
-    if (idx > worstIdx) worstIdx = idx;
-  }
-
-  const worstGrade = gradeOrder[worstIdx];
-  const gradeDef   = grades[worstGrade];
-  if (!gradeDef) return skillTotal;
-  if (gradeDef.multiplier === null) return 0; // hopeless
-  return Math.max(0, Math.ceil(skillTotal * gradeDef.multiplier));
+  return applyGradeToSkill(skillTotal, getConditionGrade(actor, 'resist'));
 }
 
 // -------------------------------------------------------------------------

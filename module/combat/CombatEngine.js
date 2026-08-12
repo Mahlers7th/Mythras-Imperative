@@ -25,7 +25,7 @@
  * Parrying a missed attack: defender may spend AP; attacker is still Failure.
  */
 
-import { getFatigueSkillGrade } from '../utils/fatigue.js';
+import { getConditionGrade, applyGradeToSkill } from '../utils/condition-grade.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed,
@@ -1382,17 +1382,16 @@ export class CombatEngine {
       raw = ctx.defenceStyle?.system.total ?? ctx.defenceWeapon?.system.total ?? 0;
     }
 
-    // Apply fatigue first, then prone — both apply to combat skill rolls (p.47).
-    const afterFatigue = CombatEngine._applyFatigueToSkill(raw, ctx.defender);
-    const isProne = ctx.defender.statuses?.has('prone') ?? false;
-    if (!isProne) return afterFatigue;
-    const grades     = CONFIG.MYTHRAS?.difficultyGrades ?? {};
-    const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
-    // Prone floor is Formidable (index 4). Take worst of fatigue result and prone result.
-    const formidableDef = grades['formidable'];
-    if (!formidableDef || formidableDef.multiplier === null) return afterFatigue;
-    const proneResult = Math.max(0, Math.ceil(raw * formidableDef.multiplier));
-    return Math.min(afterFatigue, proneResult);
+    // Fatigue + prone, worst-of, applied to combat skill rolls (p.47).
+    // Seam 2, Step 2 (Population B): delegated to the condition-grade
+    // chokepoint instead of applying fatigue then separately Math.min-ing
+    // a number-space prone result — role 'defence' was built in Step 1 to
+    // match this exact composition (see condition-grade.js's own header
+    // comment and its bidirectional parity tests), so this is zero
+    // behaviour change, not a redesign. Blind stays excluded from
+    // 'defence' on purpose — that asymmetry is the bug Step 3 fixes, not
+    // this migration.
+    return applyGradeToSkill(raw, getConditionGrade(ctx.defender, 'defence'));
   }
 
   // -------------------------------------------------------------------------
@@ -5365,16 +5364,28 @@ export class CombatEngine {
 
 
   // -------------------------------------------------------------------------
-  // _applyFatigueToSkill — apply fatigue penalty to a raw skill total
+  // _applyFatigueToSkill — apply fatigue+impale+entangle (role 'resist',
+  // seam-design-outcomes.md's Population A) to a raw skill total. Despite
+  // the name, this is not fatigue alone — see helpers.js's applyFatigueToSkill,
+  // which this delegates to.
   //
-  // Returns the effective skill total after applying the fatigue grade.
   // Standard (index 2) is the minimum floor — never easier than unmodified.
   //
-  // NOTE: Prone is a combat skill penalty only (p.47 — "Fighting while
-  // prone"). It is NOT applied here — callers that are combat skill rolls
-  // (AttackerDialog, _resolveDefenceSkill) handle prone separately via
-  // _getConditionFloorGrade. SE resistance rolls (Endurance, Brawn, Evade
-  // for Trip) use this function and receive fatigue only, not prone.
+  // NOTE: Prone and blind are NOT applied here.
+  // - _resolveDefenceSkill no longer calls this for its prone handling —
+  //   as of Step 2 it composes fatigue+impale+entangle+prone directly via
+  //   getConditionGrade(actor, 'defence'). AttackerDialog/MythrasRoll get
+  //   their combined floor from _getConditionFloorGrade (role 'attack').
+  // - _resolveAttackSkill (below) still calls this function directly for
+  //   its own raw-skill-total reduction, so the attacker's numeric skill
+  //   total picks up fatigue+impale+entangle but NOT prone/blind, even
+  //   though the dialog's difficulty floor (role 'attack') does include
+  //   them. This mismatch is real and pre-existing, not introduced by
+  //   Step 2 — flagged in seam-design-outcomes.md's Step 2 inventory as a
+  //   Population C outlier deferred to Step 3, because migrating this call
+  //   site to role 'attack' would be a behaviour change (it would add
+  //   prone/blind to the roll's own target number), not a zero-change
+  //   delegation like this one.
   // -------------------------------------------------------------------------
 
   static _applyFatigueToSkill(skillTotal, actor) { return applyFatigueToSkill(skillTotal, actor); }
@@ -5410,47 +5421,20 @@ export class CombatEngine {
   // Never returns anything easier than 'standard'.
   // -------------------------------------------------------------------------
 
+  // Seam 2, Step 2 (Population B): delegated to the condition-grade
+  // chokepoint. Role 'attack' was built in Step 1 to match this exact
+  // composition (fatigue + prone + impale + entangle + blind, all five
+  // floors) — verified field-by-field against this function's own prior
+  // body before delegating: fatigue via the same actor.system.fatigue +
+  // CONFIG.MYTHRAS.fatigueLevels lookup (getFatigueSkillGrade is that same
+  // lookup, factored out), prone via the same actor.statuses.has('prone')
+  // check, impale/entangle/blind via the same helpers.js getters this
+  // method used to call through its own _getActive*Grade wrappers. Zero
+  // behaviour change. AttackerDialog and MythrasRoll consume this method
+  // only, never the underlying floors directly, so this one delegation
+  // fixes all four of their call sites without touching them.
   static _getConditionFloorGrade(actor) {
-    if (!actor) return 'standard';
-
-    const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
-    let worstIdx = 2; // standard
-
-    const fatigueId  = actor.system?.fatigue ?? 'fresh';
-    const fatigueDef = (CONFIG.MYTHRAS?.fatigueLevels ?? []).find(f => f.id === fatigueId);
-    const fatGrade   = fatigueDef?.skillGrade ?? null;
-    if (fatGrade) {
-      const idx = gradeOrder.indexOf(fatGrade);
-      if (idx > worstIdx) worstIdx = idx;
-    }
-
-    if (actor.statuses?.has('prone') ?? false) {
-      const idx = gradeOrder.indexOf('formidable');
-      if (idx > worstIdx) worstIdx = idx;
-    }
-
-    // Impale grade floor
-    const impaleGrade = CombatEngine._getActiveImpaleGrade(actor);
-    if (impaleGrade && impaleGrade !== 'none' && impaleGrade !== 'incapacitated') {
-      const idx = gradeOrder.indexOf(impaleGrade);
-      if (idx > worstIdx) worstIdx = idx;
-    }
-
-    // Entangle grade floor
-    const entangleGrade2 = CombatEngine._getActiveEntangleGrade(actor);
-    if (entangleGrade2) {
-      const idx = gradeOrder.indexOf(entangleGrade2);
-      if (idx > worstIdx) worstIdx = idx;
-    }
-
-    // Blind grade floor (combat rolls only — attacker is blinded)
-    const blindGrade = CombatEngine._getActiveBlindGrade(actor);
-    if (blindGrade) {
-      const idx = gradeOrder.indexOf(blindGrade);
-      if (idx > worstIdx) worstIdx = idx;
-    }
-
-    return gradeOrder[worstIdx];
+    return getConditionGrade(actor, 'attack');
   }
 
   // -------------------------------------------------------------------------
