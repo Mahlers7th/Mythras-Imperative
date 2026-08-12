@@ -20,7 +20,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - No new Jest tests — both changes are behaviour changes in Foundry-coupled files (`spellcasting.js`, `CombatEngine.js`) whose target composition (`getConditionGrade` roles `'resist'`/`'attack'`) is already exhaustively covered by `condition-grade.test.js`'s existing 644 tests; what needed proving was that the real call sites now reach that composition, which live verification — not a new unit test — is what actually proves.
   - 644/644 tests green (unchanged from v1.4.301 — no new test files), lint clean (0 errors, 73 warnings, unchanged).
   - **Seam 2's Step 3 is now complete.** Step 4 (`conditionGradeHooks`, the hook family itself) is next and last; `seam-design-outcomes.md`'s sequencing table updated to mark Step 3 done.
-- Not yet committed.
+- Committed as `66d70eb`.
 
 ## v1.4.301 — August 2026
 - **Seam 2, Step 3 of 4 (`seam-design-outcomes.md` §2, §6) — first deliberate behaviour change: fixed blind-on-defence.** Chris ruled this during the original design session: "defenders do not get a free pass" — the blind fix ships as a real behaviour change, not hidden behind a role flag that preserves the bug. Prior to this, a blinded defender parried/evaded at full skill while a blinded attacker took the penalty, because Step 1 deliberately reproduced that asymmetry rather than silently fixing it mid-extraction (the right call at the time — you can't verify you fixed something that was already fixed).
