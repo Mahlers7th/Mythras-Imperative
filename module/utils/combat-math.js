@@ -133,6 +133,33 @@ export function woundLevel(damage, maxHp, newCurrent) {
   return 'minor';
 }
 
+/**
+ * Classify a hit location's wound STATE from its current HP alone — "what
+ * wound is this location at right now," as distinct from woundLevel above,
+ * which answers "what wound did this hit cause" (an event classifier that
+ * returns 'none' for any non-positive damage, regardless of current HP).
+ *
+ * Needed because system.wound was, until this function existed, only ever
+ * written at damage time — nothing recomputed it when HP changed by any
+ * other route (healing, natural regeneration, a GM editing the value
+ * directly). A location healed from -2 to +2 stayed flagged 'serious'
+ * indefinitely. Rules p.31-32: recovery is framed in terms of the wound
+ * category changing as current HP crosses back over these same thresholds
+ * ("heal 3 HP per week [Serious-Wound rate] until his wound goes above
+ * zero, and then heal 3 HP per day [ordinary rate]") — the state and the
+ * thresholds are the same as the event classifier's, not a separate scale.
+ *
+ * @param {number} current  Location's current HP (may be negative)
+ * @param {number} maxHp    Location's maximum HP
+ * @returns {'none'|'minor'|'serious'|'major'}
+ */
+export function woundState(current, maxHp) {
+  if (current >= maxHp)  return 'none';
+  if (current <= -maxHp) return 'major';
+  if (current <= 0)      return 'serious';
+  return 'minor';
+}
+
 // ---------------------------------------------------------------------------
 // Damage modifier step  (15-step table)
 // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import {
   resolveDifferential,
   resolveParryReduction,
   woundLevel,
+  woundState,
   stepUpDamageModifier,
   getImpaleGrade,
   DM_TABLE,
@@ -264,6 +265,59 @@ describe('woundLevel', () => {
   test('major: 1 damage on location with maxHp=1 and current goes to -1', () => {
     // maxHp=1, current after = -1 which equals -maxHp
     expect(woundLevel(2, 1, -1)).toBe('major');
+  });
+});
+
+// =============================================================================
+// woundState
+// =============================================================================
+
+describe('woundState', () => {
+  test('at max HP → none', () => {
+    expect(woundState(5, 5)).toBe('none');
+  });
+  test('above max HP (overheal) → none, not a crash', () => {
+    expect(woundState(7, 5)).toBe('none');
+  });
+  test('below max but positive → minor', () => {
+    expect(woundState(2, 5)).toBe('minor');
+  });
+  test('one HP below max → minor, not none — a location that hasn\'t healed all the way is still wounded', () => {
+    expect(woundState(4, 5)).toBe('minor');
+  });
+  test('exactly zero → serious', () => {
+    expect(woundState(0, 5)).toBe('serious');
+  });
+  test('negative but above -maxHp → serious', () => {
+    expect(woundState(-3, 5)).toBe('serious');
+  });
+  test('exactly -maxHp → major', () => {
+    expect(woundState(-5, 5)).toBe('major');
+  });
+  test('below -maxHp → major', () => {
+    expect(woundState(-7, 5)).toBe('major');
+  });
+  test('agrees with woundLevel at the moment of injury (same thresholds, different question)', () => {
+    // A fresh hit taking a 5-max location to each threshold should classify
+    // identically whether asked "what did this hit cause" or "what state is
+    // this location in right now" — they're the same thresholds by design.
+    for (const newCurrent of [5, 2, 0, -3, -5, -7]) {
+      const damage = 5 - newCurrent; // damage needed to reach newCurrent from full
+      const eventResult = damage > 0 ? woundLevel(damage, 5, newCurrent) : 'none';
+      const stateResult = woundState(newCurrent, 5);
+      expect(stateResult).toBe(eventResult);
+    }
+  });
+  test('healing back above zero clears Serious — the bug this function fixes', () => {
+    // A location healed from -2 (serious) back to +2 must read as minor, not
+    // stay stuck at serious — that staleness is exactly what a preUpdateItem
+    // hook now prevents by calling this function on every current-HP change.
+    expect(woundState(-2, 5)).toBe('serious');
+    expect(woundState(2, 5)).toBe('minor');
+  });
+  test('maxHp of 0 does not throw or misclassify', () => {
+    expect(woundState(0, 0)).toBe('none');
+    expect(woundState(-1, 0)).toBe('major');
   });
 });
 

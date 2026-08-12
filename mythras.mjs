@@ -38,7 +38,7 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
-import { compareInitiative }          from './module/utils/combat-math.js';
+import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 
@@ -501,9 +501,41 @@ Hooks.once('ready', () => {
   // state, safe to expose. combat-math.js's determineOutcome is a duplicate
   // of this one (not exposed here; roll-math.js is the canonical home) --
   // see the system's own known-issues for that dedup, separate from this
-  // batch. resolveOpposedRoll/resolveDifferential (combat-math.js) are NOT
-  // exposed here either -- a decision for whenever the first opposed-boost
-  // family needs them.
+  // batch.
+  //
+  // resolveOpposedRoll/resolveDifferential (v1.4.296+, combat-math.js): the
+  // opposed-SE-roll system's own pure adjudicators (four numbers/two outcome
+  // strings in, a boolean/SE-count out -- no state, no actor, same category
+  // as determineOutcome above). Withheld since v1.4.244 pending "the first
+  // opposed-boost family" needing them (this comment's own prior wording) --
+  // that condition was met once Destined's Telepathy (Mind Control/Mind
+  // Probe/Mental Overload) went fully narrative for want of exactly this,
+  // and CFI's Resist mechanic is a second, independent instance. Exposing
+  // just these two is sufficient -- game.system.api.requestSkillCheck
+  // already returns the two numbers per side resolveOpposedRoll consumes,
+  // so a module composes two requestSkillCheck calls plus one call to these
+  // rather than needing a new higher-level "requestOpposedCheck" flow.
+  // resolveDifferential is exposed alongside resolveOpposedRoll rather than
+  // held back further -- withholding it would just invite a module to
+  // hand-roll the p.25 differential table by hand, the identical
+  // reimplementation-drift risk cited above for determineOutcome, and
+  // Destined's own PERIL_OUTCOME_RANK is already exactly that drift once.
+  //
+  // woundLevel/woundState (v1.4.296+, combat-math.js): woundLevel classifies
+  // a damage EVENT ("what wound did this hit cause"); woundState classifies
+  // a location's CURRENT state from its HP alone ("what wound is this
+  // location at right now"), added this version specifically because
+  // nothing previously recomputed system.wound when HP changed by any route
+  // other than the primary damage chokepoint (healing, natural
+  // regeneration, a GM editing the value directly all left a healed
+  // location incorrectly flagged at its last-inflicted wound level -- see
+  // the new preUpdateItem hook below, which now fixes this at the source
+  // for every write path, not just the ones already known about). Exposed
+  // together so a module reads the same wound categorisation the system
+  // itself uses rather than re-deriving the -maxHp/0 thresholds independently
+  // -- confirmed real duplication already existed module-side (Destined's
+  // demand inventory: two independent inline reimplementations of this
+  // exact threshold logic).
   //
   // getArmourAt (v1.4.267+): thin wrapper over CombatEngine._getArmourAt --
   // see its own doc block above for the base-vs-effective distinction and
@@ -537,6 +569,10 @@ Hooks.once('ready', () => {
     // explainHookSum (v1.4.277+): see its own doc block above -- provenance
     // breakdown for any of the ten read-time additive numeric hook families.
     explainHookSum,
+    resolveOpposedRoll,
+    resolveDifferential,
+    woundLevel,
+    woundState,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -740,6 +776,47 @@ Hooks.on('deleteItem', async (item, _options, _userId) => {
       await actor.setFlag('mythras-imperative', 'jammedWeapons', updated);
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// HIT LOCATION WOUND-STATE SYNC (v1.4.296+)
+// system.wound was, until this hook existed, only ever written at damage
+// time (CombatEngine._applyDamage and its two siblings) or wiped wholesale
+// to 'none' by a full heal -- nothing recomputed it for any OTHER change to
+// system.current: natural Regeneration's per-round tick (this file, the
+// Regeneration Combat Round handler), Impact/Impale's additional-damage
+// deltas (module/combat/effects/impact.js, impale.js), and a GM typing a
+// new value directly into the character sheet's Current HP input
+// (CharacterSheet.js's generic _onItemFieldChange, a raw single-field
+// update with no wound awareness at all) all left a healed Serious/Major
+// location incorrectly flagged at its last-inflicted wound level
+// indefinitely. Rather than patch each write site individually (there is
+// no guarantee a future one wouldn't reintroduce the same gap), this is a
+// single chokepoint matching the createItem/deleteItem hooks immediately
+// above: fires on every hit-location update, recomputes system.wound from
+// whatever system.current is being written, UNLESS the caller already set
+// system.wound explicitly in the same update (CombatEngine's own
+// damage-time writes and the two full-heal-to-'none' sites all already set
+// both fields together and are left untouched, not double-computed).
+// foundry.utils.getProperty/setProperty read/write correctly regardless of
+// whether the caller expressed the change as a dotted-string key
+// ({'system.current': n}, the convention every existing write site in this
+// codebase already uses) or a nested object -- sidesteps needing to know
+// which form `changed` arrives in.
+// Live-verified (Playwright, real GM login) -- fires correctly for both a
+// bare Item#update and per-document inside Actor#updateEmbeddedDocuments
+// bulk calls, the clobber guard holds against a caller-supplied wound, a
+// wound-only edit passes through untouched, and the real character-sheet
+// Current HP input's change handler drives it end to end -- see
+// CHANGELOG.md's v1.4.296 entry for the full account.
+// ---------------------------------------------------------------------------
+Hooks.on('preUpdateItem', (item, changed, _options, _userId) => {
+  if (item.type !== 'hit-location') return;
+  const newCurrent = foundry.utils.getProperty(changed, 'system.current');
+  if (newCurrent === undefined) return;
+  if (foundry.utils.getProperty(changed, 'system.wound') !== undefined) return;
+  const maxHp = item.system.hp ?? 4;
+  foundry.utils.setProperty(changed, 'system.wound', woundState(newCurrent, maxHp));
 });
 
 function _scheduleRedistribute(actor) {

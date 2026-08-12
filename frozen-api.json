@@ -12,6 +12,10 @@
     "triggerOpposedSE",
     "triggerFollowUpAttack",
     "applyMythrasTheme",
-    "explainHookSum"
+    "explainHookSum",
+    "resolveOpposedRoll",
+    "resolveDifferential",
+    "woundLevel",
+    "woundState"
   ]
 }
