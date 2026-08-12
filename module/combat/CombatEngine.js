@@ -5376,16 +5376,22 @@ export class CombatEngine {
   //   as of Step 2 it composes fatigue+impale+entangle+prone directly via
   //   getConditionGrade(actor, 'defence'). AttackerDialog/MythrasRoll get
   //   their combined floor from _getConditionFloorGrade (role 'attack').
-  // - _resolveAttackSkill (below) still calls this function directly for
-  //   its own raw-skill-total reduction, so the attacker's numeric skill
-  //   total picks up fatigue+impale+entangle but NOT prone/blind, even
-  //   though the dialog's difficulty floor (role 'attack') does include
-  //   them. This mismatch is real and pre-existing, not introduced by
-  //   Step 2 — flagged in seam-design-outcomes.md's Step 2 inventory as a
-  //   Population C outlier deferred to Step 3, because migrating this call
-  //   site to role 'attack' would be a behaviour change (it would add
-  //   prone/blind to the roll's own target number), not a zero-change
-  //   delegation like this one.
+  // - _resolveAttackSkill (below) still calls this function directly, but
+  //   traced end to end (Chris, post-Step-2) its result is NOT double-
+  //   applied on top of _getConditionFloorGrade's grade on the normal
+  //   attack path: _buildContext sets ctx.attackerSkillTotal from this
+  //   function as a placeholder, but AttackerDialog's confirm handler
+  //   (:782-804) reads a fresh raw total from chosenStyle.system.total —
+  //   not from this function's output — and overwrites ctx.attackerSkillTotal
+  //   with _applyDifficulty(rawTotal, worstGrade). The _resolveAttackSkill
+  //   value is computed and discarded on that path. The ONLY path where it
+  //   survives to a real roll is _runManual (automationLevel === 'manual',
+  //   which skips AttackerDialog and _getConditionFloorGrade entirely) —
+  //   there it's not a double-count, it's an UNDER-count: manual-mode
+  //   attack rolls get fatigue+impale+entangle but never prone or blind.
+  //   Migrating this call site to role 'attack' (Population C, Step 3)
+  //   would fix that gap, not correct a double-application — there isn't
+  //   one. Full trace in seam-design-outcomes.md's Step 2 inventory.
   // -------------------------------------------------------------------------
 
   static _applyFatigueToSkill(skillTotal, actor) { return applyFatigueToSkill(skillTotal, actor); }
