@@ -69,12 +69,18 @@
  * exactly the kind of judgement call Step 2 exists to make deliberately,
  * one call site at a time — not something to resolve by assumption here.
  *
- * NOT YET WIRED to any call site, NOT YET exposed as a module hook family
- * (conditionGradeHooks is Step 4). This file is a dormant, standalone,
- * fully-tested building block — nothing in the engine calls it yet.
+ * STEP 4 (v1.4.303): conditionGradeHooks is now live — see config.js's own
+ * doc comment for the family's full contract. As of Step 2/3 this function
+ * is wired into every real condition-grade call site in the engine
+ * (opposed.js's SE resolvers, bash/entangle/grip/impale.js, the Endurance/
+ * wound-consequence check, _resolveDefenceSkill, _getConditionFloorGrade
+ * → AttackerDialog/MythrasRoll, and spellcasting.js), so a hook registered
+ * here reaches all of them through this one chokepoint — the entire point
+ * of doing the extraction (Step 1) and migration (Step 2) before adding
+ * the hook, rather than the other way around.
  *
- * RULING RECORDED HERE FOR STEP 4, settled before Step 1 shipped so it
- * doesn't get relitigated later: a conditionGradeHooks consumer WILL be
+ * RULING (settled before Step 1 shipped, so it wouldn't get relitigated
+ * later, now implemented below): a conditionGradeHooks consumer IS
  * allowed to shift a composed grade below the floor getConditionGrade
  * would otherwise return — signed integers, summed across hooks, clamped
  * only to CONDITION_GRADE_ORDER's array bounds. Forbidding negative
@@ -109,6 +115,7 @@
 
 import { getFatigueSkillGrade } from './fatigue.js';
 import { getActiveImpaleGrade, getActiveEntangleGrade, getActiveBlindGrade } from '../combat/effects/helpers.js';
+import { sumHookContributions } from './modifier-bus.js';
 
 /** @type {string[]} Canonical grade order, worst (rightmost) to best (leftmost). */
 export const CONDITION_GRADE_ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'formidable', 'herculean', 'hopeless'];
@@ -153,7 +160,17 @@ export function getConditionGrade(actor, role) {
     floorTo(getActiveBlindGrade(actor));
   }
 
-  return CONDITION_GRADE_ORDER[worstIdx];
+  // Step 4: conditionGradeHooks — a signed step shift on top of the
+  // composed floor, summed across modules, clamped only to the table's
+  // own bounds. NOT per-condition suppression — see this file's own
+  // header ("THE CAVEAT THAT MATTERS") and config.js's conditionGradeHooks
+  // doc comment before registering a consumer here.
+  const shift = sumHookContributions(
+    CONFIG.MYTHRAS?.conditionGradeHooks, [actor, role], { errorLabel: 'conditionGradeHook' }
+  ).total;
+  const shiftedIdx = Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, worstIdx + shift));
+
+  return CONDITION_GRADE_ORDER[shiftedIdx];
 }
 
 /**

@@ -603,6 +603,52 @@ export const MYTHRAS = {
   weaponForceHooks: [],
 
   // -----------------------------------------------------------------------
+  // CONDITION GRADE HOOKS (seam 2, Step 4)
+  //   conditionGradeHook : (actor, role) => number
+  //   Called from module/utils/condition-grade.js's getConditionGrade,
+  //   AFTER the composed floor (worst-of fatigue/prone/impale/entangle/
+  //   blind, role-gated — see that file's own header) is resolved. Return
+  //   a signed integer number of STEPS to shift along the 7-step
+  //   CONDITION_GRADE_ORDER table (negative = easier, positive = harder).
+  //   Multiple hooks are summed; the result is added to the composed
+  //   floor's index and clamped to the table's own bounds — never
+  //   returns outside veryEasy..hopeless. `role` is `'attack'`,
+  //   `'defence'` (British spelling, matching condition-grade.js's own
+  //   convention — NOT weaponForceHooks' `'defense'`, a pre-existing
+  //   spelling split between the two families, not something this hook
+  //   reconciles), or `'resist'`, exactly as documented in
+  //   condition-grade.js's own JSDoc.
+  //
+  //   Like weaponDamageHooks/weaponForceHooks, this is a roll-time hook,
+  //   NOT a prepareDerivedData hook — getConditionGrade is called fresh on
+  //   every SE resolution, defence roll, attack roll, and (as of Step 3)
+  //   spellcasting roll, so a hook fires potentially many times per
+  //   exchange. Hooks MUST be pure and side-effect free — no actor/item
+  //   writes, no PP spend, no chat output — same contract as the weapon
+  //   hooks above, for the same reason (unpredictable call frequency).
+  //
+  //   THE CAVEAT THAT MATTERS, recorded in full in condition-grade.js's own
+  //   header comment (read it before registering a hook here): a negative
+  //   shift is a composite-OUTPUT offset, not per-condition suppression.
+  //   getConditionGrade takes worst-of across floors — a hook returning
+  //   -3 meant to represent "ignore prone" shifts whatever grade the
+  //   composer already settled on, which silently erases a DIFFERENT
+  //   condition's contribution instead whenever that one happens to be
+  //   worse this roll. This family is for a generic "N grades easier/
+  //   harder" shift (confirmed as what every current consumer actually
+  //   wants — Destined's eleven Difficulty-Grade consumers, CFI's Forceful
+  //   Strike, all describe a generic shift, none want suppression of one
+  //   specific named condition). A consumer that genuinely needs "ignore
+  //   condition X and nothing else" is asking for a different, unbuilt
+  //   primitive (a veto BEFORE composition) — reaching for a signed shift
+  //   here instead will silently misbehave the moment two conditions are
+  //   live at once.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed CONDITION_GRADE_ORDER step shift. Receives (actor, role), role is 'attack'|'defence'|'resist' */
+  conditionGradeHooks: [],
+
+  // -----------------------------------------------------------------------
   // COMBAT ACTIONS
   // Modules register additional Combat Actions that appear in the combat
   // action menu. Each entry: { id, label, icon, handler }

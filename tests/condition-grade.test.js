@@ -221,6 +221,81 @@ describe('getConditionGrade', () => {
 });
 
 // =============================================================================
+// conditionGradeHooks (Step 4)
+// =============================================================================
+
+describe('conditionGradeHooks', () => {
+  afterEach(() => {
+    CONFIG.MYTHRAS.conditionGradeHooks.length = 0;
+  });
+
+  test('no hooks registered: unchanged from Step 1-3 behaviour', () => {
+    const a = makeActor();
+    expect(getConditionGrade(a, 'attack')).toBe('standard');
+  });
+
+  test('a single positive hook shifts the composed floor harder', () => {
+    const a = makeActor(); // composed floor: standard (index 2)
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => 2);
+    expect(getConditionGrade(a, 'attack')).toBe('formidable'); // index 2+2=4
+  });
+
+  test('a single negative hook shifts the composed floor easier, below the floor getConditionGrade would otherwise return', () => {
+    const a = makeActor({ fatigue: 'winded' }); // composed floor: hard (index 3)
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => -1);
+    expect(getConditionGrade(a, 'attack')).toBe('standard'); // index 3-1=2
+  });
+
+  test('multiple hooks are summed, not last-wins or first-wins', () => {
+    const a = makeActor(); // standard, index 2
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => 1, () => 1, () => -1);
+    // 2 + (1+1-1) = 3 -> 'hard'
+    expect(getConditionGrade(a, 'attack')).toBe('hard');
+  });
+
+  test('clamps at the top of the table (hopeless), never overflows', () => {
+    const a = makeActor({ prone: true }); // formidable, index 4
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => 99);
+    expect(getConditionGrade(a, 'attack')).toBe('hopeless');
+  });
+
+  test('clamps at the bottom of the table (veryEasy), never underflows', () => {
+    const a = makeActor(); // standard, index 2
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => -99);
+    expect(getConditionGrade(a, 'attack')).toBe('veryEasy');
+  });
+
+  test('receives (actor, role) exactly as documented', () => {
+    const a = makeActor();
+    const calls = [];
+    CONFIG.MYTHRAS.conditionGradeHooks.push((actor, role) => { calls.push([actor, role]); return 0; });
+    getConditionGrade(a, 'resist');
+    expect(calls).toEqual([[a, 'resist']]);
+  });
+
+  test('a throwing hook is isolated — does not break composition or other hooks', () => {
+    const a = makeActor(); // standard, index 2
+    CONFIG.MYTHRAS.conditionGradeHooks.push(
+      () => { throw new Error('boom'); },
+      () => 1,
+    );
+    expect(getConditionGrade(a, 'attack')).toBe('hard'); // 2+1=3, throwing hook contributes 0
+  });
+
+  test('non-numeric return contributes 0, does not throw', () => {
+    const a = makeActor();
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => 'not-a-number', () => undefined);
+    expect(getConditionGrade(a, 'attack')).toBe('standard');
+  });
+
+  test('a hook can implement "ignore the prone penalty" via a negative shift (the design question this seam settled)', () => {
+    const a = makeActor({ prone: true }); // formidable, index 4
+    CONFIG.MYTHRAS.conditionGradeHooks.push(() => -2); // e.g. a Destined "Sturdy Footing"-style power
+    expect(getConditionGrade(a, 'defence')).toBe('standard'); // 4-2=2
+  });
+});
+
+// =============================================================================
 // applyGradeToSkill
 // =============================================================================
 
