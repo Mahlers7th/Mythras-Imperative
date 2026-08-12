@@ -12,6 +12,7 @@ import {
   resolveParryReduction,
   woundLevel,
   woundState,
+  resolveWoundSync,
   stepUpDamageModifier,
   getImpaleGrade,
   DM_TABLE,
@@ -318,6 +319,65 @@ describe('woundState', () => {
   test('maxHp of 0 does not throw or misclassify', () => {
     expect(woundState(0, 0)).toBe('none');
     expect(woundState(-1, 0)).toBe('major');
+  });
+});
+
+// =============================================================================
+// resolveWoundSync — the preUpdateItem hook's decision core (mythras.mjs),
+// extracted here so its branching is unit-tested directly rather than only
+// live-verified. See its own doc comment in combat-math.js for why this
+// fires for every hit-location update rather than only known write sites.
+// =============================================================================
+
+describe('resolveWoundSync', () => {
+  test('bare current write on a hit-location item: computes wound via woundState', () => {
+    // 4 of 10, no explicit wound supplied -> classify from current alone.
+    expect(resolveWoundSync('hit-location', 10, 4, undefined)).toBe('minor');
+  });
+
+  test('bare current write to exactly max: classifies none', () => {
+    expect(resolveWoundSync('hit-location', 10, 10, undefined)).toBe('none');
+  });
+
+  test('bare current write at or below zero: classifies serious/major correctly', () => {
+    expect(resolveWoundSync('hit-location', 10, 0, undefined)).toBe('serious');
+    expect(resolveWoundSync('hit-location', 10, -10, undefined)).toBe('major');
+  });
+
+  test('explicit wound supplied alongside current: defers to the caller, returns undefined', () => {
+    // current=2 alone would classify 'minor' via woundState, but the caller
+    // already claimed 'serious' in the same update -- must not be overridden.
+    expect(resolveWoundSync('hit-location', 10, 2, 'serious')).toBeUndefined();
+  });
+
+  test('wound-only update (current not part of the changed data): no-op, returns undefined', () => {
+    // Simulates a GM directly picking a value in the wound dropdown, with no
+    // system.current in the same update -- nothing to classify from.
+    expect(resolveWoundSync('hit-location', 10, undefined, undefined)).toBeUndefined();
+  });
+
+  test('wound-only update where the caller also supplies a wound value: still undefined either way', () => {
+    expect(resolveWoundSync('hit-location', 10, undefined, 'major')).toBeUndefined();
+  });
+
+  test('non-hit-location item: never acts, regardless of what current/wound would imply', () => {
+    expect(resolveWoundSync('weapon', 10, 4, undefined)).toBeUndefined();
+    expect(resolveWoundSync('armour', 10, 0, undefined)).toBeUndefined();
+    expect(resolveWoundSync(undefined, 10, 4, undefined)).toBeUndefined();
+  });
+
+  test('agrees with woundState for every threshold, since it delegates rather than re-deriving', () => {
+    for (const current of [10, 6, 4, 0, -3, -10, -15]) {
+      expect(resolveWoundSync('hit-location', 10, current, undefined)).toBe(woundState(current, 10));
+    }
+  });
+
+  test('the exact healed-past-Serious case this function exists to fix, expressed as a scenario', () => {
+    // A location damaged to 'serious' (current=0), then a later, independent
+    // update heals it to 6 of 10 with no wound field touched by the healer --
+    // resolveWoundSync must reclassify to 'minor', not leave it stale.
+    expect(resolveWoundSync('hit-location', 10, 0, undefined)).toBe('serious');
+    expect(resolveWoundSync('hit-location', 10, 6, undefined)).toBe('minor');
   });
 });
 

@@ -38,7 +38,7 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey }          from './module/utils/hit-location.js';
-import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState } from './module/utils/combat-math.js';
+import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 
@@ -790,33 +790,36 @@ Hooks.on('deleteItem', async (item, _options, _userId) => {
 // (CharacterSheet.js's generic _onItemFieldChange, a raw single-field
 // update with no wound awareness at all) all left a healed Serious/Major
 // location incorrectly flagged at its last-inflicted wound level
-// indefinitely. Rather than patch each write site individually (there is
-// no guarantee a future one wouldn't reintroduce the same gap), this is a
-// single chokepoint matching the createItem/deleteItem hooks immediately
-// above: fires on every hit-location update, recomputes system.wound from
-// whatever system.current is being written, UNLESS the caller already set
-// system.wound explicitly in the same update (CombatEngine's own
-// damage-time writes and the two full-heal-to-'none' sites all already set
-// both fields together and are left untouched, not double-computed).
-// foundry.utils.getProperty/setProperty read/write correctly regardless of
-// whether the caller expressed the change as a dotted-string key
-// ({'system.current': n}, the convention every existing write site in this
-// codebase already uses) or a nested object -- sidesteps needing to know
-// which form `changed` arrives in.
-// Live-verified (Playwright, real GM login) -- fires correctly for both a
-// bare Item#update and per-document inside Actor#updateEmbeddedDocuments
-// bulk calls, the clobber guard holds against a caller-supplied wound, a
-// wound-only edit passes through untouched, and the real character-sheet
-// Current HP input's change handler drives it end to end -- see
-// CHANGELOG.md's v1.4.296 entry for the full account.
+// indefinitely.
+//
+// The actual decision logic lives in combat-math.js's resolveWoundSync --
+// a pure function, imported and unit-tested for real (tests/combat-math.
+// test.js), not just mirrored or only live-verified. Its own doc comment
+// records WHY this is a single chokepoint consulted for every hit-location
+// update rather than a patch at each known write site, and the resulting
+// contract change for any future writer of system.current -- read that
+// before touching this hook. This wrapper's only job is the Foundry-coupled
+// plumbing: foundry.utils.getProperty/setProperty read/write correctly
+// regardless of whether the caller expressed the change as a dotted-string
+// key ({'system.current': n}, the convention every existing write site in
+// this codebase already uses) or a nested object.
+//
+// Live-verified (Playwright, real GM login), including after being
+// refactored to delegate to resolveWoundSync (same conditions, same
+// order, same returns -- a pure extraction, re-run against a live world
+// and confirmed identical, not just assumed equivalent from the diff):
+// fires correctly for both a bare Item#update and per-document inside
+// Actor#updateEmbeddedDocuments bulk calls, the clobber guard holds
+// against a caller-supplied wound, a wound-only edit passes through
+// untouched, and the real character-sheet Current HP input's change
+// handler drives it end to end. See CHANGELOG.md's v1.4.297 entry for
+// the full account.
 // ---------------------------------------------------------------------------
 Hooks.on('preUpdateItem', (item, changed, _options, _userId) => {
-  if (item.type !== 'hit-location') return;
   const newCurrent = foundry.utils.getProperty(changed, 'system.current');
-  if (newCurrent === undefined) return;
-  if (foundry.utils.getProperty(changed, 'system.wound') !== undefined) return;
-  const maxHp = item.system.hp ?? 4;
-  foundry.utils.setProperty(changed, 'system.wound', woundState(newCurrent, maxHp));
+  const explicitWound = foundry.utils.getProperty(changed, 'system.wound');
+  const wound = resolveWoundSync(item.type, item.system.hp ?? 4, newCurrent, explicitWound);
+  if (wound !== undefined) foundry.utils.setProperty(changed, 'system.wound', wound);
 });
 
 function _scheduleRedistribute(actor) {

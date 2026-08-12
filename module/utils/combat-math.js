@@ -160,6 +160,48 @@ export function woundState(current, maxHp) {
   return 'minor';
 }
 
+/**
+ * Decision core for the hit-location wound-state sync hook (mythras.mjs,
+ * `Hooks.on('preUpdateItem', ...)`). Extracted as a pure function — no
+ * Foundry globals, no `foundry.utils.getProperty`/`setProperty` — so this
+ * can be imported and unit-tested for real, not just mirrored or only
+ * live-verified. The hook itself is a thin wrapper: pull `system.current`/
+ * `system.wound` out of an update's `changed` data with
+ * `foundry.utils.getProperty` (handles both the dotted-string-key and
+ * nested-object forms a caller might use), call this, and — if it returns
+ * anything other than `undefined` — write it back with
+ * `foundry.utils.setProperty`.
+ *
+ * Deliberate design choice, not in the seam-design session's own text: the
+ * session's design called for patching the specific known non-damage
+ * write sites (heal routes, sheet edits) individually. This function is
+ * instead consulted for EVERY hit-location update, from any writer —
+ * matching the single-chokepoint shape the rest of that session's seams
+ * converged on, and the only shape that can also catch a raw GM sheet
+ * edit (`CharacterSheet.js`'s generic `_onItemFieldChange`, which has no
+ * idea it's touching a wound-relevant field and can't be individually
+ * patched). The consequence: any future writer of `system.current` —
+ * including a module or a macro that has never heard of this hook —
+ * now gets `system.wound` reclassified automatically unless it also sets
+ * `system.wound` explicitly in the same update. That's the intended
+ * contract, not an accident of the implementation.
+ *
+ * @param {string} itemType        The item's `type` (only 'hit-location' acts)
+ * @param {number} maxHp           The location's current `system.hp` (max)
+ * @param {number|undefined} newCurrent    `system.current` from the update's
+ *   changed data, or `undefined` if this update doesn't touch it
+ * @param {string|undefined} explicitWound `system.wound` from the update's
+ *   changed data, or `undefined` if the caller didn't set it
+ * @returns {'none'|'minor'|'serious'|'major'|undefined} The wound value to
+ *   write, or `undefined` to mean "don't touch system.wound for this update"
+ */
+export function resolveWoundSync(itemType, maxHp, newCurrent, explicitWound) {
+  if (itemType !== 'hit-location') return undefined;
+  if (newCurrent === undefined) return undefined;
+  if (explicitWound !== undefined) return undefined;
+  return woundState(newCurrent, maxHp);
+}
+
 // ---------------------------------------------------------------------------
 // Damage modifier step  (15-step table)
 // ---------------------------------------------------------------------------
