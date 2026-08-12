@@ -256,8 +256,19 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
     // Growth −) add a signed integer. Read-time, idempotent.
     attr.initiativeBonus += sumHookContributions(CONFIG.MYTHRAS?.initiativeOffsetHooks, [this.parent], { errorLabel: 'initiativeOffsetHook' }).total;
 
-    // Magic Points: equal to POW
+    // Magic Points: equal to POW. Module magicPointOffsetHooks (e.g. a
+    // sustained-effect mechanic holding points out of the recoverable
+    // maximum, rather than spending them) add a signed integer on top of
+    // the POW base, mirroring damageModOffsetHooks/initiativeOffsetHooks
+    // above. Read-time, idempotent. Character actors only, deliberately —
+    // see the hook family's own doc comment in config.js for why
+    // NPCData/CreatureData's identical bare `= pow` assignments
+    // (module/data/ActorData.js) are untouched rather than sharing this
+    // derivation: extending hook consumption to non-character actors is
+    // a separate decision, not something this seam should decide by
+    // default just because a shared helper would have been tidier.
     attr.magicPoints.max = pow;
+    attr.magicPoints.max += sumHookContributions(CONFIG.MYTHRAS?.magicPointOffsetHooks, [this.parent], { errorLabel: 'magicPointOffsetHook' }).total;
     if (attr.magicPoints.value > attr.magicPoints.max) {
       attr.magicPoints.value = attr.magicPoints.max;
     }

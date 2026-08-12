@@ -16,6 +16,7 @@
     "resolveOpposedRoll",
     "resolveDifferential",
     "woundLevel",
-    "woundState"
+    "woundState",
+    "getTraitsByCategory"
   ]
 }

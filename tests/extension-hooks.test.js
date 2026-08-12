@@ -26,6 +26,14 @@ import { weaponBaseMax } from '../module/utils/combat-math.js';
 // modifier-bus.test.js — imported for real so explainHookSum's own tests
 // below exercise the real summation behavior, not a second mirror of it.
 import { sumHookContributions } from '../module/utils/modifier-bus.js';
+// fs/path/fileURLToPath — for magicPointOffsetHooks' text-level
+// character-only-boundary regression guard, same ESM pattern
+// frozen-api.test.js already uses (this project's Jest setup has no
+// require/__dirname; it's genuine ESM, not CJS-under-Jest).
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Minimal call-recording spy — this project's Jest/ESM setup does not expose
@@ -163,6 +171,28 @@ function applyLuckPointsHooks(hooks, baseMax, actor, heroAdj = 0) {
     catch { /* swallowed */ }
   }
   return max;
+}
+
+/**
+ * Mirror of the prepareDerivedData magic-points derivation + value clamp
+ * (seam 1, seam-design-outcomes.md). magicPointOffsetHooks is an OFFSET
+ * family — the system contributes a real POW base, unlike powerPointsHooks
+ * below — same shape as applyDamageModOffsetHooks/applyInitiativeOffsetHooks
+ * above, except this call site also includes the value-vs-max clamp that
+ * immediately follows it in CharacterData.js, since the seam's own traced
+ * CFI sequence (spend against value, then hold points out of max) depends
+ * on that clamp's exact behavior, not just the sum. Uses the REAL
+ * sumHookContributions (imported for real above, not re-mirrored) because
+ * that is what CharacterData.js's own line calls directly — hand-rolling
+ * a fourth near-identical summing loop here would test a copy, not the
+ * real summation behavior. Faithful to CharacterData.js.
+ */
+function applyMagicPointOffsetHooks(hooks, basePow, currentValue, actor) {
+  let max = basePow;
+  max += sumHookContributions(hooks, [actor], { errorLabel: 'magicPointOffsetHook' }).total;
+  let value = currentValue;
+  if (value > max) value = max;
+  return { max, value };
 }
 
 /**
@@ -1577,6 +1607,82 @@ describe('luckPointsHooks', () => {
   test('idempotent', () => {
     const hooks = [() => 3];
     expect(applyLuckPointsHooks(hooks, 3, {}, 1)).toBe(applyLuckPointsHooks(hooks, 3, {}, 1));
+  });
+});
+
+// =============================================================================
+// magicPointOffsetHooks (seam 1, seam-design-outcomes.md)
+//   Signed integer added to the POW-derived base, evaluated BEFORE the
+//   value-vs-max clamp — an OFFSET family like damageModOffsetHooks/
+//   initiativeOffsetHooks, not a sum-is-the-value family like
+//   powerPointsHooks below. Character actors only: NPCData/CreatureData's
+//   own bare `magicPoints.max = pow` (module/data/ActorData.js) do not
+//   consume this or any other hook family — deliberate, per Chris's
+//   ruling, not something a shared helper should paper over.
+// =============================================================================
+
+describe('magicPointOffsetHooks', () => {
+  test('empty/undefined hook list: max is the bare POW base, value unclamped if already <= it', () => {
+    expect(applyMagicPointOffsetHooks([], 15, 10, {})).toEqual({ max: 15, value: 10 });
+    expect(applyMagicPointOffsetHooks(undefined, 15, 15, {})).toEqual({ max: 15, value: 15 });
+  });
+
+  test('single hook offsets the base, positive or negative', () => {
+    expect(applyMagicPointOffsetHooks([() => 3], 15, 10, {})).toEqual({ max: 18, value: 10 });
+    expect(applyMagicPointOffsetHooks([() => -4], 15, 10, {})).toEqual({ max: 11, value: 10 });
+  });
+
+  test('multiple hooks sum', () => {
+    expect(applyMagicPointOffsetHooks([() => 3, () => 2], 15, 10, {})).toEqual({ max: 20, value: 10 });
+  });
+
+  test('a throwing hook is swallowed via sumHookContributions, does not abort the sum', () => {
+    const hooks = [() => 2, () => { throw new Error('boom'); }, () => 1];
+    expect(applyMagicPointOffsetHooks(hooks, 15, 10, {})).toEqual({ max: 18, value: 10 });
+  });
+
+  test('idempotent: re-running yields the same result, no accumulation', () => {
+    const hooks = [() => 3];
+    const first  = applyMagicPointOffsetHooks(hooks, 15, 10, {});
+    const second = applyMagicPointOffsetHooks(hooks, 15, 10, {});
+    expect(first).toEqual(second);
+  });
+
+  test('clamp: a max reduced below the current value pulls value down to match', () => {
+    // A hook holding 6 points out of the maximum (e.g. a sustained cost
+    // mechanic) on a character whose value is still at the un-reduced max.
+    expect(applyMagicPointOffsetHooks([() => -6], 15, 15, {})).toEqual({ max: 9, value: 9 });
+  });
+
+  test('clamp: value already below the reduced max is left untouched, not raised', () => {
+    expect(applyMagicPointOffsetHooks([() => -6], 15, 5, {})).toEqual({ max: 9, value: 5 });
+  });
+
+  test("the seam's own traced CFI sequence: spend against value, then hold against max, composes correctly", () => {
+    // POW 15. Spend 4 (an ordinary MP spend touches value only, modelled
+    // here as the caller's own pre-derivation state) -> value 11.
+    // Next derivation cycle: a sustained-effect hook now holds 4 points
+    // out of the max while the effect is active.
+    const afterSpend = applyMagicPointOffsetHooks([], 15, 11, {});
+    expect(afterSpend).toEqual({ max: 15, value: 11 });
+    const whileHeld = applyMagicPointOffsetHooks([() => -4], 15, 11, {});
+    expect(whileHeld).toEqual({ max: 11, value: 11 }); // clamp no-ops: value was already there
+    // Effect ends, hook stops firing -> max returns to 15, value recovers
+    // normally from 11 (recovery itself is out of this seam's scope).
+    const afterExpiry = applyMagicPointOffsetHooks([], 15, 11, {});
+    expect(afterExpiry).toEqual({ max: 15, value: 11 });
+  });
+
+  test('character-only boundary: ActorData.js (NPCData/CreatureData) never references magicPointOffsetHooks', () => {
+    // Text-level regression guard for the deliberate ruling in
+    // seam-design-outcomes.md — a future edit that "helpfully" shares
+    // this derivation with NPCData/CreatureData would silently grant
+    // hook consumption to non-character actors for the first time on
+    // this object. Mirrors frozen-api.test.js's own text-level-check
+    // convention for a decision that isn't otherwise enforceable by a
+    // pure-function unit test.
+    const actorDataSrc = fs.readFileSync(path.join(__dirname, '..', 'module', 'data', 'ActorData.js'), 'utf8');
+    expect(actorDataSrc).not.toMatch(/magicPointOffsetHooks/);
   });
 });
 

@@ -459,6 +459,39 @@ export const MYTHRAS = {
   luckPointsHooks: [],
 
   // -----------------------------------------------------------------------
+  // MAGIC POINT OFFSET HOOKS (v1.4.298+)
+  //   magicPointOffsetHook : (actor) => number
+  //   Called during prepareDerivedData after the base Magic Points max
+  //   (equal to POW) is derived, BEFORE the value-vs-max clamp. Return a
+  //   signed integer added to `attributes.magicPoints.max`. Read-time and
+  //   idempotent: derived from the actor's active effects each cycle,
+  //   nothing stored or reverted. This is an OFFSET family — Magic Points
+  //   have a real system-computed base (POW), so a hook shifts that base
+  //   the same way damageModOffsetHooks/initiativeOffsetHooks do above —
+  //   NOT a sum-is-the-value family like powerPointsHooks immediately
+  //   below, which has no system base to shift. Naming follows that
+  //   distinction: *OffsetHooks for families shifting a computed base,
+  //   plain *PointsHooks reserved for families where the hook sum IS the
+  //   value. Evidence for this seam: three independent systems (this
+  //   system's own CFI-shaped consumer, Theism, Sorcery) hold points OUT
+  //   OF a maximum for a sustained effect's duration rather than spending
+  //   them — a genuinely different resource shape from an ordinary spend,
+  //   and every sibling resource on this object already has a hook family
+  //   except this one. Multiple hooks are summed; a single module hook
+  //   that owns net resolution across several sustained-cost mechanics is
+  //   the expected pattern, same as every other family here. Character
+  //   actors only, by deliberate choice, not an oversight: NPCData/
+  //   CreatureData's own magicPoints.max derivations (module/data/
+  //   ActorData.js) do not consume this or any other hook family — see
+  //   CharacterData.js's own call-site comment for why extending hook
+  //   consumption to non-character actors is a separate decision, not
+  //   something to fall out of this seam by default.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed integer added to attributes.magicPoints.max */
+  magicPointOffsetHooks: [],
+
+  // -----------------------------------------------------------------------
   // POWER POINTS HOOKS
   //   powerPointsHook : (actor) => number
   //   Called during prepareDerivedData to compute `attributes.powerPoints.max`.
@@ -707,11 +740,28 @@ export const MYTHRAS = {
   // WEAPON TRAITS
   // Standard weapon special traits referenced in the rules.
   //
-  // Each entry: { key, label, description, engineEffect }
+  // Each entry: { key, label, description, engineEffect, category }
   //   key          — canonical string the engine matches against (e.g. traits.includes('impaling'))
   //   label        — human-readable name for the weapon sheet UI
   //   description  — rules text shown as a tooltip on the weapon sheet
   //   engineEffect — true = the combat engine reads this trait mechanically
+  //   category     — 'mechanical' (enables a Special Effect / combat-flow
+  //                  behaviour, the 15 built-in entries below) or
+  //                  'damageType' (describes what KIND of damage the
+  //                  weapon deals — fire, cold, an element, a magic
+  //                  school — for a consumer that needs to type-gate
+  //                  against a weapon rather than key an SE off it).
+  //                  Added v1.4.298 — the registry itself is unchanged,
+  //                  just one more axis to query it along; see
+  //                  getTraitsByCategory (game.system.api, module/utils/
+  //                  trait-registry.js). No 'damageType' entries are
+  //                  registered by this system itself — this is the
+  //                  axis a downstream module/consumer's own type-gated
+  //                  mechanic (e.g. an elemental-Resist trait, a Dispel
+  //                  school comparison) registers against, in place of
+  //                  hand-rolling its own hardcoded, substring-matched
+  //                  type list the way Destined's Resistance power did
+  //                  before this axis existed.
   //
   // EXTENSION: downstream modules add entries during their setup hook:
   //   CONFIG.MYTHRAS.weaponTraits.energyWeapon = { key: 'energyWeapon', label: '...', ... };
@@ -725,91 +775,106 @@ export const MYTHRAS = {
       key:          'bleeding',
       label:        'Bleeding',
       description:  'Pointed edges or blades cause profuse bleeding on contact. Enables the Bleed Special Effect (Critical only for firearms).',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     bludgeoning: {
       key:          'bludgeoning',
       label:        'Bludgeoning',
       description:  'Delivers impact trauma rather than cuts. Enables the Bash and Stun Location Special Effects.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     entangling: {
       key:          'entangling',
       label:        'Entangling',
       description:  'Can wrap around or snag an opponent. Enables the Entangle Special Effect.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     firearm: {
       key:          'firearm',
       label:        'Firearm',
       description:  'A ranged firearm. Unlocks burst fire, full auto, and firearm-specific Special Effects (Duck Back, Drop Foe, Pin Down, Weapon Malfunction).',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     'burst-fire': {
       key:          'burst-fire',
       label:        'Burst Fire',
       description:  'Can fire a short burst. Hard difficulty; 1d[burst size] rounds strike on a hit.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     'full-auto': {
       key:          'full-auto',
       label:        'Full Auto',
       description:  'Can fire fully automatically. Formidable difficulty; rounds are distributed across declared targets.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     impaling: {
       key:          'impaling',
       label:        'Impaling',
       description:  'Can lodge in a wound. Enables the Impale Special Effect — roll damage twice and use the better result.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     shield: {
       key:          'shield',
       label:        'Shield',
       description:  'A shield. Provides Passive Blocking locations. Bash knockback uses a divisor of 2 instead of 3.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     sundering: {
       key:          'sundering',
       label:        'Sundering',
       description:  'Designed to damage weapons and armour. Enables the Sunder Special Effect.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     thrown: {
       key:          'thrown',
       label:        'Thrown',
       description:  'A melee weapon that can also be thrown, using ranged combat resolution.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     'two-handed': {
       key:          'two-handed',
       label:        'Two-Handed',
       description:  'Requires both hands to wield. Also enables the Sunder Special Effect.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     unarmed: {
       key:          'unarmed',
       label:        'Unarmed',
       description:  'Represents a natural or unarmed attack. Enables the Grip Special Effect.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     mounted: {
       key:          'mounted',
       label:        'Mounted',
       description:  'Designed for use from horseback or another mount.',
-      engineEffect: false
+      engineEffect: false,
+      category:     'mechanical'
     },
     'set-to-receive-charge': {
       key:          'set-to-receive-charge',
       label:        'Set to Receive Charge',
       description:  "Can be braced to receive a charging opponent, using the charger's Damage Modifier instead of the defender's.",
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     },
     hightech: {
       key:          'hightech',
       label:        'High-Tech',
       description:  'Advanced high-technology weapon. Enables the Circumvent Cover Special Effect.',
-      engineEffect: true
+      engineEffect: true,
+      category:     'mechanical'
     }
   },
 

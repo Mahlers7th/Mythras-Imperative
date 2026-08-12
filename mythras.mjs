@@ -40,6 +40,7 @@ import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.
 import { locationNameToKey }          from './module/utils/hit-location.js';
 import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
+import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 
 // ---------------------------------------------------------------------------
@@ -573,6 +574,10 @@ Hooks.once('ready', () => {
     resolveDifferential,
     woundLevel,
     woundState,
+    // getTraitsByCategory (v1.4.298+): see its own doc block above -- query
+    // the 'mechanical'/'damageType' axis on CONFIG.MYTHRAS.weaponTraits
+    // without hand-rolling a substring match against the registry.
+    getTraitsByCategory,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -953,6 +958,18 @@ export function getArmourAt(defender, locationId) {
 export function explainHookSum(hookFamilyName, args = [], options = {}) {
   const hooks = CONFIG.MYTHRAS?.[hookFamilyName] ?? [];
   return sumHookContributions(hooks, args, { errorLabel: hookFamilyName, ...options });
+}
+
+// ---------------------------------------------------------------------------
+// GET TRAITS BY CATEGORY (v1.4.298+) -- thin CONFIG.MYTHRAS.weaponTraits
+// wrapper over trait-registry.js's pure getTraitsByCategory, same shape as
+// explainHookSum's own wrap of sumHookContributions immediately above:
+// look up the live registry, delegate the actual filtering to a pure,
+// separately-unit-tested function. See trait-registry.js's own doc comment
+// for the seam this exists to serve.
+// ---------------------------------------------------------------------------
+export function getTraitsByCategory(category) {
+  return _getTraitsByCategory(CONFIG.MYTHRAS?.weaponTraits, category);
 }
 
 // ---------------------------------------------------------------------------

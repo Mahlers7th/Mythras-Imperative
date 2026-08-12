@@ -1,7 +1,7 @@
 # Frozen API — Mythras Imperative
 
-**Frozen as of v1.4.278 (roadmap Phase 2f), 4 members added v1.4.296.** Every signature on this page —
-all 16 `game.system.api` members plus `SE_RESOLVERS` — is a stability
+**Frozen as of v1.4.278 (roadmap Phase 2f), 4 members added v1.4.296, 1 more v1.4.298.** Every signature on this page —
+all 17 `game.system.api` members plus `SE_RESOLVERS` — is a stability
 commitment: **do not change a frozen signature's shape (parameters, return
 type, or observable behavior) without a major version bump, and update this
 doc in the same change as the runtime.** A signature change here is a
@@ -36,8 +36,8 @@ entries verified as part of the HP-max lock work. It is not yet a complete
 audit of every frozen surface in the codebase; expand it as other
 already-frozen entry points are confirmed.
 
-**`game.system.api` currently has 16 members** (`mythras.mjs`'s
-`Object.freeze({...})` assembly block as of v1.4.296; the exact line range
+**`game.system.api` currently has 17 members** (`mythras.mjs`'s
+`Object.freeze({...})` assembly block as of v1.4.298; the exact line range
 drifts as the file changes — the count itself is now the CI-enforced part,
 via `frozen-api.json` above, so treat any cited line numbers as approximate)
 — count this table's `game.system.api.*` rows against that number whenever
@@ -48,9 +48,9 @@ for two consecutive additions — `getArmourAt`
 (v1.4.271) both shipped without a row here until this doc-sync pass added
 them — worth stating plainly rather than letting a third miss go unremarked.
 `triggerFollowUpAttack` (v1.4.272), `applyMythrasTheme` (v1.4.275),
-`explainHookSum` (v1.4.277), and `resolveOpposedRoll`/`resolveDifferential`/
-`woundLevel`/`woundState` (v1.4.296) all got their row in the same change
-they shipped.
+`explainHookSum` (v1.4.277), `resolveOpposedRoll`/`resolveDifferential`/
+`woundLevel`/`woundState` (v1.4.296), and `getTraitsByCategory` (v1.4.298)
+all got their row in the same change they shipped.
 
 | Symbol | Signature | Caller(s) | Notes |
 |---|---|---|---|
@@ -71,9 +71,11 @@ they shipped.
 | `game.system.api.resolveDifferential` | `(attackOutcome: 'critical'\|'success'\|'failure'\|'fumble', defenceOutcome: 'critical'\|'success'\|'failure'\|'fumble'\|'none') => { seWinner: 'attacker'\|'defender'\|'none', seCount: number }` | Destined module, planned node editor | Added v1.4.296 (`module/utils/combat-math.js`). Pure — implements the rules-p.25 differential table exactly, turning an opposed win into a Special Effect count. Exposed alongside `resolveOpposedRoll` rather than held back further: withholding it would only invite a module to hand-roll the same table by hand, the identical reimplementation-drift risk `determineOutcome`'s own table row above warns about — Destined's own `PERIL_OUTCOME_RANK` is already exactly that drift once, for the opposed-roll adjudication half. |
 | `game.system.api.woundLevel` | `(damage: number, maxHp: number, newCurrent: number) => 'none'\|'minor'\|'serious'\|'major'` | Destined module (two independent inline reimplementations of this exact threshold logic, confirmed via its own demand inventory) | Added v1.4.296 (`module/utils/combat-math.js`). Pure — classifies a damage **event**: "what wound did this hit cause." Returns `'none'` whenever `damage <= 0`, regardless of `newCurrent` — this is the function `CombatEngine._applyDamage` and its siblings already call internally at every damage-time write of `system.wound`. See `woundState` below for the companion **state** classifier (a different question, not a duplicate) added the same version. |
 | `game.system.api.woundState` | `(current: number, maxHp: number) => 'none'\|'minor'\|'serious'\|'major'` | Destined module (Second Wind and any future power reading/writing HP outside the damage path) | Added v1.4.296 (`module/utils/combat-math.js`). Pure — classifies a hit location's **current state** from its HP alone: "what wound is this location at right now," independent of how it got there. Same `-maxHp`/`0` thresholds as `woundLevel`, just gated on `current` directly rather than a damage delta (`current >= maxHp` → `'none'`). Added because `system.wound` was, until the same-version `preUpdateItem` hook on hit-location items (`mythras.mjs`, not part of the frozen API itself — an internal chokepoint, not a caller-facing member), only ever written at damage time; healing, natural Regeneration, and direct GM edits to Current HP left a location's wound flag stale indefinitely. That hook now calls this function automatically for every hit-location update where `system.current` changes and the caller hasn't already set `system.wound` itself — most callers, including Destined's Second Wind, will never need to call `woundState` directly, but it's exposed for any caller computing a wound category for display or validation without writing through the item. |
+| `game.system.api.getTraitsByCategory` | `(category: string) => string[]` | Destined module (Resistance/Immunity/Adaptive Resistance's damage-type gate, replacing a hardcoded, substring-matched exclude list), a future CFI element/school comparison | Added v1.4.298 (`module/utils/trait-registry.js`, thin `CONFIG.MYTHRAS.weaponTraits` wrapper). Returns the registry keys whose own `category` field matches — `'mechanical'` for the system's 15 built-in entries (enables a Special Effect or combat-flow behavior), `'damageType'` for any a downstream consumer registers (describes what *kind* of damage a weapon deals — fire, cold, an element, a magic school). The `category` field is additive to the existing `weaponTraits` registry (`config.js`, extensible since `resolveOpposedRoll`'s own era) — no new registry, no schema change, no engine code changed; `weapon.system.traits.includes(key)` still works exactly as before for any key regardless of category. This system registers no `damageType` entries itself; the axis exists for a consumer that needs to ask "which of this weapon's traits describe its damage type" without hand-rolling a substring match — the exact bug class (`'explos'` matching both "explosive" and "explosion") this axis exists to retire. |
 
 ## Change log
 
+- **v1.4.298** — `game.system.api.getTraitsByCategory` added — seventeenth entry, see the table row above and `CHANGELOG.md`'s own v1.4.298 entry for the seam-design-session account (seam 5) it belongs to. Adds a `category` field to `CONFIG.MYTHRAS.weaponTraits`'s 15 existing entries (all `'mechanical'`) — additive, no behavior change to any existing `traits.includes(key)` call site.
 - **v1.4.296** — `game.system.api.resolveOpposedRoll`, `resolveDifferential`, `woundLevel`, `woundState` added — thirteenth through sixteenth entries, see the four table rows above and `CHANGELOG.md`'s own v1.4.296 entry for the seam-design-session account (seams 3 and 4) these belong to, including the new hit-location `preUpdateItem` wound-resync hook (`mythras.mjs`, internal — not itself a frozen-API member).
 - **v1.4.277** — `game.system.api.explainHookSum` added — twelfth entry, see the table row above and `CHANGELOG.md`'s own v1.4.277 entry for the modifier-bus consolidation it belongs to.
 - **v1.4.275** — `game.system.api.applyMythrasTheme` added — eleventh entry, see the table row above and `CHANGELOG.md`'s own v1.4.275 entry for the full account of the unified light/dark theme system it belongs to.
