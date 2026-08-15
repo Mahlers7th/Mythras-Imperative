@@ -40,11 +40,11 @@ When a regression is silent (no Foundry error, no `node --check` failure): **dif
 
 ## Extension-point / boundary contract
 
-Modules extend the system via `CONFIG.MYTHRAS.*` arrays (see `extension-point-api-updated.md`). Live hooks: `characteristicBonusHooks`, `apBonusHooks`, `armourBonusHooks`, `apReductionHooks`, `movementHooks`, `initiativeOffsetHooks`, `healingRateHooks`, `luckPointsHooks`, `damageModOffsetHooks`, `damageHooks`, `hitPointBonusHooks`, `weaponDamageHooks`/`weaponForceHooks`, `attackResolvedHooks`.
+Modules extend the system via `CONFIG.MYTHRAS.*` arrays (see `extension-point-api-updated.md`). Live hooks: `characteristicBonusHooks`, `apBonusHooks`, `armourBonusHooks`, `apReductionHooks`, `movementHooks`, `initiativeOffsetHooks`, `healingRateHooks`, `luckPointsHooks`, `damageModOffsetHooks`, `magicPointOffsetHooks`, `damageHooks`, `hitPointBonusHooks`, `weaponDamageHooks`/`weaponForceHooks`, `weaponDamageModOffsetHooks`, `reloadTimeOffsetHooks`, `conditionGradeHooks`, `attackResolvedHooks`, `roundBoundaryHooks`/`turnStartedHooks`.
 
 - Most are **read-time** (consumed in `CharacterData.prepareDerivedData`) — idempotent, derive-from-source, nothing to revert.
 - **`hitPointBonusHooks` is write-time** (consumed by the HP-max writer that persists to `hit-location` item `system.hp`). It is the one exception; keep it clearly documented as such so nobody reintroduces the derived/persisted drift.
-- **`weaponDamageHooks`/`weaponForceHooks` are roll-time, override/first-wins** (not summed); **`attackResolvedHooks` is a roll-time lifecycle event** (`(ctx) => void`, fires once per resolved attack roll, hit or miss) — neither fits the `prepareDerivedData` read-time/additive shape the rest of this list follows.
+- **`weaponDamageHooks`/`weaponForceHooks` are roll-time, override/first-wins** (not summed); `weaponDamageModOffsetHooks`, `reloadTimeOffsetHooks`, and `conditionGradeHooks` are roll-time but **additive-summed**, not `prepareDerivedData`; **`attackResolvedHooks` and `roundBoundaryHooks`/`turnStartedHooks` are lifecycle events** (`void`-returning, fire-and-forget for the former, `await`ed for the latter two — a deliberate split, see `extension-point-api-updated.md`) — none of these fit the `prepareDerivedData` read-time/additive shape the rest of this list follows.
 - Hooks receive the **canonical camelCase location key**: `head`, `chest`, `abdomen`, `rightArm`, `leftArm`, `rightLeg`, `leftLeg`. `armourBonusHooks`, `hitPointBonusHooks`, and `apReductionHooks` all use this vocabulary.
 - **Frozen API** (`frozen-api-updated.md`): CombatEngine method signatures the future node editor calls directly. Do not change a frozen signature without updating the doc and the runtime.
 

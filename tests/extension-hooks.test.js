@@ -1097,6 +1097,152 @@ function accumulateFullAutoResult(ctx) {
   });
 }
 
+// =============================================================================
+// roundBoundaryHooks / turnStartedHooks — mythras.mjs's _onUpdateCombat
+//   Duration-boundary lifecycle families, exposed from an existing dispatcher
+//   (cfi-mechanics-survey.md row 17 / duration-boundary-seam-batch.md).
+//   mythras.mjs is the top-level entry file — Hooks.on registrations and
+//   other module-scope side effects at import time make it unsafe to import
+//   directly under Jest, same reasoning as CombatEngine.js. Mirrored here,
+//   kept byte-for-byte faithful to the two firing-site loops.
+//
+//   Unlike attackResolvedHooks (fire-and-forget, `hook(ctx)`), both loops
+//   here `await` each hook — a deliberate contract split, see config.js's
+//   own doc block for why. The mirrors below are async for the same reason
+//   the real firing sites are.
+// =============================================================================
+
+/** Mirror of the roundBoundaryHooks loop inside _onUpdateCombat's allSpent block. */
+async function fireRoundBoundaryHooks(hooks, active, combat) {
+  for (const combatant of active) {
+    const actor = combatant.token?.actor ?? combatant.actor;
+    if (!actor) continue;
+    for (const hook of (hooks ?? [])) {
+      try { await hook(actor, combat); }
+      catch (err) { /* swallowed in production via console.error */ }
+    }
+  }
+}
+
+/** Mirror of the turnStartedHooks loop at the end of _onUpdateCombat. */
+async function fireTurnStartedHooks(hooks, actor, combat) {
+  for (const hook of (hooks ?? [])) {
+    try { await hook(actor, combat); }
+    catch (err) { /* swallowed in production via console.error */ }
+  }
+}
+
+function makeCombatant(actor) {
+  return { actor, token: null };
+}
+
+describe('roundBoundaryHooks', () => {
+  test('zero hooks registered: no-op, does not throw', async () => {
+    const active = [makeCombatant(makeActor())];
+    await expect(fireRoundBoundaryHooks([], active, {})).resolves.toBeUndefined();
+    await expect(fireRoundBoundaryHooks(undefined, active, {})).resolves.toBeUndefined();
+  });
+
+  test('one hook, one active combatant: called once with (actor, combat)', async () => {
+    const actor = makeActor();
+    const combat = { round: 3 };
+    const spy = makeSpy();
+    await fireRoundBoundaryHooks([spy], [makeCombatant(actor)], combat);
+    expect(spy.calls).toEqual([[actor, combat]]);
+  });
+
+  test('fires once per active combatant, not once total', async () => {
+    const a = makeActor(); const b = makeActor(); const c = makeActor();
+    const spy = makeSpy();
+    await fireRoundBoundaryHooks([spy], [makeCombatant(a), makeCombatant(b), makeCombatant(c)], {});
+    expect(spy.calls.length).toBe(3);
+    expect(spy.calls.map(args => args[0])).toEqual([a, b, c]);
+  });
+
+  test('multiple hooks each fire for each combatant (2 hooks x 2 combatants = 4 calls)', async () => {
+    const h1 = makeSpy(); const h2 = makeSpy();
+    await fireRoundBoundaryHooks([h1, h2], [makeCombatant(makeActor()), makeCombatant(makeActor())], {});
+    expect(h1.calls.length).toBe(2);
+    expect(h2.calls.length).toBe(2);
+  });
+
+  test('a combatant resolving to no actor is skipped, not passed as null/undefined', async () => {
+    const spy = makeSpy();
+    await fireRoundBoundaryHooks([spy], [makeCombatant(null), makeCombatant(makeActor())], {});
+    expect(spy.calls.length).toBe(1);
+  });
+
+  test('a throwing hook is isolated — later hooks and later combatants still run', async () => {
+    const throwing = () => { throw new Error('boom'); };
+    const spy = makeSpy();
+    await fireRoundBoundaryHooks([throwing, spy], [makeCombatant(makeActor()), makeCombatant(makeActor())], {});
+    expect(spy.calls.length).toBe(2);
+  });
+
+  test('an async hook is awaited before the function returns — ordering, not just eventual completion', async () => {
+    const order = [];
+    const asyncHook = async () => {
+      await new Promise(r => setTimeout(r, 5));
+      order.push('hook-done');
+    };
+    await fireRoundBoundaryHooks([asyncHook], [makeCombatant(makeActor())], {});
+    order.push('after-return');
+    expect(order).toEqual(['hook-done', 'after-return']);
+  });
+
+  test('a rejected async hook is caught the same as a synchronous throw', async () => {
+    const rejecting = async () => { throw new Error('async boom'); };
+    const spy = makeSpy();
+    await expect(fireRoundBoundaryHooks([rejecting, spy], [makeCombatant(makeActor())], {})).resolves.toBeUndefined();
+    expect(spy.calls.length).toBe(1);
+  });
+});
+
+describe('turnStartedHooks', () => {
+  test('zero hooks registered: no-op, does not throw', async () => {
+    await expect(fireTurnStartedHooks([], makeActor(), {})).resolves.toBeUndefined();
+  });
+
+  test('one hook: called once with (actor, combat)', async () => {
+    const actor = makeActor();
+    const combat = { round: 1 };
+    const spy = makeSpy();
+    await fireTurnStartedHooks([spy], actor, combat);
+    expect(spy.calls).toEqual([[actor, combat]]);
+  });
+
+  test('fires exactly once, for the single combatant only — not once per anything else', async () => {
+    const spy = makeSpy();
+    await fireTurnStartedHooks([spy], makeActor(), {});
+    expect(spy.calls.length).toBe(1);
+  });
+
+  test('multiple hooks each fire exactly once', async () => {
+    const h1 = makeSpy(); const h2 = makeSpy();
+    await fireTurnStartedHooks([h1, h2], makeActor(), {});
+    expect(h1.calls.length).toBe(1);
+    expect(h2.calls.length).toBe(1);
+  });
+
+  test('a throwing hook is isolated — later hooks still run', async () => {
+    const throwing = () => { throw new Error('boom'); };
+    const spy = makeSpy();
+    await fireTurnStartedHooks([throwing, spy], makeActor(), {});
+    expect(spy.calls.length).toBe(1);
+  });
+
+  test('an async hook is awaited before the function returns', async () => {
+    const order = [];
+    const asyncHook = async () => {
+      await new Promise(r => setTimeout(r, 5));
+      order.push('hook-done');
+    };
+    await fireTurnStartedHooks([asyncHook], makeActor(), {});
+    order.push('after-return');
+    expect(order).toEqual(['hook-done', 'after-return']);
+  });
+});
+
 describe('_runFullAutoSingleTarget vehicle dispatch (v1.4.265)', () => {
   function makeBranchSpies() {
     return {

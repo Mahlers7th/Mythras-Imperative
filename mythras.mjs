@@ -1377,6 +1377,20 @@ async function _onUpdateCombat(combat, changed) {
           });
         }
       }
+
+      // ── roundBoundaryHooks — fires LAST, after every built-in consumer
+      // above, once per active combatant, so a hook observes settled state
+      // (AP already reset, Bleed/Regeneration already applied). Awaited
+      // deliberately — see config.js's own doc block for why this differs
+      // from attackResolvedHooks' fire-and-forget contract.
+      for (const combatant of active) {
+        const actor = combatant.token?.actor ?? combatant.actor;
+        if (!actor) continue;
+        for (const hook of (CONFIG.MYTHRAS?.roundBoundaryHooks ?? [])) {
+          try { await hook(actor, combat); }
+          catch (err) { console.error('Mythras | roundBoundaryHook error:', err); }
+        }
+      }
     }
   }
 
@@ -1567,6 +1581,17 @@ async function _onUpdateCombat(combat, changed) {
       const gradeLabel = blindedBy.grade === 'formidable' ? 'Formidable' : 'Hard';
       ui.notifications.warn(`${actor.name} is still Blinded (${gradeLabel}) — ${remaining} Turn${remaining > 1 ? 's' : ''} remaining.`);
     }
+  }
+
+  // ── turnStartedHooks — fires LAST, after every built-in per-turn consumer
+  // above, for combat.combatant's actor only. Uses the same synthetic
+  // canvas-token actor the surrounding consumers already resolved (:1391-
+  // 1394 above), not the raw document actor. Awaited deliberately — see
+  // config.js's own doc block for why this differs from attackResolvedHooks'
+  // fire-and-forget contract.
+  for (const hook of (CONFIG.MYTHRAS?.turnStartedHooks ?? [])) {
+    try { await hook(syntheticActor, combat); }
+    catch (err) { console.error('Mythras | turnStartedHook error:', err); }
   }
 }
 

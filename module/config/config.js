@@ -374,6 +374,89 @@ export const MYTHRAS = {
   attackResolvedHooks: [],
 
   // -----------------------------------------------------------------------
+  // ROUND BOUNDARY HOOKS / TURN STARTED HOOKS
+  //   roundBoundaryHook : (actor, combat) => void | Promise<void>
+  //   turnStartedHook   : (actor, combat) => void | Promise<void>
+  //   Fired from _onUpdateCombat (mythras.mjs, the system's ONLY
+  //   `Hooks.on('updateCombat', ...)` registration) — an existing, working,
+  //   GM-only lifecycle dispatcher already carrying fifteen built-in
+  //   consumers across two real boundaries. This family exposes it; it does
+  //   not create it. Same "extension point already built, not yet exposed"
+  //   shape as weaponForceHooks/weaponDamageHooks, not an extraction.
+  //
+  //   TWO BOUNDARIES, LIFECYCLE-CATEGORY LIKE attackResolvedHooks ABOVE —
+  //   NOT the read-time additive shape most of this file's other families
+  //   use. Do not route these through sumHookContributions (modifier-bus.js
+  //   deliberately excludes lifecycle families from the bus — see that
+  //   file's own header). Return value ignored for both.
+  //
+  //   roundBoundaryHooks fires once per ACTIVE (non-defeated) combatant,
+  //   inside the same `allSpent` check the system's own AP reset/Pin Weapon
+  //   expiry/Bleed drain/Regeneration already gate on — a Mythras round
+  //   ends when every active combatant has spent all AP, NOT when Foundry's
+  //   own round counter increments. Named `roundBoundaryHooks`, not
+  //   `roundEndedHooks`/`roundStartedHooks`, because the rulebook itself
+  //   describes this one boundary from both sides in the same block: Bleed
+  //   drains "at the start of each Combat Round" (p.43), Regeneration heals
+  //   "at the end of each Combat Round" (p.35) — asserting either side in
+  //   the name would claim something the system doesn't.
+  //
+  //   turnStartedHooks fires once, for the combatant whose turn is
+  //   beginning ONLY (combat.combatant) — never for the whole active list.
+  //   Uses the SAME synthetic canvas-token actor resolution the surrounding
+  //   built-in consumers already use (not the raw document actor), so a
+  //   hook sees exactly what entangle/grip/impale/reload/stun/blind
+  //   handling in this same block already sees.
+  //
+  //   BOTH FIRE LAST in their block, after every built-in consumer — a hook
+  //   observes settled state (AP already reset, Bleed/Regeneration already
+  //   applied, countdown flags already decremented), not a snapshot mid-way
+  //   through the built-in work.
+  //
+  //   AWAITED, deliberately, unlike attackResolvedHooks' fire-and-forget
+  //   `hook(ctx)`. Every real consumer of these two boundaries is async (a
+  //   maintain-form check awaits a skill roll then awaits ending the
+  //   effect on failure) and every BUILT-IN consumer in both blocks is
+  //   already awaited — a fire-and-forget hook here would race the very
+  //   next boundary and could resolve after the effect it was checking had
+  //   already expired. This is a deliberate split from attackResolvedHooks'
+  //   contract, not an oversight; do not "align" the two contracts later
+  //   without re-reading why they differ. If a slow hook is ever found to
+  //   measurably delay turn advancement in practice, that is grounds to
+  //   revisit this choice, not a reason to silently work around it here.
+  //
+  //   GM-only comes for free — `_onUpdateCombat` returns at its own top
+  //   unless `game.user.isGM`; a hook registered here does not need its own
+  //   guard against Foundry's every-client-receives-updateCombat behavior.
+  //
+  //   ACTOR SCOPE IS DELIBERATELY NOT CHARACTER-ONLY. Seam 1's ruling
+  //   (derived-data hooks are character-only — CharacterData.js consumes
+  //   them, ActorData.js does not) does NOT extend here: these are
+  //   lifecycle events, a different category, and the built-in consumers
+  //   they sit beside (Bleed, Regeneration, stun, blind) already fire for
+  //   NPCs and creatures exactly the same as for characters. Do not "fix"
+  //   this into consistency with the derived-data boundary later.
+  //
+  //   Inherited `allSpent` edge cases (unchanged, not this family's to
+  //   fix): a combatant whose actor has no `actionPoints.max` counts as
+  //   spent, so an all-such-actors combat satisfies `allSpent` every turn
+  //   change; defeated combatants are filtered out before the check, so a
+  //   round boundary can fire while a defeated combatant still holds AP.
+  //
+  //   A second, independent consuming module already reimplements this
+  //   exact boundary six separate times against Foundry's raw round/turn
+  //   counters rather than this system's own Mythras-round definition —
+  //   the same reimplementation-drift argument that motivated exposing
+  //   resolveOpposedRoll/resolveDifferential (seam 3).
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each is called once per active combatant at Mythras round boundary (all AP spent); may return a Promise, which is awaited. Receives (actor, combat) */
+  roundBoundaryHooks: [],
+
+  /** @type {Function[]} Each is called once for the combatant whose turn is starting; may return a Promise, which is awaited. Receives (actor, combat) — actor is the synthetic canvas-token actor */
+  turnStartedHooks: [],
+
+  // -----------------------------------------------------------------------
   // DAMAGE MODIFIER OFFSET HOOKS
   //   damageModOffsetHook : (actor) => number
   //   Called during prepareDerivedData when the Damage Modifier is resolved,
