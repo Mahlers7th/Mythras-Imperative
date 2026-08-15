@@ -24,7 +24,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - 687/687 tests green, lint clean (0 errors; 75 warnings, up from 73 — two new instances of this file's own pre-existing "caught-but-unused `err`" mirror-catch convention, not a new category of issue). Every touched file syntax-checked (`node --check`) before packaging.
   - `cfi-mechanics-survey.md`'s row 17 verdict, finding 3.4, and Summary tally all updated to match — 13 of 18 rows now HAVE, 3 genuinely open gaps remain (crit-chance multiplier, Sweeping Strike, Intensity/Magnitude), row 15 still `UNMAPPED`.
   - **Not part of this change**: any actual module-side consumer registering into either new family — this unblocks CFI's Maintaining-a-spell mechanic and a second module's six existing listeners migrating onto the system's own clock, but both are separate, module-repo work.
-- Not yet committed.
+- Committed as `4f65cb2`.
 
 ## v1.4.305 — August 2026
 - **Task 1 — three verdict corrections in `cfi-mechanics-survey.md`, from an independent re-verification pass against HEAD.** Rows 7, 11, and 14 (of the survey's 7 previously-remaining `GAP` rows) turned out wrong or stale:
