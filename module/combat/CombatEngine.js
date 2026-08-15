@@ -5165,6 +5165,32 @@ export class CombatEngine {
   }
 
   // -------------------------------------------------------------------------
+  // _getEffectiveReloadTime — Reload Time chokepoint
+  // (CONFIG.MYTHRAS.reloadTimeOffsetHooks)
+  //
+  // Mirrors _getEffectiveDamageModifier's shape exactly: a real, stored
+  // system base (weapon.system.load), offset by a signed, summed hook
+  // total, floored so a hook can never push reload time negative. With no
+  // hooks registered, returns the stored base unchanged.
+  //
+  // Sole consumer: CharacterSheet.js's reload handler. Not called from
+  // ActorData.js — NPC/creature actors don't drive the player-facing
+  // reload dialog this feeds.
+  //
+  // @param {Item} weapon
+  // @param {Actor} actor - the wielder
+  // @returns {number}
+  // -------------------------------------------------------------------------
+
+  static _getEffectiveReloadTime(weapon, actor) {
+    const base = weapon?.system?.load ?? 0;
+    const offset = sumHookContributions(
+      CONFIG.MYTHRAS?.reloadTimeOffsetHooks, [weapon, actor], { errorLabel: 'reloadTimeOffsetHook' }
+    ).total;
+    return Math.max(0, base + offset);
+  }
+
+  // -------------------------------------------------------------------------
   // Weapon derivation chokepoint — CONFIG.MYTHRAS.weaponDamageHooks / weaponForceHooks
   //
   // Every damage-formula build and every parry-size lookup in the engine goes

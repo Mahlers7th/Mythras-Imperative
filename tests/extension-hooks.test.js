@@ -2070,6 +2070,98 @@ describe('weaponForceHooks', () => {
 });
 
 // =============================================================================
+// reloadTimeOffsetHooks — CombatEngine._getEffectiveReloadTime
+//   Mirrors _getEffectiveDamageModifier's shape: a real stored base
+//   (weapon.system.load), offset by a signed, summed hook total, floored
+//   at 0 (no table to clamp against — load is a plain non-negative
+//   integer, not a fixed-order lookup like the DM/condition-grade
+//   families). sumHookContributions is imported for real above (line 28),
+//   so these tests exercise the real summation behaviour, not a second
+//   mirror of it — only the surrounding base+floor logic is mirrored here.
+// =============================================================================
+
+/** Mirror of CombatEngine._getEffectiveReloadTime. */
+function getEffectiveReloadTime(hooks, weapon, actor) {
+  const base = weapon?.system?.load ?? 0;
+  const offset = sumHookContributions(hooks, [weapon, actor], { errorLabel: 'reloadTimeOffsetHook' }).total;
+  return Math.max(0, base + offset);
+}
+
+function makeReloadWeapon(load = 0) {
+  return { system: { load } };
+}
+
+describe('reloadTimeOffsetHooks', () => {
+  test('no hooks registered: returns the stored base unchanged', () => {
+    const weapon = makeReloadWeapon(3);
+    expect(getEffectiveReloadTime([], weapon, makeActor())).toBe(3);
+    expect(getEffectiveReloadTime(undefined, weapon, makeActor())).toBe(3);
+  });
+
+  test('missing weapon or load field: base treated as 0', () => {
+    expect(getEffectiveReloadTime([], undefined, makeActor())).toBe(0);
+    expect(getEffectiveReloadTime([], { system: {} }, makeActor())).toBe(0);
+  });
+
+  test('a single hook offsets the base — negative shortens reload', () => {
+    const weapon = makeReloadWeapon(3);
+    const hook = () => -1;
+    expect(getEffectiveReloadTime([hook], weapon, makeActor())).toBe(2);
+  });
+
+  test('a single hook can lengthen reload too — positive is a valid contribution', () => {
+    const weapon = makeReloadWeapon(2);
+    const hook = () => 1;
+    expect(getEffectiveReloadTime([hook], weapon, makeActor())).toBe(3);
+  });
+
+  test('multiple hooks are summed, not last-wins or first-wins', () => {
+    const weapon = makeReloadWeapon(4);
+    // e.g. CFI Ranged Weapon Specialization (-1) + Grand Master ranged (-1)
+    const hooks = [() => -1, () => -1];
+    expect(getEffectiveReloadTime(hooks, weapon, makeActor())).toBe(2);
+  });
+
+  test('a hook driving the result below zero is clamped at 0, never negative', () => {
+    const weapon = makeReloadWeapon(1);
+    const hooks = [() => -5];
+    expect(getEffectiveReloadTime(hooks, weapon, makeActor())).toBe(0);
+  });
+
+  test('a throwing hook is isolated — does not break composition or other hooks', () => {
+    const weapon = makeReloadWeapon(3);
+    const hooks = [
+      () => { throw new Error('boom'); },
+      () => -1,
+    ];
+    expect(getEffectiveReloadTime(hooks, weapon, makeActor())).toBe(2);
+  });
+
+  test('non-numeric return contributes 0, does not throw', () => {
+    const weapon = makeReloadWeapon(3);
+    const hooks = [() => 'not-a-number', () => undefined];
+    expect(getEffectiveReloadTime(hooks, weapon, makeActor())).toBe(3);
+  });
+
+  test('hooks receive (weapon, actor), matching the documented contract', () => {
+    const weapon = makeReloadWeapon(2);
+    const actor  = makeActor();
+    const spy = makeSpy(() => 0);
+    getEffectiveReloadTime([spy], weapon, actor);
+    expect(spy.calls).toEqual([[weapon, actor]]);
+  });
+
+  test('idempotent: re-running against the same inputs yields the same result', () => {
+    const weapon = makeReloadWeapon(3);
+    const hooks = [() => -1];
+    const first  = getEffectiveReloadTime(hooks, weapon, makeActor());
+    const second = getEffectiveReloadTime(hooks, weapon, makeActor());
+    expect(first).toBe(second);
+    expect(second).toBe(2);
+  });
+});
+
+// =============================================================================
 // CombatEngine.resolveWardReduction — Ward Location (core rules p.39)
 //   "Any blow which lands on that [warded] location has its damage
 //   automatically downgraded as per normal for a parrying weapon of its

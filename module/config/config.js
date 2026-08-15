@@ -658,6 +658,52 @@ export const MYTHRAS = {
   weaponDamageModOffsetHooks: [],
 
   // -----------------------------------------------------------------------
+  // RELOAD TIME OFFSET HOOKS
+  //   reloadTimeOffsetHook : (weapon, actor) => number
+  //   Called from CombatEngine._getEffectiveReloadTime(weapon, actor), the
+  //   chokepoint for reload-time — mirrors _getEffectiveDamageModifier's
+  //   shape exactly: a real system-computed base (weapon.system.load,
+  //   "turns to load/reload"), offset by a signed, summed hook total,
+  //   floored at 0. Return a signed integer number of turns to shift the
+  //   weapon's stored `load` value (negative = faster, positive = slower).
+  //   Multiple hooks are summed. Consumed at exactly one call site,
+  //   CharacterSheet.js's reload handler — not prepareDerivedData, and not
+  //   read anywhere in ActorData.js (NPC/creature actors don't fire the
+  //   player-facing reload dialog this feeds).
+  //
+  //   Named *OffsetHooks per seam 1's own naming ruling (magicPointOffsetHooks
+  //   vs. powerPointsHooks): `load` is a real, non-zero system base this
+  //   family shifts, not a family whose hook sum IS the value — the
+  //   distinction that convention exists to make explicit.
+  //
+  //   Composes with Rapid Reload (an existing in-combat Special Effect that
+  //   PERMANENTLY decrements weapon.system.load itself, module/combat/
+  //   effects/simple.js) for free: Rapid Reload lowers the stored base,
+  //   this family's hooks offset whatever that base currently is — the two
+  //   mechanisms never double-apply because they operate on different
+  //   values (one mutates the stored field, the other shifts the read-time
+  //   result). A hook family that instead WROTE to weapon.system.load
+  //   directly would be unsafe for a passive-while-owned or per-activation
+  //   consumer — no revert path when a temporary bonus ends, and no way to
+  //   tell "Rapid Reload's own permanent reduction" apart from "a hook's
+  //   temporary one" once both are baked into the same stored number.
+  //
+  //   Whether Rapid Reload itself should migrate onto this same hook family
+  //   instead of its own destructive write is a real, separate question —
+  //   not decided or attempted here. A persistent Special Effect and a
+  //   passive ability arguably want the same underlying shape, but
+  //   migrating a shipped SE's mechanism is a behaviour-change batch with
+  //   its own ruling, not a side effect of adding this family.
+  //
+  //   Roll-time-adjacent, not prepareDerivedData — same purity contract as
+  //   weaponDamageModOffsetHooks/weaponForceHooks: no actor/item writes, no
+  //   PP spend, no chat output.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed turn-count offset to weapon.system.load, scoped to one weapon. Receives (weapon, actor) */
+  reloadTimeOffsetHooks: [],
+
+  // -----------------------------------------------------------------------
   // CONDITION GRADE HOOKS (seam 2, Step 4)
   //   conditionGradeHook : (actor, role) => number
   //   Called from module/utils/condition-grade.js's getConditionGrade,

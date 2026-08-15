@@ -691,7 +691,10 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }
       await CombatEngine._spendActionPoint(actor);
 
-      const load     = weapon.system.load ?? 0;
+      // reloadTimeOffsetHooks chokepoint — was weapon.system.load ?? 0.
+      // AP spend above and the <= 1 instant-reload floor below are both
+      // unchanged; only the base load value a hook can offset changes here.
+      const load     = CombatEngine._getEffectiveReloadTime(weapon, actor);
       const loadTime = load <= 1 ? 1 : load;
 
       if (loadTime <= 1) {
