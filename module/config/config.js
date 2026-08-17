@@ -243,15 +243,33 @@ export const MYTHRAS = {
   //   ÷2 (shield) / ÷3 (bludgeoning) knockback formula. Return a positive
   //   number to scale the input damage (e.g. 2 to double it); the default
   //   multiplier when no hook returns a positive finite number is 1 (no
-  //   change). Multiple hooks do NOT multiply together — confirmed wrong
-  //   against bash.js's actual loop (a doc/source sync pass, system
-  //   v1.4.278): each hook that returns a valid (finite, positive) result
-  //   OVERWRITES knockbackMultiplier via plain assignment, so the LAST such
-  //   hook in registration order wins, not a compounded product. The
-  //   expected pattern — like damageModOffsetHooks — is a single module hook
-  //   owning net resolution across whichever of its own powers/boosts apply;
-  //   two independent hooks both returning a multiplier will silently NOT
-  //   compose.
+  //   change).
+  //
+  //   COMBINATION: STRONGEST WINS. Contributions combine by Math.max — the
+  //   largest valid multiplier any hook returns is the one applied. Hooks do
+  //   NOT multiply together into a compounded product, and they do NOT
+  //   overwrite one another.
+  //
+  //   History, because this changed and the old behaviour was documented as
+  //   if intended: until v1.4.307 bash.js applied each valid result by plain
+  //   ASSIGNMENT, so the last-registered hook won. That was never a design
+  //   decision — a v1.4.278 doc/source sync pass found the docs claiming a
+  //   product, checked the loop, and rewrote the docs to match the code
+  //   instead of fixing it. The comment then advised "a single module hook
+  //   owning net resolution" as the expected pattern, but the only consuming
+  //   module had already registered three independent ones (an Enhanced
+  //   Strength charge at x3, a Large improvised weapon at x2, a Growth charge
+  //   at x2), which are not mutually exclusive. Two active at once meant one
+  //   was silently discarded — a hero could spend a x3 charge and receive x2
+  //   with no error and a chat card reporting it as correct. Max was chosen
+  //   over a product (Chris's ruling, Track 1 of the rules audit): nobody
+  //   loses an effect they paid for, and nothing becomes stronger than any
+  //   single source claims.
+  //
+  //   Consequence for consumers: independent hooks now compose safely. A
+  //   module no longer needs one hook resolving net effect across all its own
+  //   powers, though doing so is still valid — a single hook returning its
+  //   own max behaves identically.
   //   Read-time and pure: no actor/item writes, no chat output.
   //
   //   Added for Destined's Combat Expert "Improvised Weapon Expertise",

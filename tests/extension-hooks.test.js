@@ -3258,12 +3258,16 @@ describe('seEligibilityHooks', () => {
 // =============================================================================
 // bashKnockbackMultiplierHooks
 //   bashKnockbackMultiplierHook : (attacker, weapon) => number
-//   Mirrors the multiplier loop added to resolveBash (module/combat/
-//   effects/bash.js): default multiplier is 1; the LAST hook to return a
-//   finite, positive number wins (hooks are not first-wins or additive —
-//   each valid result simply overwrites the running multiplier, matching
-//   the real loop's plain `for` construction). Non-finite/non-positive
-//   results are ignored and a throwing hook is caught and logged.
+//   Mirrors the multiplier loop in resolveBash (module/combat/effects/
+//   bash.js): default multiplier is 1; contributions combine by Math.max —
+//   STRONGEST WINS. Hooks are not additive, not a product, and not
+//   order-dependent. Non-finite/non-positive results are ignored and a
+//   throwing hook is caught and logged.
+//
+//   Changed in v1.4.307 (was last-registered-wins, by plain assignment).
+//   The old behaviour silently discarded a contribution whenever two hooks
+//   were simultaneously valid — see the order-independence test below, which
+//   is the regression guard for that bug.
 // =============================================================================
 
 /** Mirror of resolveBash's knockbackMultiplier loop. */
@@ -3272,7 +3276,9 @@ function resolveKnockbackMultiplier(attacker, weapon, hooks) {
   for (const hook of (hooks ?? [])) {
     try {
       const result = hook(attacker, weapon);
-      if (Number.isFinite(result) && result > 0) multiplier = result;
+      if (Number.isFinite(result) && result > 0) {
+        multiplier = Math.max(multiplier, result);
+      }
     } catch (err) { /* swallowed in production via console.error */ }
   }
   return multiplier;
@@ -3295,9 +3301,28 @@ describe('bashKnockbackMultiplierHooks', () => {
     expect(resolveKnockbackMultiplier({}, {}, [() => undefined])).toBe(1);
   });
 
-  test('the last valid hook wins (not first-wins, not additive)', () => {
-    const hooks = [() => 2, () => 3];
+  test('the strongest valid hook wins (not first-wins, not additive)', () => {
+    expect(resolveKnockbackMultiplier({}, {}, [() => 2, () => 3])).toBe(3);
+  });
+
+  // Regression guard for the v1.4.307 bug: under the old plain-assignment
+  // loop this returned 2, silently discarding the x3 contribution purely
+  // because it was registered first. Destined registers three independent,
+  // non-exclusive consumers (Enhanced Strength Clobber x3, improvised weapon
+  // x2, Growth Swat x2), so overlap is reachable in normal play.
+  test('registration order does not affect the result', () => {
+    expect(resolveKnockbackMultiplier({}, {}, [() => 3, () => 2])).toBe(3);
+    expect(resolveKnockbackMultiplier({}, {}, [() => 2, () => 3])).toBe(3);
+  });
+
+  test('three simultaneously active hooks yield the largest, not the last', () => {
+    const hooks = [() => 3, () => 2, () => 2];
     expect(resolveKnockbackMultiplier({}, {}, hooks)).toBe(3);
+  });
+
+  test('hooks do not compound into a product', () => {
+    const hooks = [() => 2, () => 3];
+    expect(resolveKnockbackMultiplier({}, {}, hooks)).not.toBe(6);
   });
 
   test('an invalid later result does not reset a valid earlier one', () => {

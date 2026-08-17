@@ -48,11 +48,24 @@ export async function resolveBash(ctx) {
   // Multiplier hooks (e.g. Destined's Improvised Weapon Expertise doubles
   // knockback for a Large-or-larger improvised weapon) — non-finite/
   // non-positive results are ignored, default multiplier is 1.
+  //
+  // STRONGEST WINS (v1.4.307, was last-registered-wins). Contributions combine
+  // by Math.max, not by plain assignment and not by a product. Three consumers
+  // are registered simultaneously by one module today (an Enhanced Strength
+  // charge at x3, a Large improvised weapon at x2, a Growth charge at x2) and
+  // they are independent powers with no exclusivity between them — under the
+  // old assignment the last-registered hook silently overwrote the others, so
+  // a hero who spent a x3 charge could receive x2 with no error and a chat
+  // card that reported it as correct. Max was chosen over a product (Chris's
+  // ruling): nobody loses an effect they paid for, and nothing becomes
+  // unexpectedly stronger than any single source claims.
   let knockbackMultiplier = 1;
   for (const hook of (CONFIG.MYTHRAS?.bashKnockbackMultiplierHooks ?? [])) {
     try {
       const result = hook(attacker, weapon);
-      if (Number.isFinite(result) && result > 0) knockbackMultiplier = result;
+      if (Number.isFinite(result) && result > 0) {
+        knockbackMultiplier = Math.max(knockbackMultiplier, result);
+      }
     } catch (err) {
       console.error('Mythras Imperative | bashKnockbackMultiplierHooks: hook threw', err);
     }
