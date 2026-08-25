@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Nothing tested this.** Added five mirror-style tests in `tests/extension-hooks.test.js` covering the rulebook worked example, round-up behaviour, exact multiples, and an explicit guard asserting that `floor` would have given a different answer for eight of the values in the common range.
 - **Doc fix, `mythras.mjs`:** the `game.system.api` block comment still claimed `combat-math.js` carries a duplicate `determineOutcome` pending dedup, and pointed at a known-issues entry for it. The dedup has already landed — `combat-math.js:20` re-exports the canonical `roll-math.js` function and holds no second copy. Corrected in place, with the history kept, so the next reader does not go looking for a duplicate that no longer exists.
 - 695 tests pass (9 suites), up from 690.
-- Not yet committed
+- Committed as `32e7075`
 
 ## v1.4.308 — August 2026
 - **Fixed: clicking an actor portrait or item image did nothing — no FilePicker, no error.** Every actor/item template carried `data-edit="img"` (the field the click handler edits) but never `data-action="editImage"` (what actually triggers the click, in ApplicationV2). `ActorSheetV2`/`ItemSheetV2` already register `editImage` in their inherited `DEFAULT_OPTIONS.actions` for free — confirmed by reading core Foundry's own `document-sheet.mjs` — so no JS changes were needed, only the missing attribute. All 12 templates carrying `data-edit="img"` (3 actor sheets, 9 item sheets) fixed the same way.
