@@ -318,7 +318,19 @@ export class PassionData extends foundry.abstract.TypeDataModel {
     return this.target ? `${this.verb} (${this.target})` : this.verb;
   }
 
-  /** Augmentation bonus: 20% of passion total, rounded up */
+  /**
+   * Augmentation bonus: 20% of the passion's total, rounded up.
+   *
+   * Rounding up is the rulebook's general convention for fractional results,
+   * and the augmentation rule's own worked example confirms it (a Locale of
+   * 33% augments by 7%, not 6%).
+   *
+   * THE single source for this number -- every consumer reads it rather than
+   * recomputing. Until v1.4.309 this getter had no callers at all while
+   * MythrasRoll.js carried four separate inline copies of the arithmetic,
+   * three of which floored: the passion dropdown offered "+6%", the roll
+   * resolved against +6%, and the resulting chat card then reported "+7%".
+   */
   get augmentBonus() {
     return Math.ceil(this.total * 0.2);
   }

@@ -57,11 +57,14 @@ export class MythrasRoll {
       ? `<div class="mi-dialog-fatigue-note"><i class="fas fa-exclamation-triangle"></i> ${condNotesStr} difficulty applied</div>`
       : '';
 
-    // Passion augment — 20% of passion value, floor
+    // Passion augment — PassionData#augmentBonus (20% of the passion, rounded
+    // up). Sourced from the getter rather than recomputed: this file used to
+    // carry four separate copies of the arithmetic and three of them floored,
+    // so the dropdown and the roll disagreed with the chat card by a point.
     const eligiblePassions = passions.filter(p => p.id !== item.id);
     const passionOptions = eligiblePassions.map(p => {
       const name    = `${p.system.verb}${p.system.target ? ` (${p.system.target})` : ''}`;
-      const augment = Math.floor(p.system.total * 0.20);
+      const augment = p.system.augmentBonus;
       return `<option value="${p.id}" data-augment="${augment}">${name} (+${augment}%)</option>`;
     }).join('');
 
@@ -125,7 +128,7 @@ export class MythrasRoll {
             const diff    = html.find('#mi-difficulty').val();
             const pid     = html.find('#mi-passion').val() || '';
             const passion = eligiblePassions.find(p => p.id === pid);
-            const augment = passion ? Math.floor(passion.system.total * 0.20) : 0;
+            const augment = passion ? passion.system.augmentBonus : 0;
             // Worst of chosen difficulty and the active condition floor
             const chosenIdx  = gradeOrder.indexOf(diff);
             const worstIdx   = Math.max(chosenIdx, floorIdx);
@@ -161,8 +164,8 @@ export class MythrasRoll {
       return MythrasRoll._postResult({ actor, item, skillName, roll: null, target: 0, outcome: 'failure', difficulty, modifier, passion });
     }
 
-    // Passion augment: 20% of passion value (floor), per rules
-    const augment       = passion ? Math.floor(passion.system.total * 0.20) : 0;
+    // Passion augment: PassionData#augmentBonus — 20% rounded up, per rules
+    const augment       = passion ? passion.system.augmentBonus : 0;
     const adjustedSkill = skillTotal + modifier + augment;
 
     // Apply chosen difficulty grade
@@ -232,7 +235,7 @@ export class MythrasRoll {
     if (modifier !== 0) details.push(`${modifier > 0 ? '+' : ''}${modifier}%`);
     if (passion) {
       const pName  = `${passion.system.verb}${passion.system.target ? ` (${passion.system.target})` : ''}`;
-      const pBonus = Math.ceil(passion.system.total * 0.2);
+      const pBonus = passion.system.augmentBonus;
       details.push(`${pName} +${pBonus}%`);
     }
     const detailHtml = details.length

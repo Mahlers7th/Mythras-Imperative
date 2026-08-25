@@ -3563,3 +3563,54 @@ describe('game.system.api.explainHookSum', () => {
     }
   });
 });
+
+// =============================================================================
+// PassionData#augmentBonus  (module/data/ItemData.js)
+//   Skill Augmentation: the augmenting skill adds 20% of its own value to the
+//   primary skill, ROUNDED UP -- the rulebook rounds fractional results up as
+//   a general rule, and the augmentation example is explicit (Locale 33%
+//   augments Ride by 7%, not 6%).
+//
+//   Mirrored rather than imported: the getter lives on a TypeDataModel, which
+//   will not construct under this suite's minimal Foundry mocks. Added in
+//   v1.4.309 alongside the fix that routed MythrasRoll.js's four inline copies
+//   through the getter -- three of them floored, so the passion dropdown and
+//   the roll disagreed with the chat card by a point. Nothing tested this.
+// =============================================================================
+
+/** Mirror of PassionData#augmentBonus. */
+function augmentBonus(total) {
+  return Math.ceil(total * 0.2);
+}
+
+describe('PassionData#augmentBonus', () => {
+  test('the rulebook worked example: 33% augments by 7%, not 6%', () => {
+    expect(augmentBonus(33)).toBe(7);
+  });
+
+  test('rounds up, never down', () => {
+    expect(augmentBonus(31)).toBe(7);   // 6.2
+    expect(augmentBonus(34)).toBe(7);   // 6.8
+    expect(augmentBonus(36)).toBe(8);   // 7.2
+    expect(augmentBonus(41)).toBe(9);   // 8.2
+  });
+
+  test('exact multiples of five are not rounded up past themselves', () => {
+    expect(augmentBonus(30)).toBe(6);
+    expect(augmentBonus(50)).toBe(10);
+    expect(augmentBonus(65)).toBe(13);
+  });
+
+  test('floor would have given a different answer for most values', () => {
+    // The regression this guards: three call sites used Math.floor.
+    const differ = [31, 32, 33, 34, 36, 37, 38, 39]
+      .filter(t => Math.floor(t * 0.2) !== augmentBonus(t));
+    expect(differ).toHaveLength(8);
+  });
+
+  test('zero and small values stay sane', () => {
+    expect(augmentBonus(0)).toBe(0);
+    expect(augmentBonus(1)).toBe(1);
+    expect(augmentBonus(5)).toBe(1);
+  });
+});

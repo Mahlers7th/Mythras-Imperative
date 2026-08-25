@@ -499,10 +499,13 @@ Hooks.once('ready', () => {
   // once module-side before this promotion (Destined's roll-gating-prompt-v2
   // batch, v1.9.54, which reached in via a hardcoded relative import before
   // this contract existed). Pure functions and a frozen constant -- no
-  // state, safe to expose. combat-math.js's determineOutcome is a duplicate
-  // of this one (not exposed here; roll-math.js is the canonical home) --
-  // see the system's own known-issues for that dedup, separate from this
-  // batch.
+  // state, safe to expose. combat-math.js does NOT carry a second copy: it
+  // re-exports this very function from roll-math.js, the canonical home
+  // (combat-math.js:20). It once held a byte-identical duplicate -- both
+  // copies independently missing the rules p.18 floor/ceiling until that was
+  // found and fixed -- but the dedup has landed. This comment previously
+  // still described the duplicate as outstanding and pointed at a
+  // known-issues entry for it; corrected v1.4.309.
   //
   // resolveOpposedRoll/resolveDifferential (v1.4.296+, combat-math.js): the
   // opposed-SE-roll system's own pure adjudicators (four numbers/two outcome
