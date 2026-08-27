@@ -1,0 +1,157 @@
+name: Release
+
+# Publishes an installable Foundry package whenever system.json's version
+# changes on master.
+#
+# Why this exists: the compendium packs are LevelDB, built from _source/ by
+# `npm run pack`, and deliberately git-ignored (see .gitignore) — LevelDB is
+# binary, is rewritten wholesale on every build, and produces different bytes
+# from identical source, so it does not belong in history. That left the repo
+# in a state where a user who found it could not install the system at all:
+# system.json carried no manifest/download URLs, and a manual clone yielded
+# twelve empty compendiums.
+#
+# The fix is to build the packs here, on CI, and ship them inside the release
+# zip. `npm` therefore runs on this runner and never on a user's machine —
+# installing is one pasted manifest URL, and Foundry handles updates from then
+# on.
+#
+# Trigger is a version CHANGE, not a tag, because the version bump already
+# happens in the release commit itself (see CHANGELOG.md's convention). There
+# is nothing extra to remember.
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'system.json'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need the previous commit to diff the version
+
+      - name: Determine whether the version changed
+        id: check
+        run: |
+          VERSION=$(node -p "require('./system.json').version")
+          # First commit on a fresh branch has no parent to compare against.
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            PREV=$(git show HEAD~1:system.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || echo "none")
+          else
+            PREV="none"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if [ "$VERSION" = "$PREV" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "system.json touched but version is unchanged ($VERSION) — nothing to release."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version $PREV -> $VERSION"
+          fi
+
+      - name: Stop if this release already exists
+        if: steps.check.outputs.changed == 'true'
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v${{ steps.check.outputs.version }}" >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.check.outputs.version }} already exists — skipping."
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: npm ci
+
+      # Guard the release, not just the repo. A broken build must not become an
+      # installable package that Foundry then offers people as an update.
+      - name: Test and lint
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: |
+          npm test
+          npm run lint
+
+      - name: Build compendium packs
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: npm run pack
+
+      - name: Verify the packs are actually populated
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: |
+          # An empty-compendium release is the exact failure this workflow
+          # exists to prevent, so assert it rather than trusting the build.
+          node -e "
+            const fs = require('fs');
+            const packs = require('./system.json').packs;
+            const empty = packs.filter(p => {
+              if (!fs.existsSync(p.path)) return true;
+              return !fs.readdirSync(p.path).some(f => f.endsWith('.ldb') || f.endsWith('.log'));
+            }).map(p => p.name);
+            if (empty.length) {
+              console.error('Refusing to release — these packs built empty: ' + empty.join(', '));
+              process.exit(1);
+            }
+            console.log(packs.length + ' packs built and non-empty.');
+          "
+
+      - name: Point the manifest at this release
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: |
+          # `manifest` must be a STABLE url that always serves the newest
+          # system.json — it is what Foundry re-checks for updates. `download`
+          # must be pinned to THIS version's zip, so installing an older
+          # release gets that release's files rather than the latest ones.
+          node -e "
+            const fs = require('fs');
+            const s = JSON.parse(fs.readFileSync('system.json', 'utf8'));
+            const repo = '${{ github.repository }}';
+            s.url      = 'https://github.com/' + repo;
+            s.manifest = 'https://github.com/' + repo + '/releases/latest/download/system.json';
+            s.download = 'https://github.com/' + repo + '/releases/download/v' + s.version + '/mythras-imperative.zip';
+            fs.writeFileSync('system.json', JSON.stringify(s, null, 2) + '\n');
+            console.log('manifest: ' + s.manifest);
+            console.log('download: ' + s.download);
+          "
+
+      - name: Build the package zip
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        run: |
+          # Foundry expects system.json at the ZIP ROOT. Ship only what the
+          # system needs at runtime: no _source (the YAML the packs are built
+          # from), no tests, no working notes, no toolchain.
+          zip -r mythras-imperative.zip \
+            system.json template.json frozen-api.json mythras.mjs \
+            module styles templates lang packs assets macros \
+            README.md LEGAL.md LICENCE.txt CHANGELOG.md \
+            -x '*.git*'
+          unzip -l mythras-imperative.zip | tail -3
+
+      - name: Publish the release
+        if: steps.check.outputs.changed == 'true' && steps.exists.outputs.already == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.check.outputs.version }}" \
+            --title "v${{ steps.check.outputs.version }}" \
+            --notes "Install or update in Foundry with this manifest URL:
+
+          \`https://github.com/${{ github.repository }}/releases/latest/download/system.json\`
+
+          See CHANGELOG.md for what changed in this version." \
+            mythras-imperative.zip system.json

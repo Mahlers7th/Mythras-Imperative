@@ -2,7 +2,7 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.309",
+  "version": "1.4.310",
   "compatibility": {
     "minimum": "14",
     "verified": "14",
@@ -124,7 +124,7 @@
     }
   ],
   "socket": true,
-  "url": "",
-  "manifest": "",
-  "download": ""
+  "url": "https://github.com/Mahlers7th/Mythras-Imperative",
+  "manifest": "https://github.com/Mahlers7th/Mythras-Imperative/releases/latest/download/system.json",
+  "download": "https://github.com/Mahlers7th/Mythras-Imperative/releases/latest/download/mythras-imperative.zip"
 }
