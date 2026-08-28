@@ -19,7 +19,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **`manifest` and `download` do different jobs and are set accordingly.** `manifest` is a stable `releases/latest/download/system.json` URL — it is what Foundry re-checks for updates and must never be version-pinned. The **release asset's** `download` is pinned by the workflow to that exact version's zip, so installing an older release gets that release's files rather than the newest ones. The **committed** `system.json` instead points `download` at `releases/latest/...`, so it is never stale for a human reader or for anyone who installs by pasting the raw `system.json` URL.
 - **Install URL**, for the README and for anyone asking: `https://github.com/Mahlers7th/Mythras-Imperative/releases/latest/download/system.json`
 - No runtime code changed — this release is packaging only. 695/695 tests pass (9 suites), lint clean (0 errors, 75 pre-existing warnings).
-- Not yet committed
+- Committed as `b94d405`
 
 ## v1.4.309 — August 2026
 - **Passion augmentation was rounded three different ways, and the chat card contradicted the roll.** Skill Augmentation adds 20% of the augmenting passion to the primary skill. `MythrasRoll.js` carried **four** separate inline copies of that arithmetic: the passion dropdown label (`:64`), the dialog's live DOM recompute of the target (`:128`) and the roll execution itself (`:165`) all used `Math.floor`, while the chat card's detail pill (`:235`) used `Math.ceil`. So a player augmenting with a 33% passion was offered **"+6%"** in the dropdown, rolled against a target built with **+6%**, and then read **"+7%"** on the resulting card. Visible in normal play, in a single interaction.
