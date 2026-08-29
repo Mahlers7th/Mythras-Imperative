@@ -26,6 +26,10 @@ import { weaponBaseMax } from '../module/utils/combat-math.js';
 // modifier-bus.test.js — imported for real so explainHookSum's own tests
 // below exercise the real summation behavior, not a second mirror of it.
 import { sumHookContributions } from '../module/utils/modifier-bus.js';
+// skill-math is pure and fully tested in skill-math.test.js — imported for
+// real so the skillBonusHooks mirror below exercises the actual total
+// arithmetic, and only the Foundry-coupled LOOP is mirrored.
+import { computeSkillTotal, SKILL_ITEM_TYPES } from '../module/utils/skill-math.js';
 // fs/path/fileURLToPath — for magicPointOffsetHooks' text-level
 // character-only-boundary regression guard, same ESM pattern
 // frozen-api.test.js already uses (this project's Jest setup has no
@@ -3612,5 +3616,186 @@ describe('PassionData#augmentBonus', () => {
     expect(augmentBonus(0)).toBe(0);
     expect(augmentBonus(1)).toBe(1);
     expect(augmentBonus(5)).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// skillBonusHooks  (v1.4.311)
+//
+// Mirror of deriveSkillTotals (module/data/ActorData.js), which is the single
+// consumption point and is Foundry-coupled (reads CONFIG, iterates
+// actor.items, writes onto the TypeDataModel proxy). computeSkillTotal and
+// sumHookContributions are imported for real, so what is mirrored here is the
+// LOOP and its two contracts — where storedTotal comes from, and that nothing
+// is persisted.
+//
+// If deriveSkillTotals changes, update this mirror to match.
+// ---------------------------------------------------------------------------
+
+/** Mirror of deriveSkillTotals' per-item loop. */
+function applySkillBonusHooks(hooks, actor, chars) {
+  for (const item of actor.items) {
+    if (!SKILL_ITEM_TYPES.includes(item.type)) continue;
+    const sys = item.system;
+    const { total: hookSum } = sumHookContributions(hooks, [actor, item], { errorLabel: 'skillBonusHook' });
+    const { baseValue, total } = computeSkillTotal({
+      baseFormula: sys.baseFormula,
+      // _source, never sys.total — see the call site's own comment.
+      storedTotal: item._source?.system?.total ?? 0,
+      bonusPoints: sys.bonusPoints ?? 0,
+      chars,
+      hookSum
+    });
+    sys.baseValue = baseValue;
+    sys.total     = total;
+  }
+  return actor;
+}
+
+/** Build a fake owned item with a source/derived split, as Foundry has. */
+function makeSkillItem({ id = 'i1', type = 'skill', name = 'Brawn', baseFormula = 'STR+SIZ', bonusPoints = 0, storedTotal = 0, category = 'standard' } = {}) {
+  return {
+    id, type, name,
+    _source: { system: { baseFormula, bonusPoints, total: storedTotal } },
+    system:  { baseFormula, bonusPoints, total: storedTotal, baseValue: 0, category }
+  };
+}
+
+const SKILL_CHARS = { STR: 12, CON: 11, SIZ: 13, DEX: 14, INT: 15, POW: 10, CHA: 9 };
+
+describe('skillBonusHooks', () => {
+  test('no hooks registered is a true no-op: base formula + bonusPoints, unchanged', () => {
+    const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+    applySkillBonusHooks([], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(45);      // (12+13) + 20
+    expect(actor.items[0].system.baseValue).toBe(25);
+  });
+
+  test('a single hook adds its contribution', () => {
+    const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(50);
+  });
+
+  test('multiple hooks are SUMMED, not first-wins or last-wins', () => {
+    const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+    applySkillBonusHooks([() => 5, () => 10, () => 1], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(61);      // 45 + 16
+  });
+
+  test('registration order does not affect the result', () => {
+    // The regression guard v1.4.307 established, after bashKnockbackMultiplier
+    // turned out to be last-registered-wins by plain assignment.
+    const run = hooks => {
+      const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+      applySkillBonusHooks(hooks, actor, SKILL_CHARS);
+      return actor.items[0].system.total;
+    };
+    const a = () => 5, b = () => 10, c = () => 1;
+    expect(run([a, b, c])).toBe(run([c, b, a]));
+    expect(run([b, a, c])).toBe(run([a, c, b]));
+  });
+
+  test('a throwing hook is isolated — the others still land', () => {
+    const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+    const boom = () => { throw new Error('module bug'); };
+    applySkillBonusHooks([() => 5, boom, () => 10], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(60);      // 45 + 15, boom contributes 0
+  });
+
+  test('a non-numeric return contributes 0 rather than NaN', () => {
+    const actor = { items: [makeSkillItem({ bonusPoints: 20 })] };
+    applySkillBonusHooks([() => 'lots', () => undefined, () => 5], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(50);
+  });
+
+  test('the hook receives the actor and the ITEM, not a skill name', () => {
+    // The design choice that lets a consumer tell Combat Style (Fighter) from
+    // Combat Style (Thief), and express "all professional skills" itself.
+    const seen = [];
+    const actor = { items: [makeSkillItem({ name: 'Combat Style (Fighter)', type: 'combat-style' })] };
+    applySkillBonusHooks([(a, item) => { seen.push([a, item]); return 0; }], actor, SKILL_CHARS);
+    expect(seen).toHaveLength(1);
+    expect(seen[0][0]).toBe(actor);
+    expect(seen[0][1]).toBe(actor.items[0]);
+    expect(seen[0][1].name).toBe('Combat Style (Fighter)');
+    expect(seen[0][1].type).toBe('combat-style');
+  });
+
+  test('a consumer can discriminate by category — predicate scope needs no extra machinery', () => {
+    const actor = { items: [
+      makeSkillItem({ id: 'a', name: 'Brawn',       category: 'standard'     }),
+      makeSkillItem({ id: 'b', name: 'Engineering', category: 'professional' })
+    ] };
+    applySkillBonusHooks([(a, item) => item.system.category === 'professional' ? 10 : 0], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(25);      // standard, untouched
+    expect(actor.items[1].system.total).toBe(35);      // professional, +10
+  });
+
+  test('Classic Fantasy Combat Proficiency: +5% to Combat Style AND Unarmed, nothing else', () => {
+    // cf p50 as revised uc p17. The published mechanic this seam was built for.
+    const actor = { items: [
+      makeSkillItem({ id: 'a', name: 'Combat Style (Fighter)', type: 'combat-style' }),
+      makeSkillItem({ id: 'b', name: 'Unarmed' }),
+      makeSkillItem({ id: 'c', name: 'Athletics' })
+    ] };
+    const combatProficiency = (a, item) =>
+      (item.type === 'combat-style' || item.name === 'Unarmed') ? 5 : 0;
+    applySkillBonusHooks([combatProficiency], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(30);
+    expect(actor.items[1].system.total).toBe(30);
+    expect(actor.items[2].system.total).toBe(25);
+  });
+
+  test('non-skill items on the actor are skipped entirely', () => {
+    const weapon = { id: 'w', type: 'weapon', _source: { system: {} }, system: { total: 999 } };
+    const actor = { items: [weapon, makeSkillItem()] };
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    expect(weapon.system.total).toBe(999);             // untouched
+  });
+
+  test('statblock item (no baseFormula) keeps its stored total and still takes the hook', () => {
+    const actor = { items: [makeSkillItem({ baseFormula: '', storedTotal: 80 })] };
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(85);
+  });
+
+  test('DERIVATION IS IDEMPOTENT — repeated passes do not accumulate', () => {
+    // The trap this guards: reading storedTotal back off `sys.total` (which
+    // the previous pass just overwrote) instead of off `_source` would re-add
+    // the hook sum every prepare and the number would climb without bound.
+    // Same accumulation trap powerPointsHooks' call site documents for `+=`.
+    const actor = { items: [makeSkillItem({ baseFormula: '', storedTotal: 80 })] };
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(85);      // not 90, not 95
+  });
+
+  test('NOTHING IS PERSISTED — _source is untouched after derivation', () => {
+    // The contract that makes this seam safe at all. If a contribution were
+    // written to stored data, uninstalling a module would leave every affected
+    // skill permanently inflated with no record of why. See
+    // skill-bonus-seam-design.md section 1a. Do not delete this test.
+    const actor = { items: [makeSkillItem({ bonusPoints: 20, storedTotal: 45 })] };
+    applySkillBonusHooks([() => 5], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(50);          // derived, with hook
+    expect(actor.items[0]._source.system.total).toBe(45);  // stored, without
+    expect(actor.items[0]._source.system.bonusPoints).toBe(20);
+  });
+
+  test('a bonused passion augments harder — the documented knock-on', () => {
+    // PassionData#augmentBonus is ceil(total * 0.2) and derives from `total`,
+    // so a hook that raises a passion also raises what it augments for.
+    const actor = { items: [makeSkillItem({ type: 'passion', baseFormula: '', storedTotal: 33 })] };
+    const augment = t => Math.ceil(t * 0.2);
+    expect(augment(actor.items[0].system.total)).toBe(7);   // the rulebook's worked example
+    applySkillBonusHooks([() => 7], actor, SKILL_CHARS);
+    expect(actor.items[0].system.total).toBe(40);
+    expect(augment(actor.items[0].system.total)).toBe(8);
+  });
+
+  test('an actor with no items does not throw', () => {
+    expect(() => applySkillBonusHooks([() => 5], { items: [] }, SKILL_CHARS)).not.toThrow();
   });
 });

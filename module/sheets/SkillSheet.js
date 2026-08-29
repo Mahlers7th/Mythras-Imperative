@@ -34,26 +34,17 @@ export class SkillSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // Convert TypeDataModel proxy to a plain object Handlebars can read
     const system  = item.system.toObject ? item.system.toObject() : { ...item.system };
 
-    // Compute live total if this skill belongs to an actor
-    let liveBase  = system.baseValue ?? 0;
-    let liveTotal = system.total ?? 0;
-
-    if (item.actor) {
-      const formula = system.baseFormula ?? '';
-      if (!formula) {
-        // No formula — stored total is authoritative (e.g. MEG-imported creature skills)
-        liveBase  = system.total ?? 0;
-        liveTotal = system.total ?? 0;
-      } else {
-        const c = item.actor.system.characteristics;
-        const chars = {
-          STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-          DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-        };
-        liveBase  = this._evalFormula(formula, chars);
-        liveTotal = liveBase + (system.bonusPoints ?? 0);
-      }
-    }
+    // An owned item's percentage is derived by its ACTOR, in
+    // prepareDerivedData (deriveSkillTotals, ActorData.js), including any
+    // skillBonusHooks contribution. Read the live TypeDataModel here, NOT the
+    // `system` snapshot above: `toObject()` returns SOURCE data, so
+    // `system.total` is the persisted value and would show a hook-less number
+    // on the one sheet whose entire job is displaying that number.
+    //
+    // A world item with no actor has no characteristics to derive against, so
+    // its stored values stand — same as before.
+    const liveBase  = item.actor ? (item.system.baseValue ?? 0) : (system.baseValue ?? 0);
+    const liveTotal = item.actor ? (item.system.total ?? 0)     : (system.total ?? 0);
 
     return {
       ...context,
@@ -67,17 +58,10 @@ export class SkillSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     };
   }
 
-  _evalFormula(formula, chars) {
-    if (!formula) return 0;
-    let f = formula.replace(/×/g, '*');
-    for (const [k, v] of Object.entries(chars)) {
-      f = f.replace(new RegExp(`\\b${k}\\b`, 'gi'), v);
-    }
-    try {
-      if (/^[\d\s+\-*/().]+$/.test(f)) return Math.floor(Function('"use strict";return(' + f + ')')());
-    } catch(e) { /* ignore */ }
-    return 0;
-  }
+  // _evalFormula removed in v1.4.311 — it was one of three byte-identical
+  // copies. The single definition is evalSkillFormula in utils/skill-math.js,
+  // and this sheet no longer evaluates anything: it reads the total its actor
+  // derived.
 
   _onRender(context, options) {
     // Nothing extra needed — form submitOnChange handles all edits

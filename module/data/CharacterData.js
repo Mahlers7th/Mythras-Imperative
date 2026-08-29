@@ -6,7 +6,7 @@
  */
 
 import { sumHookContributions } from '../utils/modifier-bus.js';
-import { applyCharacteristicDrain } from './ActorData.js';
+import { applyCharacteristicDrain, deriveSkillTotals } from './ActorData.js';
 
 const { fields } = foundry.data;
 
@@ -334,6 +334,12 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
 
     // Derive hit location HP from CON+SIZ
     this._calcHitLocationHP(con, siz);
+
+    // Skill / combat-style / passion percentages, and skillBonusHooks. Last,
+    // after characteristicBonusHooks and Characteristic Drain have settled
+    // `c` — a base formula reads those values, so anything that moves STR
+    // must move Brawn with it. See deriveSkillTotals in ActorData.js.
+    deriveSkillTotals(c, this.parent);
   }
 
   _calcDamageModifier(strSiz) {

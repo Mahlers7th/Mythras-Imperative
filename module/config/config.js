@@ -593,6 +593,67 @@ export const MYTHRAS = {
   magicPointOffsetHooks: [],
 
   // -----------------------------------------------------------------------
+  // SKILL BONUS HOOKS
+  //   skillBonusHook : (actor, skillItem) => number
+  //   Called during prepareDerivedData, once per skill / combat-style /
+  //   passion item on the actor, to contribute a flat percentage to that
+  //   item's derived `system.total`. Contributions are SUMMED. Read-time and
+  //   idempotent — must not mutate the actor or the item, must be
+  //   synchronous, and is safe to run every derivation pass.
+  //
+  //   THE HOOK RECEIVES THE ITEM DOCUMENT, NOT A SKILL NAME, and that is the
+  //   load-bearing choice in this family. A name string cannot distinguish
+  //   Combat Style (Fighter) from Combat Style (Thief) — which Classic
+  //   Fantasy's Weapon Specialisation requires — and cannot express a rule
+  //   that applies to a CATEGORY of skills. With the item in hand a consumer
+  //   reads `type` ('skill' | 'combat-style' | 'passion'), `system.category`
+  //   ('standard' | 'professional'), the name, or the base formula, and
+  //   decides for itself. So "every professional skill" or "anything
+  //   DEX-based" needs no extra machinery HERE; predicate scope is a problem
+  //   for the node editor's UI vocabulary, not for this seam.
+  //
+  //   PASSIONS ARE INCLUDED DELIBERATELY. CharacterSheet._calcSkillTotals has
+  //   always derived them in the same loop as skills, and
+  //   PassionData#augmentBonus derives from `total` — so bonusing a passion
+  //   also raises what it augments for. That is intended, not a leak.
+  //
+  //   NEGATIVE CONTRIBUTIONS ARE LEGAL (cursed items, encumbrance penalties).
+  //   The composed result floors at 0 at the call site, matching how every
+  //   other additive family keeps its own surrounding math outside the bus.
+  //
+  //   Consumed via the shared derivation in ActorData.js's deriveSkillTotals,
+  //   called by CharacterData, NPCData and CreatureData alike — unlike
+  //   magicPointOffsetHooks above, this family is NOT character-only, because
+  //   an NPC or creature with a class ability or a cursed item has the same
+  //   claim on it and all three share one code path.
+  //
+  //   Added for Classic Fantasy's Fighter (Combat Proficiency +5% Combat
+  //   Style and Unarmed; Weapon Specialisation +10%), and because Destined
+  //   already hand-rolled its own version in the absence of a seam —
+  //   destined-module.js's DESTINED_SKILL_BONUSES bakes Native Language 40 /
+  //   Streetwise 20 straight into `bonusPoints` at actor-creation time, a
+  //   one-shot write with no way to revert or explain it.
+  //
+  //   WHY THIS IS NOT WRITE-TIME, unlike hitPointBonusHooks: a skill total is
+  //   derived fresh every pass and never persisted. Summing hooks into a
+  //   stored field would bake module contributions into the character's saved
+  //   data, so uninstalling a module would leave every affected skill
+  //   permanently inflated with nothing recording why — at roughly sixty
+  //   items per character. See skill-bonus-seam-design.md §1a.
+  // -----------------------------------------------------------------------
+
+  /**
+   * @callback SkillBonusHook
+   * @param {Actor} actor
+   * @param {Item} skillItem - the 'skill', 'combat-style' or 'passion' item
+   * @returns {number} flat percentage contribution. Summed across hooks, then
+   *   added to baseValue + bonusPoints. May be negative. Read-only; must not
+   *   mutate actor or item. Synchronous. Idempotent.
+   */
+  /** @type {SkillBonusHook[]} */
+  skillBonusHooks: [],
+
+  // -----------------------------------------------------------------------
   // POWER POINTS HOOKS
   //   powerPointsHook : (actor) => number
   //   Called during prepareDerivedData to compute `attributes.powerPoints.max`.

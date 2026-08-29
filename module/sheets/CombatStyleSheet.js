@@ -41,21 +41,17 @@ export class CombatStyleSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const item    = this.document;
     const system  = item.system.toObject ? item.system.toObject() : { ...item.system };
 
-    // Live total from owning actor characteristics.
-    // Creature actors (MEG import) store totals directly in system.total —
-    // baseFormula is empty and recomputation produces 0. Guard exactly as
-    // CharacterSheet._onRoll does.
-    let liveBase = system.baseValue ?? 0;
-    let liveTotal = system.total ?? 0;
-    if (item.actor && item.actor.type !== 'creature') {
-      const c = item.actor.system.characteristics;
-      const chars = {
-        STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-        DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-      };
-      liveBase  = _evalFormula(system.baseFormula ?? '', chars);
-      liveTotal = liveBase + (system.bonusPoints ?? 0);
-    }
+    // An owned combat style's percentage is derived by its ACTOR, in
+    // prepareDerivedData (deriveSkillTotals, ActorData.js), including any
+    // skillBonusHooks contribution — and that path already preserves a
+    // statblock import's stored total, so the old creature-actor guard is no
+    // longer needed here.
+    //
+    // Read the live TypeDataModel, NOT the `system` snapshot above:
+    // `toObject()` returns SOURCE data, so `system.total` would be the
+    // persisted, hook-less number.
+    const liveBase  = item.actor ? (item.system.baseValue ?? 0) : (system.baseValue ?? 0);
+    const liveTotal = item.actor ? (item.system.total ?? 0)     : (system.total ?? 0);
 
     // Build trait pills from system.traits (key strings) by resolving labels
     // from CONFIG. Unknown keys (custom module traits) fall back to the key itself.
@@ -221,17 +217,7 @@ export class CombatStyleSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Module-level helper — same formula evaluator used by CharacterSheet
-// ---------------------------------------------------------------------------
-function _evalFormula(formula, chars) {
-  if (!formula) return 0;
-  let f = formula.replace(/×/g, '*');
-  for (const [k, v] of Object.entries(chars)) {
-    f = f.replace(new RegExp(`\\b${k}\\b`, 'gi'), v);
-  }
-  try {
-    if (/^[\d\s+\-*/().]+$/.test(f)) return Math.floor(Function('"use strict";return(' + f + ')')());
-  } catch(e) { /* ignore */ }
-  return 0;
-}
+// _evalFormula removed in v1.4.311. Its own comment said "same formula
+// evaluator used by CharacterSheet", which was the problem: it was a copy,
+// and copies of one rule drift. The single definition is evalSkillFormula in
+// utils/skill-math.js, and this sheet no longer evaluates anything.

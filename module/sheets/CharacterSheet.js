@@ -215,46 +215,28 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
   // Helpers
   // -------------------------------------------------------------------------
 
+  /**
+   * Read the derived totals off the items for the template.
+   *
+   * This used to compute the numbers AND write them to the database. It no
+   * longer does either: deriveSkillTotals (ActorData.js) is the single owner,
+   * it runs in prepareDerivedData, and it is where skillBonusHooks are
+   * consumed. Persisting was the specific thing that made a skill hook unsafe
+   * — a module's contribution would have been baked into the character's
+   * saved data, so uninstalling the module would leave every affected skill
+   * permanently inflated with nothing recording why.
+   *
+   * Do not reintroduce a write here. See skill-bonus-seam-design.md §1a.
+   */
   _calcSkillTotals(actor, skills) {
-    const c = actor.system.characteristics;
-    const chars = {
-      STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-      DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-    };
     const totals = {};
     for (const skill of skills) {
-      // Creatures and NPCs imported from MEG have no baseFormula — their total
-      // is the authoritative MEG value. Skip recalculation for those skills.
-      const formula = skill.system.baseFormula ?? '';
-      if (!formula) {
-        const stored = skill.system.total ?? 0;
-        totals[skill.id] = { base: stored, total: stored };
-        continue;
-      }
-      const base  = this._evalFormula(formula, chars);
-      const total = base + (skill.system.bonusPoints ?? 0);
-      totals[skill.id] = { base, total };
-      // Write to DB only when stale, no render to avoid loops
-      const src = skill._source?.system ?? {};
-      if (src.baseValue !== base || src.total !== total) {
-        skill.update({ 'system.baseValue': base, 'system.total': total }, { render: false });
-      }
+      totals[skill.id] = {
+        base:  skill.system.baseValue ?? 0,
+        total: skill.system.total ?? 0
+      };
     }
     return totals;
-  }
-
-  _evalFormula(formula, chars) {
-    if (!formula) return 0;
-    // Replace only the unicode × multiplication sign — NOT the letter X which appears in DEX
-    let f = formula.replace(/×/g, '*');
-    // Substitute characteristics using word boundaries, case-insensitive
-    for (const [k, v] of Object.entries(chars)) {
-      f = f.replace(new RegExp(`\\b${k}\\b`, 'gi'), v);
-    }
-    try {
-      if (/^[\d\s+\-*/().]+$/.test(f)) return Math.floor(Function('"use strict";return(' + f + ')')());
-    } catch(e) { /* ignore */ }
-    return 0;
   }
 
   _buildHitLocations(locationItems, armourItems = [], system = {}) {
@@ -823,21 +805,16 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       }
     }
 
-    // Compute live total without mutating the TypeDataModel proxy.
-    // For character/NPC actors: recompute from baseFormula + bonusPoints.
-    // For creature actors: skills are stored with a flat system.total (set by
-    // MEG import or manual entry) — no formula to recompute, use it directly.
-    let skillTotal = item.system.total ?? 0;
-    if ((item.type === 'skill' || item.type === 'combat-style' || item.type === 'passion')
-        && this.document.type !== 'creature') {
-      const c = this.document.system.characteristics;
-      const chars = {
-        STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-        DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-      };
-      const base = this._evalFormula(item.system.baseFormula ?? '', chars);
-      skillTotal = base + (item.system.bonusPoints ?? 0);
-    }
+    // `system.total` is derived fresh every prepare by deriveSkillTotals
+    // (ActorData.js) and already includes bonusPoints and any skillBonusHooks
+    // contribution, on every actor type — so it is simply read here.
+    //
+    // This used to recompute base + bonusPoints inline, one of five places
+    // that knew the formula. That existed only because the stored total could
+    // be stale (it was written by a sheet render), and recomputing here would
+    // now silently DROP every hook contribution — the roll would disagree with
+    // the sheet, the exact class of bug v1.4.309 fixed for augmentation.
+    const skillTotal = item.system.total ?? 0;
 
     const { MythrasRoll } = await import('../rolls/MythrasRoll.js');
 
@@ -1180,19 +1157,9 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
 
-    // Compute live total — creature actors store a flat system.total, skip formula
-    let skillTotal;
-    if (actor.type === 'creature') {
-      skillTotal = item.system.total ?? 0;
-    } else {
-      const c = actor.system.characteristics;
-      const chars = {
-        STR: c.str.value, CON: c.con.value, SIZ: c.siz.value,
-        DEX: c.dex.value, INT: c.int.value, POW: c.pow.value, CHA: c.cha.value
-      };
-      const base = this._evalFormula(item.system.baseFormula ?? '', chars);
-      skillTotal = base + (item.system.bonusPoints ?? 0);
-    }
+    // Derived fresh in prepareDerivedData, hooks included — see the sibling
+    // comment on the other roll path above. Just read it.
+    const skillTotal = item.system.total ?? 0;
 
     const { MythrasRoll } = await import('../rolls/MythrasRoll.js');
     await MythrasRoll.rollDialog({

@@ -6,6 +6,9 @@
  * no culture/career workflow. GM enters values directly.
  */
 
+import { sumHookContributions } from '../utils/modifier-bus.js';
+import { SKILL_ITEM_TYPES, charsFrom, computeSkillTotal } from '../utils/skill-math.js';
+
 const { fields } = foundry.data;
 
 const NS = 'mythras-imperative';
@@ -31,6 +34,66 @@ export function applyCharacteristicDrain(characteristics, actor) {
     if (!amount) continue;
     const stat = characteristics[key];
     if (stat) stat.value = Math.max(0, stat.value - amount);
+  }
+}
+
+// -----------------------------------------------------------------------
+// deriveSkillTotals — THE single owner of every skill/combat-style/passion
+// percentage on an actor, and the consumption point for skillBonusHooks.
+//
+// Before v1.4.311 there was no owner at all. CharacterSheet._calcSkillTotals
+// computed these numbers during a RENDER and wrote them to the database,
+// while MythrasRoll read the stored field and two more call sites on the
+// same sheet recomputed base+bonusPoints inline — so what a player saw and
+// what the dice rolled against agreed only if the right sheet had been
+// opened recently. This function replaces that entirely; nothing writes a
+// skill total to the database any more.
+//
+// CALL IT LAST in prepareDerivedData, after characteristicBonusHooks and
+// applyCharacteristicDrain have settled `characteristics` — a base formula
+// reads those values, so anything that moves STR must move Brawn with it.
+//
+// Deriving here (on the ACTOR) rather than in SkillData.prepareDerivedData
+// (on the item) is deliberate and is the same trap weaponDamageHooks exists
+// to avoid: an embedded item can prepare BEFORE its owning actor's
+// characteristicBonusHooks have run, which would read unhooked
+// characteristics and snapshot a stale percentage.
+//
+// Shared by CharacterData, NPCData and CreatureData so an NPC with a cursed
+// item derives identically to a player character.
+// -----------------------------------------------------------------------
+export function deriveSkillTotals(characteristics, actor) {
+  const items = actor?.items;
+  if (!items) return;
+
+  const chars = charsFrom(characteristics);
+
+  for (const item of items) {
+    if (!SKILL_ITEM_TYPES.includes(item.type)) continue;
+    const sys = item.system;
+    if (!sys) continue;
+
+    const { total: hookSum } = sumHookContributions(
+      CONFIG.MYTHRAS?.skillBonusHooks,
+      [actor, item],
+      { errorLabel: 'skillBonusHook' }
+    );
+
+    // storedTotal MUST come from _source, never from sys.total. sys.total is
+    // what this function overwrites, so reading it back would re-add hookSum
+    // on every derivation pass and the number would climb without bound —
+    // the same accumulation trap powerPointsHooks' call site documents for
+    // `+=`. _source is the persisted value and is immune to it.
+    const { baseValue, total } = computeSkillTotal({
+      baseFormula: sys.baseFormula,
+      storedTotal: item._source?.system?.total ?? 0,
+      bonusPoints: sys.bonusPoints ?? 0,
+      chars,
+      hookSum
+    });
+
+    sys.baseValue = baseValue;
+    sys.total     = total;
   }
 }
 
@@ -125,6 +188,9 @@ export class NPCData extends foundry.abstract.TypeDataModel {
     attr.initiativeBonus = Math.floor((dex + int) / 2);
     attr.magicPoints.max = pow;
     attr.damageModifier = this._calcDamageModifier(str + siz);
+
+    // Last, after characteristics have settled — see deriveSkillTotals.
+    deriveSkillTotals(c, this.parent);
   }
 
   _calcDamageModifier(strSiz) {
@@ -253,6 +319,11 @@ export class CreatureData extends foundry.abstract.TypeDataModel {
         }
       }
     }
+
+    // Last, after characteristics have settled — see deriveSkillTotals.
+    // Creature skills are statblock imports with no baseFormula: their stored
+    // total is preserved and any hook contribution applies on top of it.
+    deriveSkillTotals(c, this.parent);
   }
 
   _calcDamageModifier(strSiz) {
