@@ -787,3 +787,70 @@ describe('computeEffectiveSpeed', () => {
     expect(computeEffectiveSpeed({ baseSpeed: 'fleet', rails: true })).toBe('fleet');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Opposed-SE result card grading  (v1.4.314)
+//
+// postOpposedSEResult (effects/helpers.js) is display only — the actual result
+// comes from resolveOpposedRoll. Until v1.4.314 the card hand-rolled its own
+// bands and could therefore contradict the resolution the player had just
+// been given. It now calls determineOutcome with the SAME two-argument shape
+// resolveOpposedRoll uses, so the two agree by construction.
+//
+// This block pins the four gradings the hand-rolled expression got wrong.
+// Each cites the rule rather than restating the implementation — the lesson
+// from outcome-band-sweep.md section 5, where three tests locked in an
+// off-by-one precisely because they were written from the code.
+// ---------------------------------------------------------------------------
+
+describe('opposed-SE card grading (regression, v1.4.314)', () => {
+  // The expression the card used before v1.4.314, kept as the thing under
+  // guard. If any assertion below starts matching it again, the hand-rolled
+  // grading has crept back in.
+  const preFix = (roll, total) =>
+    roll <= Math.ceil(total / 10) ? 'critical'
+      : roll <= total ? 'success'
+        : roll >= 100 ? 'fumble' : 'failure';
+
+  test('99 on a 40% skill is a Fumble, not a Failure (rules p.18: "a Fumble is roll of 99 or 00")', () => {
+    expect(determineOutcome(99, 40)).toBe('fumble');
+    expect(preFix(99, 40)).toBe('failure');          // what the card used to show
+  });
+
+  test('99 on a 110% total is a Failure, not a Success (rules p.18: "any roll of 96-00 is always a failure")', () => {
+    // The worst of the four: the old expression had no ceiling at all, so
+    // 99 <= 110 rendered as "Success" on the card while the engine failed it.
+    expect(determineOutcome(99, 110)).toBe('failure');
+    expect(preFix(99, 110)).toBe('success');
+  });
+
+  test('05 always succeeds, even against a target of 0 (rules p.18 floor)', () => {
+    expect(determineOutcome(5, 0)).toBe('success');
+    expect(preFix(5, 0)).toBe('failure');
+  });
+
+  test('96 always fails, even against a target of 200 (rules p.18 ceiling)', () => {
+    expect(determineOutcome(96, 200)).toBe('failure');
+    expect(preFix(96, 200)).toBe('success');
+  });
+
+  test('the gradings that were already right stay right', () => {
+    for (const [roll, total] of [[100, 40], [3, 40], [4, 40], [41, 40]]) {
+      expect(determineOutcome(roll, total)).toBe(preFix(roll, total));
+    }
+  });
+
+  test('card and resolution consult the same grader, so they cannot disagree', () => {
+    // resolveOpposedRoll grades both sides with determineOutcome(roll, total);
+    // the card now does the same. Both directions of an opposed pair.
+    const rank = { critical: 3, success: 2, failure: 1, fumble: 0 };
+    for (const [aRoll, aTot, dRoll, dTot] of [[99, 40, 50, 60], [5, 0, 96, 200], [4, 40, 99, 110]]) {
+      const defenderWins = resolveOpposedRoll(aRoll, aTot, dRoll, dTot);
+      const cardAtk = determineOutcome(aRoll, aTot);
+      const cardDef = determineOutcome(dRoll, dTot);
+      // The card's two grades must rank the same way the resolution decided.
+      if (rank[cardDef] > rank[cardAtk]) expect(defenderWins).toBe(true);
+      if (rank[cardAtk] > rank[cardDef]) expect(defenderWins).toBe(false);
+    }
+  });
+});

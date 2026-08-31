@@ -144,15 +144,30 @@ export async function postOpposedSEResult({
   // Show base total in parentheses when conditions have reduced it
   const defRawNote = (defenderRaw != null && defenderRaw !== defenderTotal)
     ? ` (base ${defenderRaw}%)` : '';
-  const attackOutcome  = attackerRoll  <= Math.ceil(attackerTotal / 10) ? 'critical'
-    : attackerRoll  <= attackerTotal  ? 'success'
-    : attackerRoll  >= 100            ? 'fumble' : 'failure';
+  // Both bands come from determineOutcome, called with the SAME two-argument
+  // shape resolveOpposedRoll uses to decide the actual result
+  // (combat-math.js:44-45). That is the point of the fix: this card is display
+  // only, the resolution is elsewhere, and until v1.4.314 the two could
+  // disagree.
+  //
+  // The hand-rolled version this replaces had no 99-fumble band at all — its
+  // only fumble branch was `>= 100`. So a roll of 99 against a 40% Endurance
+  // graded as Fumble by the engine and rendered as "Failure" on the card the
+  // player was looking at. It also missed the p18 01-05 success floor and
+  // 96-00 failure ceiling entirely, which determineOutcome has implemented
+  // since the two copies of it were deduplicated.
+  //
+  // Deliberately NOT passing a third argument. The fumble basis — whether the
+  // "more than 100%" test reads the modified or the base skill value — is an
+  // open ruling (fumble-basis-design.md). Defaulting rawSkill to the same
+  // total resolveOpposedRoll passes keeps the card in lockstep with the
+  // resolution whichever way that lands, rather than quietly picking a side
+  // in a display fix.
+  const attackOutcome = determineOutcome(attackerRoll, attackerTotal);
 
   const defenceOutcome = forcesFail ? 'forced'
     : defenderRoll === null          ? 'none'
-    : defenderRoll <= Math.ceil(defenderTotal / 10) ? 'critical'
-    : defenderRoll <= defenderTotal  ? 'success'
-    : defenderRoll >= 100            ? 'fumble' : 'failure';
+    : determineOutcome(defenderRoll, defenderTotal);
 
   const defenceLabel = forcesFail ? 'Force Failure'
     : defenderRoll === null ? 'Accepted'
