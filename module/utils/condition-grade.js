@@ -126,11 +126,39 @@ export const CONDITION_GRADE_ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'f
  * check harder, never easier, matching every existing composer this
  * consolidates.
  *
+ * THE THIRD ARGUMENT (v1.4.312) — `context` — exists because `(actor, role)`
+ * fires everywhere and can see nothing about WHAT is being rolled.
+ * `grade-shift-coverage-design.md` traced all 37 d100 sites and found the
+ * coverage question was already solved: every roll against a skill-derived
+ * target consults this function bar one. What is missing is the subject.
+ * The only consumer that has ever named this family in code — Destined's
+ * Bulky trait, a per-weapon demand — could not be expressed by the old
+ * signature even if someone wired it today.
+ *
+ * Widened while there were ZERO registered consumers, which was the last
+ * moment it could be done without a breaking change. `context` is a plain
+ * read-only object assembled from what each call site already holds; hooks
+ * stay pure and side-effect free, and every field is optional — a hook must
+ * treat a missing field as "not known here", never as a value.
+ *
  * @param {Actor} actor
  * @param {'attack'|'defence'|'resist'} role
+ * @param {object} [context]  Optional descriptor of what is being rolled.
+ * @param {string} [context.kind]   One of 'sheet' | 'attack' | 'defence' |
+ *   'seResist' | 'woundCheck' | 'spellcast' | 'requestedCheck'. Distinguishes
+ *   call sites that share a `role` — notably every non-combat sheet roll,
+ *   which asks as role 'attack' for historical reasons (see §5 of the design).
+ * @param {Item} [context.item]     The skill/combat-style/passion being rolled,
+ *   where the caller holds it. Item, not name — the `skillBonusHooks`
+ *   precedent: a name cannot tell Combat Style (Fighter) from (Thief).
+ * @param {Item} [context.weapon]   Attack/defence paths.
+ * @param {Item} [context.style]    Attack/defence paths.
+ * @param {object} [context.flags]  Circumstance booleans the attack dialog
+ *   already computes (aiming, charge, range band). Attack path only. Gives a
+ *   hook sight of the situational-step pipeline it cannot otherwise reach.
  * @returns {string} a CONDITION_GRADE_ORDER grade id
  */
-export function getConditionGrade(actor, role) {
+export function getConditionGrade(actor, role, context = {}) {
   if (!actor) return 'standard';
 
   let worstIdx = CONDITION_GRADE_ORDER.indexOf('standard');
@@ -166,11 +194,33 @@ export function getConditionGrade(actor, role) {
   // header ("THE CAVEAT THAT MATTERS") and config.js's conditionGradeHooks
   // doc comment before registering a consumer here.
   const shift = sumHookContributions(
-    CONFIG.MYTHRAS?.conditionGradeHooks, [actor, role], { errorLabel: 'conditionGradeHook' }
+    CONFIG.MYTHRAS?.conditionGradeHooks, [actor, role, context ?? {}], { errorLabel: 'conditionGradeHook' }
   ).total;
   const shiftedIdx = Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, worstIdx + shift));
 
   return CONDITION_GRADE_ORDER[shiftedIdx];
+}
+
+/**
+ * The same composition, but reporting WHY — used by the dialog banners so a
+ * player can see that a module moved their grade, rather than being handed an
+ * unexplained number.
+ *
+ * Returns the composed grade plus the hook breakdown `sumHookContributions`
+ * already produces. Kept as a separate entry point rather than changing
+ * getConditionGrade's return type, because getConditionGrade is called on
+ * every roll and its callers all want the bare grade.
+ *
+ * @param {Actor} actor
+ * @param {'attack'|'defence'|'resist'} role
+ * @param {object} [context]
+ * @returns {{ grade: string, shift: number, breakdown: {name: string, value: number}[] }}
+ */
+export function explainConditionGrade(actor, role, context = {}) {
+  const { total, breakdown } = sumHookContributions(
+    CONFIG.MYTHRAS?.conditionGradeHooks, [actor, role, context ?? {}], { errorLabel: 'conditionGradeHook' }
+  );
+  return { grade: getConditionGrade(actor, role, context), shift: total, breakdown };
 }
 
 /**

@@ -24,6 +24,8 @@ import {
   applyFatigueToSkill,
 } from './helpers.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
+import { applyGradeToSkill } from '../../utils/condition-grade.js';
+import { determineOutcome } from '../../utils/roll-math.js';
 
 
 // -------------------------------------------------------------------------
@@ -332,15 +334,30 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
 
     const locationType = ctx.locationType ?? classifyLocation(ctx.hitLocationLabel ?? '');
     if (locationType === 'torso') {
-      const hardTotal  = Math.ceil(enduranceTotal / 2);
+      // Hard Endurance, via the canonical grade table — NOT an inline divisor.
+      // Until v1.4.312 this was `Math.ceil(enduranceTotal / 2)`, which is the
+      // FORMIDABLE multiplier (0.5); Hard is 2/3 (`roll-math.js`, rulebook p.17
+      // "reduce skill value by one-third"). The card called it Hard in two
+      // places while rolling a grade harder than that — an Endurance 60
+      // defender was shown "Hard: 30%" against a true Hard of 40%. Fixed by
+      // routing through applyGradeToSkill rather than by changing the divisor,
+      // so this site cannot drift from the grade table again.
+      const hardTotal  = applyGradeToSkill(enduranceTotal, 'hard');
       const torsoRoll  = new Roll('1d100');
       await torsoRoll.evaluate();
       const fallsProne = torsoRoll.total > hardTotal;
       if (fallsProne) {
         await applyProneToDefender(defender);
       }
-      const torsoOutcome = torsoRoll.total <= Math.ceil(enduranceTotal / 10) ? 'critical'
-        : torsoRoll.total <= hardTotal ? 'success' : 'failure';
+      // Canonical outcome grading. The hand-rolled version this replaces took
+      // its critical band from `enduranceTotal / 10` — one tenth of the
+      // UNMODIFIED Endurance — while grading success against the modified
+      // target, so the crit band was ~1.5x too wide (Endurance 60: crit on 6
+      // where the modified target of 40 allows 4). Rules p.18 puts the band at
+      // one tenth of the modified value, which is exactly what determineOutcome
+      // computes from `target`. Same "outcome band derived from the wrong
+      // input" class as outcome-band-evidence-survey.md 4a.
+      const torsoOutcome = determineOutcome(torsoRoll.total, hardTotal, enduranceTotal);
       await ChatMessage.create({
         content: `
           <div class="mi-chat-card">

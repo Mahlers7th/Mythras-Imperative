@@ -30,7 +30,11 @@ export class MythrasRoll {
     // Condition floor: worst of fatigue grade and prone.
     // Delegated to CombatEngine helpers so all paths stay consistent.
     const { CombatEngine } = await import('../combat/CombatEngine.js');
-    const floorGrade   = CombatEngine._getConditionFloorGrade(actor);
+    // v1.4.312: a sheet roll says so, and names the item being rolled. The role
+    // is still 'attack' (see _getConditionFloorGrade) — this is what lets a
+    // hook tell a Perception check from a sword swing without that overload
+    // being resolved first.
+    const floorGrade   = CombatEngine._getConditionFloorGrade(actor, { kind: 'sheet', item });
     const gradeOrder   = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
     const floorIdx     = gradeOrder.indexOf(floorGrade);
 
@@ -174,7 +178,10 @@ export class MythrasRoll {
     // All active condition penalties (fatigue, prone) — take worst grade
     if (actor) {
       const { CombatEngine: CE } = await import('../combat/CombatEngine.js');
-      const condFloor = CE._getConditionFloorGrade(actor);
+      // Same context as the dialog above — the two must agree, or the target
+      // shown to the player and the target rolled against diverge, which is
+      // the v1.4.309 class of bug.
+      const condFloor = CE._getConditionFloorGrade(actor, { kind: 'sheet', item });
       if (condFloor && condFloor !== 'standard') {
         const condTarget = MythrasRoll.applyDifficulty(adjustedSkill, condFloor);
         target = Math.min(target, condTarget);

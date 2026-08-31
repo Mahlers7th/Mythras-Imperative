@@ -25,7 +25,7 @@
  * Parrying a missed attack: defender may spend AP; attacker is still Failure.
  */
 
-import { getConditionGrade, applyGradeToSkill } from '../utils/condition-grade.js';
+import { getConditionGrade, applyGradeToSkill, explainConditionGrade } from '../utils/condition-grade.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
@@ -1389,7 +1389,15 @@ export class CombatEngine {
     // chokepoint itself (condition-grade.js) rather than here — a blinded
     // defender now takes the same penalty a blinded attacker always did,
     // per Chris's ruling ("defenders do not get a free pass").
-    return applyGradeToSkill(raw, getConditionGrade(ctx.defender, 'defence'));
+    // v1.4.312: forwards the defence context — the parry weapon and style the
+    // caller already holds — so a hook can answer per-weapon (Destined's Bulky
+    // is exactly this shape). Fields are optional; a hook must treat a missing
+    // one as "not known here".
+    return applyGradeToSkill(raw, getConditionGrade(ctx.defender, 'defence', {
+      kind:   'defence',
+      weapon: ctx.defenceWeapon ?? null,
+      style:  ctx.defenceStyle  ?? null
+    }));
   }
 
   // -------------------------------------------------------------------------
@@ -5415,7 +5423,13 @@ export class CombatEngine {
     const raw = style?.system.total
       ?? Array.from(actor.items).find(i => i.type === 'skill' && i.name === 'Unarmed')?.system.total
       ?? 0;
-    return applyGradeToSkill(raw, getConditionGrade(actor, 'attack'));
+    // v1.4.312: the weapon and style are already this method's own arguments,
+    // so the attack path gets per-weapon context for free.
+    return applyGradeToSkill(raw, getConditionGrade(actor, 'attack', {
+      kind:   'attack',
+      weapon: weapon ?? null,
+      style:  style  ?? null
+    }));
   }
 
 
@@ -5481,8 +5495,22 @@ export class CombatEngine {
   // behaviour change. AttackerDialog and MythrasRoll consume this method
   // only, never the underlying floors directly, so this one delegation
   // fixes all four of their call sites without touching them.
-  static _getConditionFloorGrade(actor) {
-    return getConditionGrade(actor, 'attack');
+  // v1.4.312: takes an optional `context`, so callers that are NOT making an
+  // attack can say what they actually are. The role stays 'attack' — that is
+  // the overload `grade-shift-coverage-design.md` §5 traced to migration
+  // economy rather than semantics (Population B redefined one body instead of
+  // touching four call sites; it was never ruled as meaning), and changing the
+  // role would move prone/blind floors on every sheet roll. That is open
+  // ruling §9.2 and is deliberately NOT decided here.
+  //
+  // What the context does is let a hook discriminate the cases the role can no
+  // longer tell apart: MythrasRoll passes kind 'sheet' plus the item being
+  // rolled, AttackerDialog leaves it as an attack. So a consumer that wants
+  // "harder when swinging a Bulky weapon" can no longer accidentally fire on a
+  // Perception check, which under the old two-argument signature it could not
+  // avoid doing.
+  static _getConditionFloorGrade(actor, context = {}) {
+    return getConditionGrade(actor, 'attack', { kind: 'attack', ...context });
   }
 
   // -------------------------------------------------------------------------
@@ -5494,7 +5522,14 @@ export class CombatEngine {
   // Used in dialog condition banners.
   // -------------------------------------------------------------------------
 
-  static _buildConditionNotes(actor) {
+  // v1.4.312: takes the same optional `context` the floor-grade path does, and
+  // appends any conditionGradeHooks contribution to the banner. Without this a
+  // module could move a player's difficulty grade with nothing on screen
+  // explaining why — the banner lists every built-in floor by name, so a hook
+  // shift was the one input that moved the number invisibly. Named consumers
+  // come from the bus's own breakdown (`fn.destinedHookName || fn.name`), the
+  // same provenance every other additive family already gets for free.
+  static _buildConditionNotes(actor, context = {}) {
     if (!actor) return '';
     const notes = [];
 
@@ -5525,6 +5560,15 @@ export class CombatEngine {
     const blindGrade2 = CombatEngine._getActiveBlindGrade(actor);
     if (blindGrade2) {
       notes.push(`Blinded — ${blindGrade2 === 'formidable' ? 'Formidable' : 'Hard'}`);
+    }
+
+    // Module grade shifts, named. Silent when nothing is registered or the
+    // contributions cancel, so this is a true no-op with no modules loaded.
+    const { shift, breakdown } = explainConditionGrade(actor, 'attack', { kind: 'attack', ...context });
+    if (shift !== 0) {
+      const named = breakdown.map(b => `${b.name} ${b.value > 0 ? '+' : ''}${b.value}`).join(', ');
+      const dir   = shift > 0 ? 'harder' : 'easier';
+      notes.push(`${Math.abs(shift)} grade${Math.abs(shift) === 1 ? '' : 's'} ${dir}${named ? ` (${named})` : ''}`);
     }
 
     return notes.join(' · ');

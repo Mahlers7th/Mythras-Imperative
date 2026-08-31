@@ -38,13 +38,16 @@
  * globals... CONFIG.MYTHRAS" step).
  */
 
-import { getConditionGrade, applyGradeToSkill, CONDITION_GRADE_ORDER } from '../module/utils/condition-grade.js';
+import { getConditionGrade, applyGradeToSkill, explainConditionGrade, CONDITION_GRADE_ORDER } from '../module/utils/condition-grade.js';
 import { getFatigueSkillGrade, applyFatigueToSkill as applyFatigueOnly } from '../module/utils/fatigue.js';
 import {
   getActiveImpaleGrade, getActiveEntangleGrade, getActiveBlindGrade,
   applyFatigueToSkill as applyFatigueImpaleEntangle,
 } from '../module/combat/effects/helpers.js';
 import { MYTHRAS } from '../module/config/config.js';
+// determineOutcome — imported for real by the torso Stun Location guard at the
+// foot of this file, so the crit-band assertion exercises the shipped grader.
+import { determineOutcome } from '../module/utils/roll-math.js';
 
 globalThis.CONFIG = { MYTHRAS };
 
@@ -429,5 +432,209 @@ describe('sanity: fatigue.js\'s bare applyFatigueToSkill is a stricter subset, n
     const bareFatigueOnly = applyFatigueOnly(50, a); // ignores the impale flag entirely
     const resistRole = applyGradeToSkill(50, getConditionGrade(a, 'resist')); // does not ignore it
     expect(bareFatigueOnly).not.toBe(resistRole);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Torso Stun Location regression guard  (v1.4.312)
+//
+// Mirror of the torso-collapse check in effects/opposed.js (Foundry-coupled:
+// rolls dice, writes flags, posts a card). Both functions under test are
+// imported for real; what is mirrored is only the call site's CHOICE of grade
+// and of what it passes as determineOutcome's target.
+//
+// Two defects lived here until v1.4.312, ten lines apart:
+//   1. `Math.ceil(enduranceTotal / 2)` — the FORMIDABLE multiplier — while the
+//      chat card called it "Hard" in two places.
+//   2. The critical band was taken from the UNMODIFIED Endurance, while
+//      success was graded against the modified target.
+// ---------------------------------------------------------------------------
+
+/** Mirror of the torso check's target + outcome derivation. */
+function torsoStunCheck(enduranceTotal, roll) {
+  const hardTotal = applyGradeToSkill(enduranceTotal, 'hard');
+  return {
+    target:     hardTotal,
+    outcome:    determineOutcome(roll, hardTotal, enduranceTotal),
+    fallsProne: roll > hardTotal
+  };
+}
+
+describe('torso Stun Location — grade and outcome band', () => {
+  test('the target is Hard (two-thirds), not half', () => {
+    // The exact regression: 60 Endurance is 40 at Hard, not 30.
+    expect(torsoStunCheck(60, 1).target).toBe(40);
+    expect(torsoStunCheck(60, 1).target).not.toBe(Math.ceil(60 / 2));
+  });
+
+  test('Hard and Formidable are different grades, and this site uses Hard', () => {
+    // Guards against someone "simplifying" back to a divisor. If these ever
+    // become equal the grade table itself has been broken.
+    expect(applyGradeToSkill(60, 'hard')).toBe(40);
+    expect(applyGradeToSkill(60, 'formidable')).toBe(30);
+    expect(applyGradeToSkill(60, 'hard')).not.toBe(applyGradeToSkill(60, 'formidable'));
+  });
+
+  test('the critical band comes from the MODIFIED target, not raw Endurance', () => {
+    // At Endurance 60 the modified target is 40, so criticals are 1-4.
+    // The old code allowed 1-6 (60/10) — half again too generous.
+    expect(torsoStunCheck(60, 4).outcome).toBe('critical');
+    expect(torsoStunCheck(60, 5).outcome).toBe('success');
+    expect(torsoStunCheck(60, 6).outcome).toBe('success');
+  });
+
+  test('rolls between the old and new targets now succeed, as Hard requires', () => {
+    for (const roll of [31, 35, 40]) {
+      expect(torsoStunCheck(60, roll).outcome).toBe('success');
+      expect(torsoStunCheck(60, roll).fallsProne).toBe(false);
+    }
+    expect(torsoStunCheck(60, 41).outcome).toBe('failure');
+    expect(torsoStunCheck(60, 41).fallsProne).toBe(true);
+  });
+
+  test('prone still follows the target, not the outcome label', () => {
+    // 99/100 now report "fumble" rather than "failure" (canonical grading),
+    // but the collapse itself is decided by the target comparison and is
+    // unchanged by that relabelling.
+    expect(torsoStunCheck(60, 99).fallsProne).toBe(true);
+    expect(torsoStunCheck(60, 100).fallsProne).toBe(true);
+    expect(torsoStunCheck(60, 99).outcome).toBe('fumble');
+  });
+
+  test('a zero-Endurance defender degrades safely', () => {
+    expect(torsoStunCheck(0, 50).target).toBe(0);
+    expect(torsoStunCheck(0, 50).fallsProne).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// conditionGradeHooks' third argument — `context`  (v1.4.312)
+//
+// The family fired everywhere and could see nothing about WHAT was being
+// rolled. grade-shift-coverage-design.md found that coverage was already
+// solved and the real limit was the subject: the only consumer that has ever
+// named this family in code (Destined's Bulky, a per-weapon demand) could not
+// be expressed by the two-argument signature at all.
+//
+// These use the REAL getConditionGrade/explainConditionGrade. CONFIG.MYTHRAS
+// is the real config object, so every test restores conditionGradeHooks.
+// ---------------------------------------------------------------------------
+
+describe('conditionGradeHooks — context argument', () => {
+  const saved = MYTHRAS.conditionGradeHooks;
+  afterEach(() => { MYTHRAS.conditionGradeHooks = saved; });
+
+  test('the two-argument call still works — context defaults to an empty object', () => {
+    const seen = [];
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => { seen.push(ctx); return 0; }];
+    expect(getConditionGrade(makeActor(), 'attack')).toBe('standard');
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toEqual({});   // never undefined — hooks may destructure it
+  });
+
+  test('context is forwarded to the hook verbatim', () => {
+    const weapon = { id: 'w1', name: 'Greatsword' };
+    const seen = [];
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => { seen.push([role, ctx]); return 0; }];
+    getConditionGrade(makeActor(), 'defence', { kind: 'defence', weapon });
+    expect(seen[0][0]).toBe('defence');
+    expect(seen[0][1].kind).toBe('defence');
+    expect(seen[0][1].weapon).toBe(weapon);
+  });
+
+  test('a per-weapon hook fires for one weapon and not another — the Bulky shape', () => {
+    // The demand that motivated the widening. Under (actor, role) this hook
+    // could not be written at all: nothing distinguished the two calls.
+    const bulky  = { id: 'w1', name: 'Gravity Club', system: { traits: ['destinedBulky'] } };
+    const normal = { id: 'w2', name: 'Knife',        system: { traits: [] } };
+    MYTHRAS.conditionGradeHooks = [
+      (a, role, ctx) => (ctx.weapon?.system?.traits ?? []).includes('destinedBulky') ? 1 : 0
+    ];
+    const actor = makeActor();
+    expect(getConditionGrade(actor, 'attack', { weapon: bulky  })).toBe('hard');
+    expect(getConditionGrade(actor, 'attack', { weapon: normal })).toBe('standard');
+  });
+
+  test('a hook can tell a sheet roll from an attack, though both use role attack', () => {
+    // The role-'attack' overload is NOT resolved by this change (open ruling
+    // 9.2). `kind` is what makes it survivable in the meantime: a weapon-shaped
+    // hook must not fire on a Perception check.
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => ctx.kind === 'attack' ? 1 : 0];
+    const actor = makeActor();
+    expect(getConditionGrade(actor, 'attack', { kind: 'attack' })).toBe('hard');
+    expect(getConditionGrade(actor, 'attack', { kind: 'sheet'  })).toBe('standard');
+  });
+
+  test('a hook can discriminate on the item being rolled', () => {
+    const perception = { id: 's1', name: 'Perception', type: 'skill' };
+    const stealth    = { id: 's2', name: 'Stealth',    type: 'skill' };
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => ctx.item?.name === 'Stealth' ? -1 : 0];
+    const actor = makeActor({ fatigue: 'wearied' });   // floors to formidable
+    expect(getConditionGrade(actor, 'attack', { item: stealth    })).toBe('hard');
+    expect(getConditionGrade(actor, 'attack', { item: perception })).toBe('formidable');
+  });
+
+  test('missing context fields are absent, not undefined-valued surprises', () => {
+    // A hook reading ctx.weapon when the site has none must see undefined and
+    // decline, not throw and not be handed a stand-in.
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => ctx.weapon?.system?.traits?.includes('x') ? 1 : 0];
+    expect(() => getConditionGrade(makeActor(), 'resist', { kind: 'seResist' })).not.toThrow();
+    expect(getConditionGrade(makeActor(), 'resist', { kind: 'seResist' })).toBe('standard');
+  });
+
+  test('shifts still sum, and order still does not matter, with context in play', () => {
+    const run = hooks => {
+      MYTHRAS.conditionGradeHooks = hooks;
+      return getConditionGrade(makeActor(), 'attack', { kind: 'attack' });
+    };
+    const a = () => 1, b = () => 1;
+    expect(run([a, b])).toBe('formidable');    // standard + 2
+    expect(run([b, a])).toBe('formidable');
+  });
+
+  test('a throwing hook is still isolated', () => {
+    MYTHRAS.conditionGradeHooks = [
+      () => { throw new Error('module bug'); },
+      (a, role, ctx) => ctx.kind === 'attack' ? 1 : 0
+    ];
+    expect(getConditionGrade(makeActor(), 'attack', { kind: 'attack' })).toBe('hard');
+  });
+});
+
+describe('explainConditionGrade', () => {
+  const saved = MYTHRAS.conditionGradeHooks;
+  afterEach(() => { MYTHRAS.conditionGradeHooks = saved; });
+
+  test('reports the composed grade, the net shift, and who moved it', () => {
+    const named = (a, role, ctx) => ctx.kind === 'attack' ? 2 : 0;
+    named.destinedHookName = 'bulkyWeapon';
+    MYTHRAS.conditionGradeHooks = [named];
+    const out = explainConditionGrade(makeActor(), 'attack', { kind: 'attack' });
+    expect(out.grade).toBe('formidable');       // standard + 2
+    expect(out.shift).toBe(2);
+    expect(out.breakdown).toEqual([{ name: 'bulkyWeapon', value: 2 }]);
+  });
+
+  test('with no hooks it is silent — shift 0, empty breakdown', () => {
+    MYTHRAS.conditionGradeHooks = [];
+    const out = explainConditionGrade(makeActor(), 'attack');
+    expect(out.shift).toBe(0);
+    expect(out.breakdown).toEqual([]);
+    expect(out.grade).toBe('standard');
+  });
+
+  test('its grade always agrees with getConditionGrade for the same inputs', () => {
+    // The banner and the roll must never disagree — the v1.4.309 bug class.
+    MYTHRAS.conditionGradeHooks = [(a, role, ctx) => ctx.kind === 'attack' ? 1 : 0];
+    const actor = makeActor({ fatigue: 'wearied' });
+    for (const ctx of [{ kind: 'attack' }, { kind: 'sheet' }, {}]) {
+      expect(explainConditionGrade(actor, 'attack', ctx).grade)
+        .toBe(getConditionGrade(actor, 'attack', ctx));
+    }
+  });
+
+  test('contributions that cancel report a zero net shift, so the banner stays quiet', () => {
+    MYTHRAS.conditionGradeHooks = [() => 1, () => -1];
+    expect(explainConditionGrade(makeActor(), 'attack').shift).toBe(0);
   });
 });

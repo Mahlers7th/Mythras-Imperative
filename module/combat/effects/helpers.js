@@ -117,9 +117,19 @@ export function getActiveBlindGrade(actor) {
 // comment), and that equivalence is what Step 1's 62 parity tests prove —
 // this delegation is zero behaviour change, not a new implementation.
 // -------------------------------------------------------------------------
-export function applyFatigueToSkill(skillTotal, actor) {
+// v1.4.312: takes an optional `context` third argument and forwards it to the
+// chokepoint. This is the 'resist' funnel — roughly twenty callers across the
+// SE resolvers reach the hook family through here — and they carry no context
+// today, so every one of them passes `kind: 'seResist'` by default and nothing
+// more. Callers that know more (a wound check, a requested check) pass their
+// own kind; see grade-shift-coverage-design.md §7 R1. Deliberately additive:
+// existing two-argument calls keep working unchanged.
+export function applyFatigueToSkill(skillTotal, actor, context = {}) {
   if (!actor) return skillTotal;
-  return applyGradeToSkill(skillTotal, getConditionGrade(actor, 'resist'));
+  return applyGradeToSkill(
+    skillTotal,
+    getConditionGrade(actor, 'resist', { kind: 'seResist', ...context })
+  );
 }
 
 // -------------------------------------------------------------------------

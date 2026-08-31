@@ -908,7 +908,39 @@ export const MYTHRAS = {
   //   live at once.
   // -----------------------------------------------------------------------
 
-  /** @type {Function[]} Each returns a signed CONDITION_GRADE_ORDER step shift. Receives (actor, role), role is 'attack'|'defence'|'resist' */
+  //   THIRD ARGUMENT, v1.4.312 — `context`. `(actor, role)` fires everywhere
+  //   and can see nothing about WHAT is being rolled, which is the actual
+  //   limit on this family: `grade-shift-coverage-design.md` traced all 37
+  //   d100 sites and found coverage was already solved (every roll against a
+  //   skill-derived target consults the chokepoint bar one, a bug). The gap
+  //   was the subject. The only consumer that has ever named this family in
+  //   code — Destined's Bulky trait, a per-weapon demand — could not be
+  //   expressed by the two-argument signature even if it were wired today.
+  //
+  //   Widened while there were ZERO registered consumers, deliberately: that
+  //   was the last moment it could be done without a breaking change.
+  //
+  //   `context` is a plain read-only object, every field optional. A hook MUST
+  //   treat a missing field as "not known at this call site", never as a value:
+  //     kind    'sheet' | 'attack' | 'defence' | 'seResist' | 'woundCheck' |
+  //             'spellcast' | 'requestedCheck' — distinguishes call sites that
+  //             share a role. Non-combat sheet rolls still ask as role
+  //             'attack' (a migration-economy overload, not semantics — see
+  //             the design doc §5); `kind` is what lets a hook tell a
+  //             Perception check from a sword swing without resolving that.
+  //     item    the skill/style/passion being rolled, where the caller has it.
+  //             Item, not name — the skillBonusHooks precedent.
+  //     weapon  attack/defence paths.
+  //     style   attack/defence paths.
+  //     flags   circumstance booleans the attack dialog already computes.
+  //
+  //   The easier-direction contract, which surprises people: on direct-multiply
+  //   paths a negative sum applies numerically, but on DIALOG paths the shifted
+  //   grade arrives as the pre-selected default and a player's explicit harder
+  //   choice overrides it. That is player agency at the table, not a bug.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns a signed CONDITION_GRADE_ORDER step shift. Receives (actor, role, context); role is 'attack'|'defence'|'resist', context fields are all optional */
   conditionGradeHooks: [],
 
   // -----------------------------------------------------------------------
