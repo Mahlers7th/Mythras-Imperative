@@ -41,8 +41,13 @@ describe('determineOutcome', () => {
     test('99 is fumble when rawSkill < 100', () => {
       expect(determineOutcome(99, 60, 60)).toBe('fumble');
     });
-    test('99 is NOT fumble when rawSkill >= 100 (but still Failure — the 96-00 ceiling)', () => {
-      expect(determineOutcome(99, 100, 100)).toBe('failure');
+    test('99 is NOT fumble when rawSkill is ABOVE 100 (but still Failure — the 96-00 ceiling)', () => {
+      // v1.4.313: boundary corrected from >= 100 to > 100 against rules p.18
+      // ("skills with a value of MORE THAN 100%"). Exactly 100 now fumbles on
+      // 99; see roll-math.test.js for the citation and the corroborating
+      // "in excess of 100%" phrasing at p.51.
+      expect(determineOutcome(99, 101, 101)).toBe('failure');
+      expect(determineOutcome(99, 100, 100)).toBe('fumble');
     });
     test('98 is never a fumble', () => {
       expect(determineOutcome(98, 50, 50)).toBe('failure');

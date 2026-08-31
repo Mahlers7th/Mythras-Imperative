@@ -212,10 +212,14 @@ describe('gradeChoice', () => {
     expect(result.succeeds).toBe(expectedSucceeds);
   });
 
-  test('fumble at a raw skill >= 100 requires a natural 100, not 99 (matches determineOutcome)', () => {
-    // determineOutcome(99, 100, 100) === 'failure', not fumble, but not success
-    // either — the 96-00 ceiling still applies (roll-math.test.js line 80).
-    expect(gradeChoice(99, 100, null).grade).toBe('failure');
-    expect(gradeChoice(100, 100, null).grade).toBe('fumble');
+  test('fumble above raw skill 100 requires a natural 100, not 99 (matches determineOutcome)', () => {
+    // v1.4.313: boundary corrected to strict > 100, per rules p.18's "skills
+    // with a value of MORE THAN 100%". At exactly 100 the exemption does not
+    // apply and 99 fumbles; above 100 only a natural 100 does, with the 96-00
+    // ceiling still making 99 a failure. See roll-math.test.js for the
+    // citation.
+    expect(gradeChoice(99, 100, null).grade).toBe('fumble');
+    expect(gradeChoice(99, 101, null).grade).toBe('failure');
+    expect(gradeChoice(100, 101, null).grade).toBe('fumble');
   });
 });

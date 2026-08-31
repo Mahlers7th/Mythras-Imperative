@@ -170,10 +170,20 @@ export class MythrasRoll {
 
     // Passion augment: PassionData#augmentBonus — 20% rounded up, per rules
     const augment       = passion ? passion.system.augmentBonus : 0;
-    const adjustedSkill = skillTotal + modifier + augment;
+    // Core p51: augmentation raises the SUCCESS chance only — "the chances for
+    // Critical and Fumble are the same as if the primary skill was
+    // unaugmented", with a worked example (Ride 38% augmented to 45% still
+    // criticals on 04). So the unaugmented value is tracked alongside the
+    // augmented one and carried through every modifier the augmented one is,
+    // then handed to determineOutcome as the critical and fumble basis.
+    // Before v1.4.313 the augment widened both bands. See
+    // outcome-band-sweep.md §3.
+    const unaugmented   = skillTotal + modifier;
+    const adjustedSkill = unaugmented + augment;
 
     // Apply chosen difficulty grade
-    let target = MythrasRoll.applyDifficulty(adjustedSkill, difficulty);
+    let target     = MythrasRoll.applyDifficulty(adjustedSkill, difficulty);
+    let critBasis  = MythrasRoll.applyDifficulty(unaugmented,   difficulty);
 
     // All active condition penalties (fatigue, prone) — take worst grade
     if (actor) {
@@ -185,6 +195,10 @@ export class MythrasRoll {
       if (condFloor && condFloor !== 'standard') {
         const condTarget = MythrasRoll.applyDifficulty(adjustedSkill, condFloor);
         target = Math.min(target, condTarget);
+        // The critical basis takes the same floor — p18's "this includes
+        // skills that receive a modifier" applies to conditions too. Only the
+        // AUGMENT is excluded from it, nothing else.
+        critBasis = Math.min(critBasis, MythrasRoll.applyDifficulty(unaugmented, condFloor));
       }
     }
 
@@ -193,15 +207,17 @@ export class MythrasRoll {
     await roll.evaluate();
     const result = roll.total;
 
-    // Determine outcome
-    const outcome = MythrasRoll.determineOutcome(result, target, adjustedSkill);
+    // Determine outcome. `unaugmented` is both the fumble basis and (via
+    // critBasis) the critical basis, per core p51 — the augment moves the
+    // success target and nothing else.
+    const outcome = MythrasRoll.determineOutcome(result, target, unaugmented, critBasis);
 
     // Mark fumble on item for experience tracking
     if (outcome === 'fumble' && !item.system.fumbledLastSession) {
       await item.update({ 'system.fumbledLastSession': true });
     }
 
-    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion });
+    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill: unaugmented });
   }
 
   // -------------------------------------------------------------------------
@@ -217,15 +233,15 @@ export class MythrasRoll {
   // Result: 'critical' | 'success' | 'failure' | 'fumble'
   // -------------------------------------------------------------------------
 
-  static determineOutcome(result, target, rawSkill) {
-    return determineOutcomeShared(result, target, rawSkill);
+  static determineOutcome(result, target, rawSkill, critBasis) {
+    return determineOutcomeShared(result, target, rawSkill, critBasis);
   }
 
   // -------------------------------------------------------------------------
   // Post Chat Result
   // -------------------------------------------------------------------------
 
-  static async _postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion }) {
+  static async _postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill }) {
     const outcomeLabels = {
       critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
       success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
@@ -289,7 +305,11 @@ export class MythrasRoll {
         'mythras-imperative': {
           actorId: actor.id,
           itemId: item.id,
-          rollData: roll ? { result, target, outcome, difficulty, modifier } : null
+          // critBasis/rawSkill persisted so a Luck Point re-roll or swap re-grades
+          // against the SAME bands the original roll used. Without them an
+          // augmented roll would silently re-widen its critical band on a
+          // re-roll (core p51). Both fall back to target for older cards.
+          rollData: roll ? { result, target, outcome, difficulty, modifier, critBasis, rawSkill } : null
         }
       }
     };
@@ -314,7 +334,14 @@ export class MythrasRoll {
     const newRoll = new Roll('1d100');
     await newRoll.evaluate();
     const result  = newRoll.total;
-    const outcome = MythrasRoll.determineOutcome(result, rollData.target, rollData.target);
+    // Re-grade against the SAME bands the original roll used. critBasis and
+    // rawSkill fall back to target for cards posted before v1.4.313, which is
+    // the pre-existing behaviour for those.
+    const outcome = MythrasRoll.determineOutcome(
+      result, rollData.target,
+      rollData.rawSkill  ?? rollData.target,
+      rollData.critBasis ?? rollData.target
+    );
 
     await message.update({
       content: message.content.replace(
@@ -339,7 +366,11 @@ export class MythrasRoll {
     const tens    = Math.floor(orig / 10);
     const units   = orig % 10;
     const swapped = units * 10 + tens;
-    const outcome = MythrasRoll.determineOutcome(swapped, rollData.target, rollData.target);
+    const outcome = MythrasRoll.determineOutcome(
+      swapped, rollData.target,
+      rollData.rawSkill  ?? rollData.target,
+      rollData.critBasis ?? rollData.target
+    );
 
     await message.update({
       content: message.content.replace(
