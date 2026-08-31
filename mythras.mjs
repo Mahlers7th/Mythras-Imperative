@@ -1070,7 +1070,10 @@ export async function requestSkillCheck(actor, {
   const roll = new Roll('1d100');
   await roll.evaluate();
   const target    = difficulty ? applyDifficulty(best.total, difficulty) : best.total;
-  const grade     = determineOutcome(roll.total, target, best.total);
+  // Reading A (v1.4.315): fumble basis is the modified value. Note best.total
+  // was ALREADY condition-graded but not difficulty-graded, so this site
+  // previously matched neither reading - see fumble-basis-design.md.
+  const grade     = determineOutcome(roll.total, target);
   const succeeds  = grade === 'critical' || grade === 'success';
   return {
     chosenSkillName: best.name, chosenSkillTotal: best.total, chosenSkillRaw: best.rawTotal,

@@ -357,7 +357,9 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
       // one tenth of the modified value, which is exactly what determineOutcome
       // computes from `target`. Same "outcome band derived from the wrong
       // input" class as outcome-band-evidence-survey.md 4a.
-      const torsoOutcome = determineOutcome(torsoRoll.total, hardTotal, enduranceTotal);
+      // Reading A (v1.4.315): the fumble basis is the modified value — the
+      // Hard-graded total, not the raw Endurance this used to pass.
+      const torsoOutcome = determineOutcome(torsoRoll.total, hardTotal);
       await ChatMessage.create({
         content: `
           <div class="mi-chat-card">

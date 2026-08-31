@@ -207,17 +207,25 @@ export class MythrasRoll {
     await roll.evaluate();
     const result = roll.total;
 
-    // Determine outcome. `unaugmented` is both the fumble basis and (via
-    // critBasis) the critical basis, per core p51 — the augment moves the
-    // success target and nothing else.
-    const outcome = MythrasRoll.determineOutcome(result, target, unaugmented, critBasis);
+    // Determine outcome. Under Reading A (v1.4.315) the fumble basis and the
+    // critical basis are the SAME number — the modified, unaugmented value —
+    // so `critBasis` is passed for both. The augment moves the success target
+    // and nothing else (core p51); every other modifier moves both bands
+    // (core p18).
+    //
+    // This previously passed `unaugmented`, the PRE-difficulty value, as the
+    // fumble basis: right about excluding the augment, wrong about excluding
+    // the difficulty grade. See fumble-basis-design.md.
+    const outcome = MythrasRoll.determineOutcome(result, target, critBasis, critBasis);
 
     // Mark fumble on item for experience tracking
     if (outcome === 'fumble' && !item.system.fumbledLastSession) {
       await item.update({ 'system.fumbledLastSession': true });
     }
 
-    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill: unaugmented });
+    // rawSkill is critBasis under Reading A — the same number, stored twice
+    // only so a card posted before v1.4.315 still re-grades sensibly.
+    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill: critBasis });
   }
 
   // -------------------------------------------------------------------------
@@ -337,11 +345,8 @@ export class MythrasRoll {
     // Re-grade against the SAME bands the original roll used. critBasis and
     // rawSkill fall back to target for cards posted before v1.4.313, which is
     // the pre-existing behaviour for those.
-    const outcome = MythrasRoll.determineOutcome(
-      result, rollData.target,
-      rollData.rawSkill  ?? rollData.target,
-      rollData.critBasis ?? rollData.target
-    );
+    const basis = rollData.critBasis ?? rollData.rawSkill ?? rollData.target;
+    const outcome = MythrasRoll.determineOutcome(result, rollData.target, basis, basis);
 
     await message.update({
       content: message.content.replace(
@@ -366,11 +371,8 @@ export class MythrasRoll {
     const tens    = Math.floor(orig / 10);
     const units   = orig % 10;
     const swapped = units * 10 + tens;
-    const outcome = MythrasRoll.determineOutcome(
-      swapped, rollData.target,
-      rollData.rawSkill  ?? rollData.target,
-      rollData.critBasis ?? rollData.target
-    );
+    const basis = rollData.critBasis ?? rollData.rawSkill ?? rollData.target;
+    const outcome = MythrasRoll.determineOutcome(swapped, rollData.target, basis, basis);
 
     await message.update({
       content: message.content.replace(

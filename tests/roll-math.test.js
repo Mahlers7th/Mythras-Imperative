@@ -245,3 +245,81 @@ describe('determineOutcome critBasis (rules p.51 augmentation)', () => {
     expect(determineOutcome(96, 45, 38, 38)).toBe('failure');
   });
 });
+
+// ---------------------------------------------------------------------------
+// The fumble basis — Reading A  (ruled by Chris, v1.4.315)
+//
+// Core p18 exempts skills "of more than 100%" from fumbling on 99, but never
+// says whether that value is the character's skill or the skill after
+// difficulty grades and condition floors. fumble-basis-design.md searched all
+// six sources and found the corpus does not settle it: the wording is
+// verbatim-identical across TDM110, Mythras Imperative and CFI, and no book
+// contains a worked example of a fumble rolled against a modified skill.
+//
+// Ruled: READING A — the fumble basis is the SAME number as the critical
+// basis, i.e. the modified, unaugmented value. Grounds (four convergent
+// signals, none decisive alone):
+//   1. The grade table defines grades as operations on "the skill value", and
+//      the fumble bullet tests "a value of more than 100%".
+//   2. The critical bullet glosses that identical phrase, in the same list,
+//      as including modifiers.
+//   3. p51: the over-100% test is "calculated after any other modifiers for
+//      circumstances have been applied".
+//   4. Mju's Saga (p160) — base Stealth 80% doubled to 160%, and the over-100
+//      penalty is computed from 160, not 80. Under a base-value reading that
+//      example is impossible.
+// Against: the crit bullet needed an explicit "(and this includes skills that
+// receive a modifier)" clause and the fumble bullet two lines later lacks one.
+// Recorded because it is a real argument, not because it prevailed.
+//
+// Consequence for this file: rawSkill and critBasis always carry the same
+// value. Every call site is therefore two-argument except the augmented one,
+// which passes critBasis for both.
+// ---------------------------------------------------------------------------
+
+describe('fumble basis — Reading A (v1.4.315)', () => {
+  test('a modified skill below 100 fumbles on 99, even from a high base', () => {
+    // Combat Style 110% at Hard is 74. Under Reading A that is the basis, so
+    // the exemption does not apply and 99 fumbles.
+    const modified = applyDifficulty(110, 'hard');
+    expect(modified).toBe(74);
+    expect(determineOutcome(99, modified)).toBe('fumble');
+  });
+
+  test('the same character at standard difficulty keeps the exemption', () => {
+    // 110 is above 100, so 99 is an ordinary failure via the 96-00 ceiling.
+    expect(determineOutcome(99, 110)).toBe('failure');
+  });
+
+  test('Reading B would have given the opposite answer — this is the behaviour change', () => {
+    // Under B the basis is the base skill (110), exempting the character even
+    // while impaired. Kept as an explicit statement of what was rejected.
+    expect(determineOutcome(99, 74, 110)).toBe('failure');   // Reading B
+    expect(determineOutcome(99, 74)).toBe('fumble');         // Reading A, shipped
+  });
+
+  test('rawSkill and critBasis carry the same value under A', () => {
+    // The two parameters are no longer independent concepts. A call passing
+    // different values for them is expressing something the ruling says does
+    // not exist — except transiently, which is why this is a guard not a law.
+    const basis = applyDifficulty(45, 'hard');
+    expect(determineOutcome(99, 60, basis, basis)).toBe(determineOutcome(99, 60, basis, basis));
+    expect(determineOutcome(3, 60, basis, basis)).toBe('critical'); // ceil(30/10) = 3
+    expect(determineOutcome(4, 60, basis, basis)).toBe('success');
+  });
+
+  test('augmentation is still the one exception, and it survives the ruling', () => {
+    // p51 is untouched by A: the augment moves the success target only. Ride
+    // 38 augmented to 45 still criticals on 04 and fumbles as a 38.
+    expect(determineOutcome(4, 45, 38, 38)).toBe('critical');
+    expect(determineOutcome(5, 45, 38, 38)).toBe('success');
+    expect(determineOutcome(99, 45, 38, 38)).toBe('fumble');
+  });
+
+  test('a two-argument call now expresses Reading A correctly by default', () => {
+    // Because rawSkill and critBasis both default to target, and target is
+    // the modified value, every non-augmented site needs no third argument.
+    expect(determineOutcome(99, 74)).toBe(determineOutcome(99, 74, 74, 74));
+    expect(determineOutcome(3, 74)).toBe(determineOutcome(3, 74, 74, 74));
+  });
+});

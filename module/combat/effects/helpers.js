@@ -1071,7 +1071,10 @@ export async function runSEDialog(data) {
             const roll = new Roll('1d100');
             await roll.evaluate();
             const target   = difficulty ? applyDifficulty(sk.total, difficulty) : sk.total;
-            const grade    = determineOutcome(roll.total, target, sk.total);
+            // Reading A (v1.4.315): the fumble basis is the modified value, so
+            // it is `target`, not the pre-difficulty `sk.total` this used to
+            // pass. Two arguments express that — rawSkill defaults to target.
+            const grade    = determineOutcome(roll.total, target);
             const succeeds = grade === 'critical' || grade === 'success';
             resolve({
               chosenSkillName: sk.name, chosenSkillTotal: sk.total,

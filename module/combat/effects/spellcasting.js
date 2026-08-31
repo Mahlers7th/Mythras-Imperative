@@ -89,7 +89,10 @@ export async function castSpell(caster, spellItem, target = null) {
 
   const roll = new Roll('1d100');
   await roll.evaluate();
-  const outcome = determineOutcome(roll.total, skillTotal, skillTotal);
+  // No difficulty is applied on this path, so target IS the modified value
+  // and the explicit third argument was always redundant. Dropped v1.4.315
+  // for consistency with every other site under Reading A.
+  const outcome = determineOutcome(roll.total, skillTotal);
 
   let mpCost = 0;
   let works  = false;
