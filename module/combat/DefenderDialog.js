@@ -160,6 +160,28 @@ export class DefenderDialog {
         </span>
       </label>` : '';
 
+    // ── Brace (CFI Combat Actions, 0008_Combat.md) ──────────────────────────
+    // "For the purposes of resisting Knockback or Leaping Attacks, the
+    // character's SIZ is treated as 50% bigger. Against the Bash Special
+    // Effect, SIZ is doubled."
+    //
+    // Only the Bash clause has a consumer in this engine: bash.js gates on
+    // `defenderSIZ > attackerSIZ * 2`, and a braced defender doubles their SIZ
+    // for that comparison. Knockback DISTANCE takes no SIZ term at all (it is
+    // raw damage / divisor), and Leaping Attacks are not a rule here — so the
+    // 50% clause has nothing to attach to and is deliberately not implemented.
+    // See combat-actions-design.md §1a.
+    //
+    // RAW this is a Proactive Action spent on the character's own turn, not a
+    // reaction. Chris ruled (2026-09-01) it sits here instead, with the Action
+    // Point cost retained so bracing after seeing the attack is not free.
+    const braceAP         = defender.system?.attributes?.actionPoints?.value ?? 0;
+    // Defending itself costs 1 AP, so Brace needs a second one to be payable.
+    const braceAffordable = braceAP >= 2;
+    const braceHint       = braceAffordable
+      ? 'Costs 1 AP (on top of the defence) — SIZ counts double against Bash'
+      : `Not enough Action Points (${braceAP}) — needs 1 spare beyond the defence`;
+
     // ── Attack result — RAW ordering (rules p.40): the attacker has already
     // rolled by the time this dialog opens. Shown prominently, before any
     // choice is made, so the defender can decline to spend an Action Point
@@ -242,6 +264,15 @@ export class DefenderDialog {
             </label>
 
           </div>
+        </div>
+
+        <div class="mi-form-row mi-form-row--toggle" id="mi-def-brace-row">
+          <label>Brace</label>
+          <label class="mi-toggle">
+            <input type="checkbox" id="mi-def-brace"${braceAffordable ? '' : ' disabled'}>
+            <span class="mi-toggle-track"></span>
+            <span class="mi-toggle-hint">${braceHint}</span>
+          </label>
         </div>
 
         <div class="mi-dialog-target-row">
@@ -509,12 +540,18 @@ function _readDialog(
     willBeProne = true;
   }
 
+  // Brace — a separate Action Point on top of the defence. A defender who
+  // chose 'none' spends no AP on defending, so bracing then costs only its
+  // own point; _afterDefenceResolved does the affordability check for real.
+  const braced = html.find('#mi-def-brace').is(':checked');
+
   return {
     defenceType: type,
     weaponId,
     styleId,
     skillTotal,
     actorId:     defender.id,
-    willBeProne
+    willBeProne,
+    braced
   };
 }

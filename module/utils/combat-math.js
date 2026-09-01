@@ -248,6 +248,33 @@ export function stepUpDamageModifier(currentDM) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Bash's SIZ gate — can this defender be knocked back at all?
+ *
+ * Rules: Bash only affects targets up to twice the attacker's SIZ. A defender
+ * larger than that limit cannot be knocked back.
+ *
+ * CFI's **Brace** Combat Action states "Against the Bash Special Effect, SIZ is
+ * doubled" — so a braced defender compares 2 x SIZ against the same limit,
+ * which is how bracing makes you harder to shove. This is the only live
+ * consumer of the Brace stance in the engine: knockback DISTANCE takes no SIZ
+ * term (it is raw damage / divisor), and Leaping Attacks are not implemented,
+ * so Brace's "50% bigger" clause has nothing to attach to.
+ * See `combat-actions-design.md` §1a.
+ *
+ * @param {number}  attackerSIZ
+ * @param {number}  defenderSIZ  the defender's unmodified SIZ
+ * @param {boolean} [isBraced]   true if the defender took the Brace action
+ * @returns {{effectiveSIZ: number, sizLimit: number, tooBig: boolean}}
+ */
+export function resolveBashSizGate(attackerSIZ, defenderSIZ, isBraced = false) {
+  const base         = Number(attackerSIZ) || 0;
+  const defBase      = Number(defenderSIZ) || 0;
+  const effectiveSIZ = isBraced === true ? defBase * 2 : defBase;
+  const sizLimit     = base * 2;
+  return { effectiveSIZ, sizLimit, tooBig: effectiveSIZ > sizLimit };
+}
+
+/**
  * Determine the Endurance roll difficulty grade when a weapon is impaled.
  *
  * @param {'S'|'M'|'L'|'H'|'E'} weaponSize

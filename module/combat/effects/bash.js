@@ -17,6 +17,7 @@ import {
   applyFatigueToSkill,
   applyStatusToActor,
 } from './helpers.js';
+import { resolveBashSizGate } from '../../utils/combat-math.js';
 
 const NS = 'mythras-imperative';
 
@@ -74,10 +75,18 @@ export async function resolveBash(ctx) {
   const knockbackMetres = Math.ceil((rawDamage * knockbackMultiplier) / divisor);
 
   // ── SIZ check ────────────────────────────────────────────────────────────
+  // Brace (CFI Combat Action): "Against the Bash Special Effect, SIZ is
+  // doubled." A braced defender therefore compares 2 x SIZ against the
+  // attacker's limit, making them harder to knock back — this is the ONE live
+  // consumer of the Brace stance in the engine (knockback distance takes no
+  // SIZ term, and Leaping Attacks do not exist here). See
+  // combat-actions-design.md §1a. ctx.isBraced is set by
+  // CombatEngine._applyDefenceData from the defender's own dialog.
   const attackerSIZ = attacker.system?.characteristics?.siz?.value ?? 0;
-  const defenderSIZ = defender.system?.characteristics?.siz?.value ?? 0;
-  const sizLimit    = attackerSIZ * 2;
-  const tooBig      = defenderSIZ > sizLimit;
+  const baseSIZ     = defender.system?.characteristics?.siz?.value ?? 0;
+  const isBraced    = ctx.isBraced === true;
+  const { effectiveSIZ: defenderSIZ, sizLimit, tooBig } =
+    resolveBashSizGate(attackerSIZ, baseSIZ, isBraced);
 
   if (tooBig) {
     await ChatMessage.create({
@@ -92,7 +101,7 @@ export async function resolveBash(ctx) {
               <span class="mi-outcome mi-wound-minor">
                 <i class="fas fa-shield-alt"></i>
                 ${defender.name} is too large to knock back
-                (SIZ ${defenderSIZ} vs limit ${sizLimit})
+                (SIZ ${defenderSIZ}${isBraced ? ` — ${baseSIZ} braced, doubled` : ''} vs limit ${sizLimit})
               </span>
             </div>
           </div>

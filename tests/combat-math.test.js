@@ -16,6 +16,7 @@ import {
   stepUpDamageModifier,
   shiftDamageModifier,
   getImpaleGrade,
+  resolveBashSizGate,
   DM_TABLE,
   weaponBaseMax,
   compareInitiative,
@@ -462,6 +463,69 @@ describe('shiftDamageModifier', () => {
   test('unrecognized DM string passes through unchanged regardless of steps', () => {
     expect(shiftDamageModifier('+99d99', 3)).toBe('+99d99');
     expect(shiftDamageModifier('garbage', -3)).toBe('garbage');
+  });
+});
+
+// =============================================================================
+// resolveBashSizGate — Bash's "twice the attacker's SIZ" limit, and CFI's
+// Brace Combat Action ("Against the Bash Special Effect, SIZ is doubled").
+// =============================================================================
+
+describe('resolveBashSizGate', () => {
+  describe('unbraced — the base rule', () => {
+    test('equal SIZ is well within the limit', () => {
+      const r = resolveBashSizGate(15, 15);
+      expect(r).toEqual({ effectiveSIZ: 15, sizLimit: 30, tooBig: false });
+    });
+
+    test('exactly twice the attacker SIZ is NOT too big — the limit is inclusive', () => {
+      // tooBig is `>` not `>=`: a SIZ 30 defender vs a SIZ 15 attacker sits
+      // exactly on the limit and can still be knocked back.
+      expect(resolveBashSizGate(15, 30).tooBig).toBe(false);
+    });
+
+    test('one point over the limit is too big', () => {
+      expect(resolveBashSizGate(15, 31).tooBig).toBe(true);
+    });
+  });
+
+  describe('braced — CFI Brace doubles the defender SIZ', () => {
+    test('a defender who was bashable becomes too big', () => {
+      // SIZ 20 vs a SIZ 15 attacker: 20 <= 30, so normally bashable.
+      expect(resolveBashSizGate(15, 20).tooBig).toBe(false);
+      // Braced, the same defender compares as SIZ 40 against the same limit.
+      const braced = resolveBashSizGate(15, 20, true);
+      expect(braced.effectiveSIZ).toBe(40);
+      expect(braced.sizLimit).toBe(30);
+      expect(braced.tooBig).toBe(true);
+    });
+
+    test('bracing does not move the attacker-derived limit', () => {
+      // The limit is a property of the attacker only; Brace must not touch it.
+      expect(resolveBashSizGate(15, 20, true).sizLimit)
+        .toBe(resolveBashSizGate(15, 20, false).sizLimit);
+    });
+
+    test('bracing is not always enough against a much larger attacker', () => {
+      // SIZ 10 defender braced = 20, vs a SIZ 40 attacker's limit of 80.
+      expect(resolveBashSizGate(40, 10, true).tooBig).toBe(false);
+    });
+
+    test('only an explicit true braces — a truthy value is not enough', () => {
+      // ctx.isBraced is compared strictly at the call site; mirror that here so
+      // an undefined/absent flag can never accidentally grant the stance.
+      expect(resolveBashSizGate(15, 20, 'yes').effectiveSIZ).toBe(20);
+      expect(resolveBashSizGate(15, 20, 1).effectiveSIZ).toBe(20);
+      expect(resolveBashSizGate(15, 20, undefined).effectiveSIZ).toBe(20);
+    });
+  });
+
+  describe('bad input', () => {
+    test('non-numeric SIZ values coerce to 0 rather than producing NaN', () => {
+      expect(resolveBashSizGate(undefined, undefined))
+        .toEqual({ effectiveSIZ: 0, sizLimit: 0, tooBig: false });
+      expect(resolveBashSizGate('abc', 'def').tooBig).toBe(false);
+    });
   });
 });
 

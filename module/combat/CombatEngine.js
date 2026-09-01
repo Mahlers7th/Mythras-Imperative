@@ -1339,6 +1339,10 @@ export class CombatEngine {
   static _applyDefenceData(ctx, defenceData) {
     ctx.defenceType  = defenceData.defenceType ?? 'none';
     ctx.willBeProne  = defenceData.willBeProne ?? false;
+    // Brace is the DEFENDER's stance, chosen in their dialog (or the GM Mode
+    // inline panel). It arrives here rather than from the attacker's context —
+    // the pre-existing attacker-side isBraced field was never set by anything.
+    ctx.isBraced     = defenceData.braced ?? false;
 
     if (ctx.defenceType === 'parry') {
       ctx.defenceWeapon = defenceData.weaponId
@@ -1441,6 +1445,25 @@ export class CombatEngine {
     // Don't Defend ('none') costs nothing. Surprised cannot react — no AP spent.
     if (ctx.defenceType !== 'none' && !ctx.defenderSurprised) {
       await CombatEngine._spendActionPoint(defender);
+    }
+
+    // Brace costs its own Action Point, on top of any defence. Spent AFTER the
+    // defence so a defender who cannot afford both keeps the defence and loses
+    // the brace, not the other way round. If the point is not there, the stance
+    // is revoked rather than granted free — ctx.isBraced is read later by
+    // bash.js, so it must be corrected before SE resolution (which happens
+    // further down this same method). Surprised defenders cannot brace either.
+    if (ctx.isBraced) {
+      // Read the pool BEFORE spending. spendActionPoint returns 0 both when it
+      // refused (pool already empty) and when it legitimately spent the last
+      // point, so its return value cannot tell the two apart after the fact.
+      const apLeft = defender.system.attributes?.actionPoints?.value ?? 0;
+      if (ctx.defenderSurprised || apLeft <= 0) {
+        ctx.isBraced = false;
+        ui.notifications.warn(`${defender.name} could not spare an Action Point to Brace.`);
+      } else {
+        await CombatEngine._spendActionPoint(defender);
+      }
     }
 
     // ── Step 8: Apply prone from evasion ────────────────────────────────────
@@ -4909,7 +4932,10 @@ export class CombatEngine {
       // ── Flags ───────────────────────────────────────────────────────────
       // Set by the Charge combat action before initiateAttack is called
       isCharge:    false,
-      // Set if the attacker has the Brace stance active
+      // Set by _applyDefenceData when the DEFENDER braces (CFI Combat Action).
+      // Read by effects/bash.js, which doubles the defender's SIZ for its
+      // too-big-to-Bash gate. Was declared here and never set by anything until
+      // v1.4.316 — the comment previously said "attacker", which was wrong.
       isBraced:    false,
       // Ranged combat fields — set by AttackerDialog when a ranged weapon is used
       isRanged:    false,           // true when weapon.system.category === 'ranged'

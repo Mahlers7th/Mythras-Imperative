@@ -855,7 +855,8 @@ function _readGmDefencePanel(html, defender, ctx) {
     styleId:     defStyleId,
     skillTotal:  defSkillTotal,
     actorId:     defender.id,
-    willBeProne
+    willBeProne,
+    braced:      html.find('#mi-gm-def-brace').is(':checked')
   };
 
   return ctx;
@@ -901,6 +902,15 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
   const evadeTotal      = evadeSkill?.system.total ?? 0;
   const acrobaticsTotal = acrobaticsSkill?.system.total ?? 0;
   const proneWarning    = hasDaredevil ? '(Daredevil — no prone)' : '(will be prone)';
+
+  // Brace — mirrors DefenderDialog's row so GM Mode is not a lesser path.
+  // See that file's comment, and combat-actions-design.md §1, for why the
+  // Bash SIZ clause is the only part implemented.
+  const gmBraceAP         = defender.system?.attributes?.actionPoints?.value ?? 0;
+  const gmBraceAffordable = gmBraceAP >= 2;
+  const gmBraceHint       = gmBraceAffordable
+    ? 'Costs 1 AP (on top of the defence) — SIZ counts double against Bash'
+    : `Not enough Action Points (${gmBraceAP}) — needs 1 spare beyond the defence`;
 
   const content = `
     <div class="mi-attacker-dialog">
@@ -963,6 +973,15 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
           </span>
         </label>
 
+      </div>
+
+      <div class="mi-form-row mi-form-row--toggle" id="mi-gm-def-brace-row">
+        <label>Brace</label>
+        <label class="mi-toggle">
+          <input type="checkbox" id="mi-gm-def-brace"${gmBraceAffordable ? '' : ' disabled'}>
+          <span class="mi-toggle-track"></span>
+          <span class="mi-toggle-hint">${gmBraceHint}</span>
+        </label>
       </div>
     </div>
   `;
