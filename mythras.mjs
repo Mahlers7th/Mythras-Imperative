@@ -1284,6 +1284,21 @@ async function _onUpdateCombat(combat, changed) {
         }
       }
 
+      // ── Delay lapse — an unspent Delay expires with the Mythras round ─────
+      // CFI: "If the delayed Actions are not taken before the character's Turn
+      // in the next Round, then the character is considered to have Passed and
+      // the Action Points are lost." This is the right boundary and Foundry's
+      // round increment is not — that fires every time the tracker wraps past
+      // the last combatant, which happens repeatedly inside one Mythras round
+      // and would cancel a delay the character is still entitled to spend.
+      // The "Action Points are lost" half needs no code: the AP reset directly
+      // above has already restored everyone to max.
+      for (const combatant of active) {
+        const actor = combatant.token?.actor ?? combatant.actor;
+        if (!actor) continue;
+        await _clearLapsedDelay(actor);
+      }
+
       // ── Bleed drain — one Fatigue per Mythras round for each bleeding actor ─
       // Rules p.43: "At the start of each Combat Round, the recipient loses
       // one level of Fatigue, until they collapse and possibly die."
@@ -1599,6 +1614,119 @@ async function _onUpdateCombat(combat, changed) {
     try { await hook(syntheticActor, combat); }
     catch (err) { console.error('Mythras | turnStartedHook error:', err); }
   }
+}
+
+
+// ===========================================================================
+// DELAY — the CFI Combat Action (cfi-srd `0008_Combat.md`, Proactive Actions)
+//
+//   "The character conserves one or more Actions in order to perform Reactive
+//    Actions later, such as Interrupt or Parry. The Action Point costs of
+//    delaying is covered by whatever acts are finally performed. If the delayed
+//    Actions are not taken before the character's Turn in the next Round, then
+//    the character is considered to have Passed and the Action Points are lost."
+//
+// In this engine Delay is almost entirely a DECLARED STATE, and deliberately so.
+// Action Points, not turn position, are the real currency: a combatant who
+// spends nothing on their Turn already keeps their AP, and _onUpdateCombat's
+// Mythras-round model (see its header) means the tracker cycles back to them
+// inside the same round. Conserving Actions therefore needs no machinery at all.
+// What Delay must add is the flag that makes a character eligible to INTERRUPT,
+// which is the only thing that reads it. See combat-actions-design.md §2.
+//
+// CLEARING happens at the Mythras round boundary (all AP spent), beside the Pin
+// Weapon reset — NOT on Foundry's round increment, which fires every time the
+// tracker wraps past the last combatant and would cancel a delay mid-round.
+// The rule's "Action Points are lost" clause needs no code either: AP resets to
+// max at that same boundary, so unspent delayed Actions are already forfeit.
+//
+// PLACEMENT is the combat tracker, not the attack dialog, because you Delay
+// INSTEAD of attacking — by the time the attack dialog is open the player has
+// already committed to a weapon and a target (Chris's ruling, 2026-09-01).
+//
+// HOOK NAME: `getCombatTrackerContextOptions`, fired as (app, entries).
+// Foundry v14's own JSDoc at client/applications/sidebar/tabs/combat-tracker.mjs
+// says `getCombatantContextOptions` — that hook does not exist. The real name is
+// derived by Application#_createContextMenu from the "get{}ContextOptions"
+// template and the class name. Verified live before this was written, because
+// binding the documented name would have failed silently and looked like a
+// rendering bug.
+// ===========================================================================
+
+/** Resolve the actor behind a `.combatant` row in the tracker. */
+function _combatantActorFromRow(li) {
+  const id = li?.dataset?.combatantId;
+  if (!id) return null;
+  const combatant = game.combat?.combatants?.get(id) ?? null;
+  // Prefer the token's synthetic actor: statuses live in the token's
+  // actorDelta, and unlinked tokens do not share the base actor's state.
+  return combatant?.token?.actor ?? combatant?.actor ?? null;
+}
+
+function _isDelaying(actor) {
+  return !!actor?.getFlag?.('mythras-imperative', 'delaying');
+}
+
+/**
+ * Set or clear the Delay state on an actor: the flag Interrupt reads, plus the
+ * token status so the table can see who is holding.
+ */
+async function _setDelaying(actor, active) {
+  if (!actor) return;
+  const { CombatEngine } = await import('./module/combat/CombatEngine.js');
+  if (active) {
+    await actor.setFlag('mythras-imperative', 'delaying', {
+      round: game.combat?.round ?? 0,
+      apAtDeclaration: actor.system?.attributes?.actionPoints?.value ?? 0
+    });
+    await CombatEngine._applyStatusToActor(actor, 'delaying');
+    ui.notifications.info(`${actor.name} is Delaying — may Interrupt until the end of this Combat Round.`);
+  } else {
+    await actor.unsetFlag('mythras-imperative', 'delaying');
+    await CombatEngine._removeStatusFromActor(actor, 'delaying');
+  }
+}
+
+Hooks.on('getCombatTrackerContextOptions', (_app, entries) => {
+  if (!Array.isArray(entries)) return;
+
+  entries.push({
+    label: 'Delay',
+    icon:  'fa-solid fa-hourglass-half',
+    visible: li => {
+      const actor = _combatantActorFromRow(li);
+      return !!actor && actor.isOwner && !_isDelaying(actor);
+    },
+    onClick: async (_event, li) => {
+      const actor = _combatantActorFromRow(li);
+      if (actor) await _setDelaying(actor, true);
+    }
+  }, {
+    label: 'Cancel Delay',
+    icon:  'fa-solid fa-hourglass-end',
+    visible: li => {
+      const actor = _combatantActorFromRow(li);
+      return !!actor && actor.isOwner && _isDelaying(actor);
+    },
+    onClick: async (_event, li) => {
+      const actor = _combatantActorFromRow(li);
+      if (!actor) return;
+      await _setDelaying(actor, false);
+      ui.notifications.info(`${actor.name} is no longer Delaying.`);
+    }
+  });
+});
+
+/**
+ * Clear a Delay that was never spent. Exported onto the engine's own module
+ * boundary via CombatEngine when an Interrupt consumes it; called here at the
+ * Mythras round boundary for delays that simply lapsed.
+ */
+async function _clearLapsedDelay(actor) {
+  if (!_isDelaying(actor)) return;
+  await _setDelaying(actor, false);
+  console.log(`Mythras Imperative | Delay lapsed for ${actor.name} — Action Points forfeit (reset this round anyway).`);
+  ui.notifications.info(`${actor.name}'s Delay lapsed unspent — treated as having Passed.`);
 }
 
 Hooks.on('updateCombat', _onUpdateCombat);

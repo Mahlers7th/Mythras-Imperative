@@ -1245,6 +1245,17 @@ export class CombatEngine {
     // Attacker spends 1 AP — proactive action
     await CombatEngine._spendActionPoint(attacker);
 
+    // ── Interrupt consumes the Delay ────────────────────────────────────────
+    // Spent here, at the point the attack is definitely happening (the dialog
+    // has been confirmed and the Action Point is gone), not at dialog-confirm
+    // time — a cancelled or failed exchange must not eat the Delay. CFI gives
+    // Interrupt no mechanical modifier, so this is the whole of its effect
+    // besides the card pill: the Delay is used up and cannot be spent twice.
+    if (confirmedCtx.isInterrupt) {
+      await CombatEngine._clearDelay(attacker);
+      ui.notifications.info(`${attacker.name} Interrupts — Delay spent.`);
+    }
+
     // ── Step 5a: Vehicle defender — skip all defender dialog / socket logic ──
     // Vehicles cannot parry, evade, or respond. Defence is always 'none'.
     // Damage resolution uses hull/structure rather than hit locations.
@@ -1630,6 +1641,7 @@ export class CombatEngine {
 
     const pills = [
       ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
+      ctx.isInterrupt       ? '<span class="mi-card-pill">Interrupt</span>'                     : '',
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -1742,6 +1754,7 @@ export class CombatEngine {
     };
     const pills = [
       ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
+      ctx.isInterrupt       ? '<span class="mi-card-pill">Interrupt</span>'                     : '',
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -2544,6 +2557,7 @@ export class CombatEngine {
     };
     const pills = [
       ctx.isDivingStrike    ? '<span class="mi-card-pill">Diving Strike</span>'                 : (ctx.isCharge ? '<span class="mi-card-pill">Charge</span>' : ''),
+      ctx.isInterrupt       ? '<span class="mi-card-pill">Interrupt</span>'                     : '',
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
@@ -4845,6 +4859,18 @@ export class CombatEngine {
 
   static async _removeStatusFromActor(actor, statusId) { return removeStatusFromActor(actor, statusId); }
 
+  /**
+   * Clear an actor's Delay — the flag and its token status together, so the two
+   * can never disagree. Called when an Interrupt spends the Delay; mythras.mjs
+   * calls its own equivalent at the Mythras round boundary for delays that
+   * simply lapsed. See combat-actions-design.md §2.
+   */
+  static async _clearDelay(actor) {
+    if (!actor?.getFlag?.('mythras-imperative', 'delaying')) return;
+    await actor.unsetFlag('mythras-imperative', 'delaying');
+    await removeStatusFromActor(actor, 'delaying');
+  }
+
   // -------------------------------------------------------------------------
   // combatContext factory
   // This is the complete shape of the object. Every field is defined here.
@@ -4932,6 +4958,12 @@ export class CombatEngine {
       // ── Flags ───────────────────────────────────────────────────────────
       // Set by the Charge combat action before initiateAttack is called
       isCharge:    false,
+      // Set by AttackerDialog when a Delaying attacker spends their Delay to
+      // attack out of turn (CFI's Interrupt). Carries no mechanical modifier —
+      // it consumes the Delay and labels the result card. See
+      // combat-actions-design.md §3 for why it deliberately does not touch
+      // turn order.
+      isInterrupt: false,
       // Set by _applyDefenceData when the DEFENDER braces (CFI Combat Action).
       // Read by effects/bash.js, which doubles the defender's SIZ for its
       // too-big-to-Bash gate. Was declared here and never set by anything until

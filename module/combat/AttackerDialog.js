@@ -164,6 +164,25 @@ export class AttackerDialog {
     // for creatures that actually have the trait, melee-only like Charge.
     const hasDivingStrike = CombatEngine._hasCreatureTrait(attacker, 'divingStrike');
 
+    // ── Interrupt (CFI Combat Action, Reactive) ──────────────────────────────
+    // "Delaying characters only. This Reactive Action halts an opponent's Turn
+    //  at any point to take a delayed Turn Action."
+    //
+    // Interrupt IS an attack — one taken out of turn — which is why it belongs
+    // here rather than on the tracker where Delay lives. The row only appears
+    // when the attacker actually holds a Delay, the same way Diving Strike only
+    // appears for creatures that have the trait.
+    //
+    // It carries NO mechanical modifier, deliberately: the engine does not
+    // control turn order (game.combat is read for .id and .round and nothing
+    // else), so "halting" an opponent's turn is the GM's sequencing decision,
+    // not something to automate. What the toggle does is spend the Delay and
+    // mark the exchange, so the card says what happened. The rule's "if unable
+    // to still achieve the original declaration, the opponent's Action Point is
+    // wasted" clause is adjudication and is not automated either.
+    // See combat-actions-design.md §3.
+    const isDelaying = !!attacker?.getFlag?.('mythras-imperative', 'delaying');
+
     // ── Range band (ranged weapons only) ─────────────────────────────────────
     // The attacker selects which range band the target is at. This drives the
     // difficulty modifier applied to the attack roll:
@@ -299,6 +318,16 @@ export class AttackerDialog {
               <input type="checkbox" id="mi-atk-diving-strike">
               <span class="mi-toggle-track"></span>
               <span class="mi-toggle-hint">Weapon size +1, Damage Modifier +1 — no difficulty penalty</span>
+            </label>
+          </div>` : ''}
+
+          ${isDelaying ? `
+          <div class="mi-form-row mi-form-row--toggle" id="mi-atk-interrupt-row">
+            <label>Interrupt</label>
+            <label class="mi-toggle">
+              <input type="checkbox" id="mi-atk-interrupt" checked>
+              <span class="mi-toggle-track"></span>
+              <span class="mi-toggle-hint">Spend the Delay to act out of turn — no mechanical modifier</span>
             </label>
           </div>` : ''}
 
@@ -805,6 +834,10 @@ function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, al
   ctx.difficulty          = effectiveDifficulty;
   ctx.isCharge            = isCharge || isDivingStrike;
   ctx.isDivingStrike      = isDivingStrike;
+  // Interrupt — only true if the attacker actually held a Delay AND left the
+  // toggle on. The row is absent entirely otherwise, so the lookup is falsy.
+  ctx.isInterrupt         = (html.find('#mi-atk-interrupt')[0]?.checked ?? false)
+                            && !!attacker?.getFlag?.('mythras-imperative', 'delaying');
   ctx.isRanged            = isRangedWeapon;
   ctx.rangeBand           = rangeBand;   // 'close'|'effective'|'long'|null (melee)
   ctx.isAiming            = isAiming;

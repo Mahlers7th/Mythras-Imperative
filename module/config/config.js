@@ -1068,6 +1068,11 @@ export const MYTHRAS = {
     bleeding:       { label: 'MYTHRAS.ConditionBleeding',       icon: 'icons/svg/blood.svg'        },
     unconscious:    { label: 'MYTHRAS.ConditionUnconscious',    icon: 'icons/svg/unconscious.svg'  },
     surprised:      { label: 'MYTHRAS.ConditionSurprised',      icon: 'icons/svg/eye.svg'          },
+    // Delaying — the Delay Combat Action. Purely a declared state: it is the
+    // precondition for Interrupt and nothing else reads it. Set from the combat
+    // tracker's context menu, cleared when an Interrupt is spent or at the
+    // Mythras round boundary (all AP spent), NOT on Foundry's round increment.
+    delaying:       { label: 'MYTHRAS.ConditionDelaying',       icon: 'icons/svg/clockwork.svg'    },
     entangled:      { label: 'MYTHRAS.ConditionEntangled',      icon: 'icons/svg/net.svg'          },
     burning:        { label: 'MYTHRAS.ConditionBurning',        icon: 'icons/svg/fire.svg'         },
     // Wound-state conditions — applied by the wound consequence engine
