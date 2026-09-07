@@ -18,7 +18,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **One undefined custom property caught the same way:** the first draft used `var(--mi-muted)`, which does not exist. The stylesheet's muted text is `.mi-muted { color: var(--mi-ink-3); }` — the class is named for the concept, the variable is not. Now uses `--mi-ink-3`, and all seven properties the new rules reference were verified defined.
 - CSS only. 812 tests pass (11 suites), unchanged — no JS touched. Brace balance verified. Lint unchanged.
 - **A reload is required to pick this up**: Foundry serves the stylesheet fresh from disk, but an already-open client keeps the old one until refreshed.
-- Not yet committed
+- Committed as `e55155a212f178a7177bc2286f97af00a3efe683`
 
 ## v1.4.319 — September 2026
 - **"Only one Luck Point can be used in support of a particular Action" was not enforced, and a player could spend three on one roll.** Imperative p.33 and Core p.81 both state the limit outright. The card's Re-roll and Swap buttons survived the content update that applied their own result, so nothing stopped a player re-rolling, re-rolling again, then swapping — each click correctly decrementing the pool, none of them refused. Found while auditing Luck Point support against the books.
