@@ -7,6 +7,7 @@
  */
 
 import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared } from '../utils/roll-math.js';
+import { swapDigits as swapDigitsShared } from './luck-point.js';
 
 export class MythrasRoll {
 
@@ -333,6 +334,33 @@ export class MythrasRoll {
   // Luck Point: Re-roll
   // -------------------------------------------------------------------------
 
+  /**
+   * Retire the Luck Point affordance on a card, replacing the buttons with a
+   * spent note.
+   *
+   * Rules p.33 (Imperative) / p.81 (Core): *"Only one Luck Point can be used
+   * in support of a particular Action."* Re-roll and swap are two shapes of
+   * that single use, so once either has fired the card must stop offering
+   * **both** — not merely the one that was used. Until v1.4.318 neither was
+   * removed, so a player could re-roll, re-roll again, then swap, spending
+   * three points on one Action.
+   *
+   * The rendered buttons are removed here, but the DOM is not the authority:
+   * `luckSpent` is stamped on the message flags in the same update, and the
+   * click handlers in `mythras.mjs` check that flag before spending. That
+   * covers a stale card in another client and a second click landing before
+   * this update round-trips — the DOM strip alone would not.
+   *
+   * @param {string} content  the card's current HTML
+   * @returns {string} content with the buttons replaced by the spent note
+   */
+  static _retireLuckButtons(content) {
+    return content.replace(
+      /\s*<div class="mi-luck-buttons">[\s\S]*?<\/div>/,
+      `\n          <div class="mi-luck-spent"><i class="fas fa-dice"></i> ${game.i18n.localize('MYTHRAS.LuckPointSpent')}</div>`
+    );
+  }
+
   static async reroll(message, actor) {
     const rollData = message.flags?.['mythras-imperative']?.rollData;
     const itemId   = message.flags?.['mythras-imperative']?.itemId;
@@ -349,13 +377,21 @@ export class MythrasRoll {
     const outcome = MythrasRoll.determineOutcome(result, rollData.target, basis, basis);
 
     await message.update({
-      content: message.content.replace(
-        /<div class="mi-roll-result">[\d]+<\/div>/,
-        `<div class="mi-roll-result">${result} <span class="mi-rerolled">(rerolled)</span></div>`
-      ).replace(
-        /mi-outcome [a-z]+/,
-        `mi-outcome ${outcome}`
-      )
+      content: MythrasRoll._retireLuckButtons(
+        message.content.replace(
+          /<div class="mi-roll-result">[\d]+<\/div>/,
+          `<div class="mi-roll-result">${result} <span class="mi-rerolled">(rerolled)</span></div>`
+        ).replace(
+          /mi-outcome [a-z]+/,
+          `mi-outcome ${outcome}`
+        )
+      ),
+      // The re-rolled value becomes the card's own result, so a later reader
+      // (or a swap that somehow reached this card) works from what is actually
+      // showing rather than the superseded original.
+      'flags.mythras-imperative.luckSpent': true,
+      'flags.mythras-imperative.rollData.result': result,
+      'flags.mythras-imperative.rollData.outcome': outcome,
     });
   }
 
@@ -367,21 +403,29 @@ export class MythrasRoll {
     const rollData = message.flags?.['mythras-imperative']?.rollData;
     if (!rollData) return;
 
-    const orig    = rollData.result;
-    const tens    = Math.floor(orig / 10);
-    const units   = orig % 10;
-    const swapped = units * 10 + tens;
+    const orig = rollData.result;
+    // Shared with the combat affordance (luck-point.js) so the two cannot
+    // diverge. This also fixes a real bug the inline version had: for a
+    // result of 100 — the d100 face "00" — it computed 10 tens and 0 units
+    // and returned 10, turning the game's one guaranteed fumble into a
+    // near-certain success for a single Luck Point. "00" swapped is "00".
+    const swapped = swapDigitsShared(orig);
     const basis = rollData.critBasis ?? rollData.rawSkill ?? rollData.target;
     const outcome = MythrasRoll.determineOutcome(swapped, rollData.target, basis, basis);
 
     await message.update({
-      content: message.content.replace(
-        /<div class="mi-roll-result">[\d]+<\/div>/,
-        `<div class="mi-roll-result">${swapped} <span class="mi-rerolled">(swapped from ${orig})</span></div>`
-      ).replace(
-        /mi-outcome [a-z]+/,
-        `mi-outcome ${outcome}`
-      )
+      content: MythrasRoll._retireLuckButtons(
+        message.content.replace(
+          /<div class="mi-roll-result">[\d]+<\/div>/,
+          `<div class="mi-roll-result">${swapped} <span class="mi-rerolled">(swapped from ${orig})</span></div>`
+        ).replace(
+          /mi-outcome [a-z]+/,
+          `mi-outcome ${outcome}`
+        )
+      ),
+      'flags.mythras-imperative.luckSpent': true,
+      'flags.mythras-imperative.rollData.result': swapped,
+      'flags.mythras-imperative.rollData.outcome': outcome,
     });
   }
 }

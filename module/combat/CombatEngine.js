@@ -28,9 +28,10 @@
 import { getConditionGrade, applyGradeToSkill, explainConditionGrade } from '../utils/condition-grade.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
+  resolveOpposedRoll as resolveOpposedRollShared,
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
-import { shiftGrade } from '../utils/roll-math.js';
+import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -1444,8 +1445,16 @@ export class CombatEngine {
     ctx.attackResult  = attackRoll.total;
     ctx.attackOutcome = CombatEngine._determineOutcome(ctx.attackResult, ctx.attackerSkillTotal);
 
+    // Record whether THIS roll is what set the flag. A Luck Point re-roll can
+    // erase the fumble, and the flag must then be unset — but only if this
+    // attack wrote it. Without this the handler could not tell "set by the
+    // roll I just erased" from "set by an earlier fumble this session", and
+    // clearing the latter would silently cost the player a real experience-roll
+    // bonus. See _onAttackLuckSpend in AttackerDialog.js.
+    ctx.attackSetFumbleFlag = false;
     if (ctx.attackOutcome === 'fumble' && ctx.attackerStyle && !ctx.attackerStyle.system.fumbledLastSession) {
       await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+      ctx.attackSetFumbleFlag = true;
     }
   }
 
@@ -1490,6 +1499,70 @@ export class CombatEngine {
     // ── Step 9: Roll attacker d100 ────────────────────────────────────────────
     // Moved to _rollAttack, called before the defence decision was requested
     // (RAW, rules p.40) — ctx.attackResult/attackOutcome are already set here.
+
+    // ── Step 9a: Opposed Skills Over 100% (Core p.51 / Imperative p.25) ──────
+    // "If the highest skilled participant in an Opposed or Differential Roll
+    // has a skill more than 100%, that participant subtracts the difference
+    // between 100 and his skill value from the skill of everyone in the
+    // contest, including himself."
+    //
+    // This is the only point in the exchange where BOTH totals exist. The
+    // attacker's is set in _buildContext; the defender's only once they have
+    // chosen a defence (_applyDefenceData). So it is the only place the
+    // "highest skilled participant" can honestly be identified — and the book
+    // requires that identification happen "after any other modifiers for
+    // circumstances have been applied", which both totals already carry.
+    //
+    // CONSEQUENCE, ACCEPTED DELIBERATELY: _rollAttack has already rolled AND
+    // graded the attack by now, before the defender chose, per RAW ordering
+    // (p.40). So when the DEFENDER is the one over 100, the penalty is applied
+    // retroactively and the attack is re-graded here — an attacker's success
+    // can become a failure after they have seen their own result. Core p.90's
+    // "Retroactive Parrying With a Skill over 100%" sidebar exists to avoid
+    // precisely this, by granting the penalty only to a defender who declares
+    // proactively. **Imperative omits that sidebar entirely, and Chris ruled to
+    // follow Imperative**, so it is deliberately not implemented. Note the
+    // asymmetry: when the ATTACKER is the higher, nothing is retroactive at
+    // all, because their total is known before they roll.
+    //
+    // Only a real contest triggers it. With defenceType 'none' the defender
+    // makes no roll, so there is nobody whose skill the excess could reduce,
+    // and the rule's own justification — "this reduces the skill value of the
+    // opponents but leaves him retaining the advantage" — has nothing to act
+    // on. Applying it to an unopposed attack would be purely self-punitive:
+    // the attacker would lose fumble immunity and critical range for no
+    // compensating effect, which inverts the rule's purpose.
+    ctx.overHundredPenalty = 0;
+    if (ctx.defenceType !== 'none') {
+      const { penalty, adjusted } = applyOverHundredPenalty([
+        ctx.attackerSkillTotal ?? 0,
+        ctx.defenderSkillTotal ?? 0,
+      ]);
+      if (penalty > 0) {
+        ctx.overHundredPenalty = penalty;
+        ctx.attackerSkillRaw   = ctx.attackerSkillTotal;
+        ctx.defenderSkillRaw   = ctx.defenderSkillTotal;
+        [ctx.attackerSkillTotal, ctx.defenderSkillTotal] = adjusted;
+
+        // Re-grade the attack against the reduced total. Guarded on a real
+        // result: _determineOutcome(null, …) would fall through to the
+        // critical branch, since null <= any non-negative threshold.
+        //
+        // The penalty can only ever ADD a fumble, never remove one — the 99
+        // fumble triggers on `rawSkill <= 100` and the penalty only ever
+        // lowers rawSkill — so the fumbledLastSession flag _rollAttack may
+        // already have written never needs unwinding, only completing.
+        if (ctx.attackResult != null) {
+          ctx.attackOutcome = CombatEngine._determineOutcome(
+            ctx.attackResult, ctx.attackerSkillTotal
+          );
+          if (ctx.attackOutcome === 'fumble' && ctx.attackerStyle &&
+              !ctx.attackerStyle.system.fumbledLastSession) {
+            await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+          }
+        }
+      }
+    }
 
     // ── Step 9b: Roll defender d100 ─────────────────────────────────────────
     if (ctx.defenceType === 'none') {
@@ -5116,24 +5189,17 @@ export class CombatEngine {
   // @param {number} defenderTotal  The defender's resistance skill total
   // -------------------------------------------------------------------------
 
+  // v1.4.318: was a second, hand-maintained copy of combat-math.js's
+  // resolveOpposedRoll — byte-equivalent logic, independently maintained. It
+  // now delegates, exactly as _determineOutcome above already delegates to
+  // determineOutcomeShared, and for the same reason: this file's own history
+  // (v1.4.261's three drifted copies of the armour arithmetic, the two copies
+  // of determineOutcome that were both independently missing the p18
+  // floor/ceiling) is the argument. Delegation is also what applies Opposed
+  // Skills Over 100% here — the shared function owns that rule, so a second
+  // copy would have silently opted this call site out of it.
   static _resolveOpposedRoll(attackerRoll, attackerTotal, defenderRoll, defenderTotal) {
-    const levelOrder = { critical: 3, success: 2, failure: 1, fumble: 0 };
-
-    const atkLevel = levelOrder[CombatEngine._determineOutcome(attackerRoll, attackerTotal)];
-    const defLevel = levelOrder[CombatEngine._determineOutcome(defenderRoll, defenderTotal)];
-
-    // Higher level of success wins outright
-    if (defLevel > atkLevel) return true;   // defender wins — resists
-    if (atkLevel > defLevel) return false;  // attacker wins — effect applies
-
-    // Equal levels of success: higher roll wins (within success range)
-    // If both failed or fumbled: neither succeeded, attacker's effect applies
-    // (treat as attacker wins — the defender didn't overcome the SE)
-    if (atkLevel <= 1) return false; // both failed/fumbled — attacker wins
-
-    // Both succeeded at the same level: higher roll wins
-    // Higher roll = closer to the skill ceiling = harder to achieve = better
-    return defenderRoll > attackerRoll;
+    return resolveOpposedRollShared(attackerRoll, attackerTotal, defenderRoll, defenderTotal);
   }
   //
   // Called after both rolls are evaluated. Returns:

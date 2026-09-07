@@ -2848,10 +2848,28 @@ function _resolveHitLocation(d20) {
   return loc ? game.i18n.localize(loc.label) : `Location ${d20}`;
 }
 
+/**
+ * "Only one Luck Point can be used in support of a particular Action"
+ * (Imperative p.33 / Core p.81). This is the authoritative gate, not the
+ * button removal in `MythrasRoll._retireLuckButtons` — a stale card in another
+ * client still renders the buttons, and a fast second click can land before
+ * the first update round-trips. Checked before the pool is decremented, so a
+ * refused second spend costs nothing.
+ *
+ * Also blocks the OTHER affordance: re-roll and swap are two shapes of the
+ * same single use, so having spent either, neither is available again.
+ */
+function _luckAlreadySpent(message) {
+  if (!message.flags?.['mythras-imperative']?.luckSpent) return false;
+  ui.notifications.warn(game.i18n.localize('MYTHRAS.LuckAlreadySpent'));
+  return true;
+}
+
 async function _onLuckReroll(ev, message) {
   ev.preventDefault();
   const actor = _actorFromMessage(message);
   if (!actor) return;
+  if (_luckAlreadySpent(message)) return;
   const lp = actor.system.attributes?.luckPoints;
   if (!lp || lp.value <= 0) return ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
@@ -2863,6 +2881,7 @@ async function _onLuckSwap(ev, message) {
   ev.preventDefault();
   const actor = _actorFromMessage(message);
   if (!actor) return;
+  if (_luckAlreadySpent(message)) return;
   const lp = actor.system.attributes?.luckPoints;
   if (!lp || lp.value <= 0) return ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });

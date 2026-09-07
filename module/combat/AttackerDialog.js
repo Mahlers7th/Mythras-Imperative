@@ -19,7 +19,8 @@
  * when the rest of the sheets move across.
  */
 
-import { DIFFICULTY_GRADES } from '../utils/roll-math.js';
+import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
+import { canSpendLuck, luckButtonHtml, offerLuckPoint } from '../rolls/luck-point.js';
 
 export class AttackerDialog {
 
@@ -949,10 +950,11 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
     <div class="mi-attacker-dialog">
       <div class="mi-dialog-skill-header">
         <span class="mi-dialog-skill-name">Attack roll — ${ctx.attackerSkillTotal}%</span>
-        <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}">
+        <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}" id="mi-gm-attack-outcome">
           ${ctx.attackResult} — ${outcomeLabel[ctx.attackOutcome]}
         </span>
       </div>
+      ${canSpendLuck(ctx.attacker) ? `<div class="mi-luck-row" id="mi-gm-luck-row">${luckButtonHtml({ id: 'mi-gm-attack-luck' })}</div>` : ''}
 
       <div class="mi-dialog-section-title">
         <i class="fas fa-shield-alt"></i> ${defender.name} — Defence (GM Mode)
@@ -1037,6 +1039,60 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
       },
       default: 'resolve',
       render: html => {
+        // ── Cheat Fate on the attack roll ────────────────────────────────
+        // This dialog is the only safe seam for it. RAW ordering (p.40) puts
+        // the attack roll BEFORE the defence decision, so by the time this
+        // dialog is open the d100 exists but nothing has resolved — no
+        // differential, no Special Effects, no damage, no conditions. And
+        // because the dialog is already a pause, the offer costs nothing when
+        // ignored, which a prompt fired from _rollAttack would not.
+        const luckBtn = html.find('#mi-gm-attack-luck')[0];
+        if (luckBtn) {
+          luckBtn.addEventListener('click', async () => {
+            // Guard re-entry synchronously: Dialog callbacks are not awaited,
+            // so a double click could otherwise open two offers and charge two
+            // points for one Action.
+            if (luckBtn.disabled) return;
+            luckBtn.disabled = true;
+
+            const spend = await offerLuckPoint(ctx.attacker, {
+              result: ctx.attackResult,
+              target: ctx.attackerSkillTotal,
+              label:  game.i18n.localize('MYTHRAS.LuckAttackReroll'),
+            });
+            if (!spend) { luckBtn.disabled = false; return; }   // declined — nothing charged
+
+            ctx.attackResult  = spend.result;
+            ctx.attackOutcome = determineOutcome(spend.result, ctx.attackerSkillTotal);
+
+            // Keep fumbledLastSession honest in BOTH directions. _rollAttack
+            // recorded whether it was the writer, so an erased fumble can be
+            // unset without touching a flag an earlier fumble this session set.
+            if (ctx.attackerStyle) {
+              if (ctx.attackOutcome === 'fumble' && !ctx.attackerStyle.system.fumbledLastSession) {
+                await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+                ctx.attackSetFumbleFlag = true;
+              } else if (ctx.attackOutcome !== 'fumble' && ctx.attackSetFumbleFlag) {
+                await ctx.attackerStyle.update({ 'system.fumbledLastSession': false });
+                ctx.attackSetFumbleFlag = false;
+              }
+            }
+
+            // Repaint the header this dialog rendered from the old value.
+            const outEl = html.find('#mi-gm-attack-outcome')[0];
+            if (outEl) {
+              outEl.className = `mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}`;
+              outEl.textContent = `${ctx.attackResult} — ${outcomeLabel[ctx.attackOutcome]}`;
+            }
+            // One Luck Point per Action: retire the affordance entirely.
+            const row = html.find('#mi-gm-luck-row')[0];
+            if (row) {
+              row.innerHTML = `<span class="mi-luck-spent"><i class="fas fa-clover"></i> ` +
+                `${game.i18n.localize('MYTHRAS.LuckPointSpent')} (${spend.mode === 'swap' ? 'swap' : 're-roll'})</span>`;
+            }
+          });
+        }
+
         const gmDefRadios  = html.find('input[name="mi-gm-def-type"]');
         const gmWeaponSel  = html.find('#mi-gm-def-weapon')[0];
         const gmStyleSel   = html.find('#mi-gm-def-style')[0];

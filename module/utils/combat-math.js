@@ -18,7 +18,7 @@
 // Trip, Entangle, Grip, Impale, etc.) only path to outcome determination, so
 // a second hand-maintained copy here was a real drift risk, not just noise.
 export { determineOutcome } from './roll-math.js';
-import { determineOutcome } from './roll-math.js';
+import { determineOutcome, applyOverHundredPenalty } from './roll-math.js';
 
 // ---------------------------------------------------------------------------
 // Opposed roll resolution
@@ -32,6 +32,34 @@ import { determineOutcome } from './roll-math.js';
  * - On equal levels, the higher roll wins (within success range).
  * - Two failures: attacker's effect applies (defender didn't overcome SE).
  *
+ * **Opposed Skills Over 100% (Core p.51 / Imperative p.25) is applied here,
+ * as of v1.4.318.** This function is every opposed contest's single
+ * adjudication path — the whole SE system (Bleed, Trip, Entangle, Grip,
+ * Impale, Drop Foe, Pin Down, Disarm, Stun Location …) and the Destined
+ * module's own opposed-Willpower boosts all route through it — so applying
+ * the rule at this one point makes every opposed roll in system and module
+ * compliant with no per-site edits and, more importantly, no drift between
+ * sites. The alternative considered and rejected was a second
+ * `resolveContestedRoll` used internally while this stayed uncorrected: that
+ * leaves module consumers non-compliant and creates exactly the two-copies
+ * divergence this file's own `determineOutcome` re-export exists to prevent.
+ *
+ * The penalty is derived from the two totals passed, which the caller must
+ * already have modified for circumstances (the book requires the "highest
+ * skilled participant" be identified *after* other modifiers). Rolls are never
+ * adjusted — only the skill values they are graded against.
+ *
+ * **The behaviour is a no-op unless a participant exceeds 100**, which is why
+ * this is safe to place beneath every existing caller: `applyOverHundredPenalty`
+ * returns the inputs unchanged when the highest total is 100 or less.
+ *
+ * Display note: `postOpposedSEResult` (effects/helpers.js) applies the same
+ * function to the same two totals when it renders the result card, so card and
+ * resolution agree by construction rather than by coincidence. If you add a
+ * caller that renders its own card, do the same — grading a card from
+ * unadjusted totals while resolving from adjusted ones is the v1.4.314 bug
+ * class, reintroduced.
+ *
  * @param {number} attackerRoll
  * @param {number} attackerTotal
  * @param {number} defenderRoll
@@ -41,8 +69,11 @@ import { determineOutcome } from './roll-math.js';
 export function resolveOpposedRoll(attackerRoll, attackerTotal, defenderRoll, defenderTotal) {
   const levelOrder = { critical: 3, success: 2, failure: 1, fumble: 0 };
 
-  const atkLevel = levelOrder[determineOutcome(attackerRoll, attackerTotal)];
-  const defLevel = levelOrder[determineOutcome(defenderRoll, defenderTotal)];
+  const { adjusted: [atkTotal, defTotal] } =
+    applyOverHundredPenalty([attackerTotal, defenderTotal]);
+
+  const atkLevel = levelOrder[determineOutcome(attackerRoll, atkTotal)];
+  const defLevel = levelOrder[determineOutcome(defenderRoll, defTotal)];
 
   if (defLevel > atkLevel) return true;   // defender wins — resists
   if (atkLevel > defLevel) return false;  // attacker wins — effect applies

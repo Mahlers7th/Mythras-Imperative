@@ -37,6 +37,80 @@ export function applyDifficulty(skill, difficulty) {
 }
 
 // ---------------------------------------------------------------------------
+// Opposed Skills Over 100%  (Core p.51 / Imperative p.25)
+// ---------------------------------------------------------------------------
+
+/**
+ * The penalty every participant in a contest subtracts, per "Opposed Skills
+ * Over 100%" — Mythras Core p.51, and Mythras Imperative p.25 carries it
+ * verbatim, so it is in scope for this system rather than a Core-only rule:
+ *
+ *   "If the highest skilled participant in an Opposed or Differential Roll
+ *    has a skill more than 100%, that participant subtracts the difference
+ *    between 100 and his skill value from the skill of everyone in the
+ *    contest, including himself. This reduces the skill value of the
+ *    opponents but leaves him retaining the advantage."
+ *
+ * Strictly *more than* 100, so exactly 100 yields 0 — the same strict boundary
+ * `determineOutcome` uses for the fumble exemption (v1.4.313), where the book's
+ * own arithmetic ("the difference between 100 and his skill value") is a no-op
+ * anyway. That correspondence is not a coincidence: v1.4.313 cited this very
+ * rule as corroboration for reading the boundary strictly.
+ *
+ * **The totals passed MUST already carry every other modifier.** The book is
+ * explicit: "the identification of who has the highest skill must be
+ * calculated after any other modifiers for circumstances have been applied."
+ * A Combat Style of 103 attacking at Hard is 69, is not over 100, and produces
+ * no penalty at all — which is also why this composes correctly with the
+ * Reading A fumble ruling (v1.4.315), whose basis is likewise the modified
+ * value.
+ *
+ * Core additionally offers a GM shortcut — round the penalty up to the nearest
+ * 10% — which Imperative omits. Not implemented: it is an optional
+ * simplification, not the rule.
+ *
+ * @param {...number} totals  Every participant's final modified skill total
+ * @returns {number} penalty to subtract from every participant (0 when none)
+ */
+export function overHundredPenalty(...totals) {
+  const values = totals.map(t => Number(t)).filter(Number.isFinite);
+  if (!values.length) return 0;
+  const highest = Math.max(...values);
+  return highest > 100 ? highest - 100 : 0;
+}
+
+/**
+ * Apply `overHundredPenalty` to a contest's totals.
+ *
+ * Returns the penalty and every total reduced by it, in input order, so one
+ * caller can feed the adjusted values to BOTH the resolution and the chat card
+ * it renders. Keeping a single source for both is deliberate rather than
+ * incidental: display and resolution grading from different numbers was a real
+ * shipped bug (v1.4.314, `postOpposedSEResult`), and applying this penalty
+ * inside `resolveOpposedRoll` — where the card cannot see it — would
+ * reintroduce exactly that class of divergence.
+ *
+ * Adjusted totals are floored at 0 purely so a contest against a very low
+ * skill cannot render a negative percentage. **That floor is provably
+ * mechanically inert**: for any d100 result of 1-100, `determineOutcome`
+ * treats a target of 0 and a target of -N identically — `Math.ceil(t / 10)` is
+ * <= 0 either way so no roll can reach the critical band, `result <= target`
+ * is false either way, and the p18 01-05 success floor and 96-00 failure
+ * ceiling do not read `target` at all. Asserted directly in the tests rather
+ * than left as a claim.
+ *
+ * @param {number[]} totals  Every participant's final modified skill total
+ * @returns {{penalty: number, adjusted: number[]}}
+ */
+export function applyOverHundredPenalty(totals) {
+  const penalty = overHundredPenalty(...totals);
+  return {
+    penalty,
+    adjusted: totals.map(t => Math.max(0, (Number(t) || 0) - penalty)),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Outcome determination  (matches MythrasRoll.determineOutcome)
 // ---------------------------------------------------------------------------
 

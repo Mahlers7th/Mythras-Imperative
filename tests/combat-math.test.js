@@ -918,3 +918,87 @@ describe('opposed-SE card grading (regression, v1.4.314)', () => {
     }
   });
 });
+
+// =============================================================================
+// resolveOpposedRoll — Opposed Skills Over 100% (Core p.51 / Imperative p.25)
+//
+// v1.4.318. The rule is applied inside resolveOpposedRoll because it is every
+// opposed contest's single adjudication path. These tests pin the cases where
+// applying it actually CHANGES the winner — a rule that only ever agreed with
+// the old behaviour would not be worth the risk of touching this function.
+// =============================================================================
+
+describe('resolveOpposedRoll — Opposed Skills Over 100%', () => {
+  test('no participant over 100 — every existing result is unchanged', () => {
+    // The safety property the whole change rests on: below 100 this is a no-op,
+    // which is why it can sit beneath every pre-existing caller.
+    for (const [ar, at, dr, dt] of [
+      [50, 65, 40, 55], [95, 80, 12, 70], [3, 40, 99, 90], [50, 100, 50, 100],
+    ]) {
+      const withRule = resolveOpposedRoll(ar, at, dr, dt);
+      const byHand = (() => {
+        const lv = { critical: 3, success: 2, failure: 1, fumble: 0 };
+        const a = lv[determineOutcome(ar, at)], d = lv[determineOutcome(dr, dt)];
+        if (d > a) return true;
+        if (a > d) return false;
+        if (a <= 1) return false;
+        return dr > ar;
+      })();
+      expect({ ar, at, dr, dt, withRule }).toEqual({ ar, at, dr, dt, withRule: byHand });
+    }
+  });
+
+  test('exactly 100 does not trigger it', () => {
+    // Attacker 100 vs defender 65: no penalty, so 63 is still inside 65.
+    // Both succeed, defender rolled higher, defender wins the tie.
+    expect(resolveOpposedRoll(50, 100, 63, 65)).toBe(true);
+  });
+
+  test('DEFENDER over 100 penalises the attacker — and flips the result', () => {
+    // The defender-side case, which is the whole point of this batch.
+    // Willpower 105 resisting a 65% attacker. Penalty 5: attacker -> 60,
+    // defender -> 100.
+    //   without the rule: 63 is a success against 65; both succeed; the
+    //                     attacker rolled higher, so the attacker wins.
+    //   with the rule:    63 is a failure against 60; the defender's success
+    //                     outranks it and the defender resists.
+    expect(determineOutcome(63, 65)).toBe('success');
+    expect(determineOutcome(63, 60)).toBe('failure');
+    expect(resolveOpposedRoll(63, 65, 50, 105)).toBe(true);
+  });
+
+  test('ATTACKER over 100 penalises the defender — and flips the result', () => {
+    // Combat Style 103 against a 65% defender. Penalty 3: attacker -> 100,
+    // defender -> 62. A defender roll of 63 succeeded at 65 and fails at 62.
+    expect(determineOutcome(63, 62)).toBe('failure');
+    expect(resolveOpposedRoll(50, 103, 63, 65)).toBe(false);
+  });
+
+  test('the self-subtraction can cost the leader the fumble exemption', () => {
+    // Attacker 103 rolling 99. At 103 that is a plain failure (over 100% only
+    // fumbles on 00). The penalty drops them to exactly 100 — no longer "more
+    // than 100%" — so the same 99 becomes a fumble, and a defender who merely
+    // failed now outranks it.
+    expect(determineOutcome(99, 103)).toBe('failure');
+    expect(determineOutcome(99, 100)).toBe('fumble');
+    expect(resolveOpposedRoll(99, 103, 90, 65)).toBe(true);
+  });
+
+  test('rolls are never adjusted — only the skills they are graded against', () => {
+    // The equal-level tiebreak compares the raw d100 results. If the penalty
+    // were ever applied to a roll this would silently change who wins a tie.
+    // 103 vs 98: penalty 3 -> 100 and 95. Rolls 40 and 60 both still succeed,
+    // so the tiebreak runs, and it must use 60 > 40 (the raw rolls).
+    expect(resolveOpposedRoll(40, 103, 60, 98)).toBe(true);
+    expect(resolveOpposedRoll(60, 103, 40, 98)).toBe(false);
+  });
+
+  test('the highest participant sets the penalty, whichever side they are on', () => {
+    // Symmetry check: a 118 defender and a 118 attacker impose the same -18.
+    expect(determineOutcome(55, 100 - 0)).toBe('success');
+    // attacker 40, defender 118 -> attacker 22, defender 100
+    expect(resolveOpposedRoll(30, 40, 50, 118)).toBe(true);   // 30 fails at 22
+    // attacker 118, defender 40 -> attacker 100, defender 22
+    expect(resolveOpposedRoll(50, 118, 30, 40)).toBe(false);  // 30 fails at 22
+  });
+});

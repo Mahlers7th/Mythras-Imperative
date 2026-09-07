@@ -10,6 +10,7 @@
  */
 
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
+import { applyOverHundredPenalty } from '../../utils/roll-math.js';
 import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
 import { getConditionGrade, applyGradeToSkill } from '../../utils/condition-grade.js';
 
@@ -141,7 +142,28 @@ export async function postOpposedSEResult({
   stunTurns = 0,
   attackerActor, defenderActor
 }) {
-  // Show base total in parentheses when conditions have reduced it
+  // Opposed Skills Over 100% (Core p.51 / Imperative p.25), v1.4.318.
+  //
+  // resolveOpposedRoll applies this to the same two totals when it decides the
+  // result, so this card MUST apply it too or the numbers shown stop matching
+  // the numbers rolled against — the exact divergence the block below was
+  // written to end. Applying the same pure function to the same two inputs
+  // makes them agree by construction rather than by coincidence, which is why
+  // the penalty is not simply passed in as an argument: a caller that forgot
+  // it would silently reintroduce the bug.
+  //
+  // Reassigning the destructured params deliberately: every use below — both
+  // gradings AND the two percentages the card renders — must be the adjusted
+  // value, because that is what the defender actually rolled against.
+  // A no-op unless a participant exceeds 100.
+  const overHundred = applyOverHundredPenalty([attackerTotal ?? 0, defenderTotal ?? 0]);
+  if (overHundred.penalty > 0) {
+    [attackerTotal, defenderTotal] = overHundred.adjusted;
+  }
+
+  // Show base total in parentheses when conditions have reduced it — computed
+  // AFTER the penalty above, so the "base" shown is the true pre-modifier
+  // value whether the reduction came from a condition, this rule, or both.
   const defRawNote = (defenderRaw != null && defenderRaw !== defenderTotal)
     ? ` (base ${defenderRaw}%)` : '';
   // Both bands come from determineOutcome, called with the SAME two-argument
@@ -204,6 +226,12 @@ export async function postOpposedSEResult({
             </div>
           </div>
         </div>
+        ${overHundred.penalty > 0 ? `
+        <div class="mi-outcome-row">
+          <span class="mi-outcome">
+            <i class="fas fa-scale-unbalanced"></i> Opposed Skills Over 100%: −${overHundred.penalty}% to both sides
+          </span>
+        </div>` : ''}
         <div class="mi-outcome-row">
           <span class="mi-outcome ${resultClass}">
             <i class="fas ${resultIcon}"></i> ${effectLabel}

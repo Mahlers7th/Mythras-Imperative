@@ -7,6 +7,8 @@
 import {
   applyDifficulty,
   determineOutcome,
+  overHundredPenalty,
+  applyOverHundredPenalty,
   shiftGrade,
   DIFFICULTY_GRADES,
   GRADE_ORDER
@@ -321,5 +323,121 @@ describe('fumble basis — Reading A (v1.4.315)', () => {
     // the modified value, every non-augmented site needs no third argument.
     expect(determineOutcome(99, 74)).toBe(determineOutcome(99, 74, 74, 74));
     expect(determineOutcome(3, 74)).toBe(determineOutcome(3, 74, 74, 74));
+  });
+});
+
+// =============================================================================
+// Opposed Skills Over 100%  (Core p.51 / Imperative p.25)
+// =============================================================================
+
+describe('overHundredPenalty', () => {
+  test('no participant over 100 — no penalty', () => {
+    expect(overHundredPenalty(65, 40)).toBe(0);
+    expect(overHundredPenalty(99, 12)).toBe(0);
+  });
+
+  test('exactly 100 is NOT "more than 100%" — no penalty', () => {
+    // Same strict boundary determineOutcome uses for the fumble exemption
+    // (v1.4.313); the book's own arithmetic is a no-op here anyway.
+    expect(overHundredPenalty(100, 40)).toBe(0);
+    expect(overHundredPenalty(100, 100)).toBe(0);
+  });
+
+  test('penalty is the highest participant minus 100', () => {
+    expect(overHundredPenalty(103, 65)).toBe(3);
+    expect(overHundredPenalty(160, 80)).toBe(60); // Mju's Saga, Core p.160
+  });
+
+  test('the HIGHEST participant sets it, regardless of argument order', () => {
+    expect(overHundredPenalty(65, 103)).toBe(3);
+    expect(overHundredPenalty(103, 118, 40)).toBe(18);
+    expect(overHundredPenalty(40, 118, 103)).toBe(18);
+  });
+
+  test('supports contests of more than two participants', () => {
+    expect(overHundredPenalty(105, 90, 80, 70)).toBe(5);
+  });
+
+  test('degrades safely on missing or malformed input', () => {
+    expect(overHundredPenalty()).toBe(0);
+    expect(overHundredPenalty(NaN, undefined)).toBe(0);
+    expect(overHundredPenalty(103, undefined)).toBe(3);
+  });
+});
+
+describe('applyOverHundredPenalty', () => {
+  test('subtracts from everyone in the contest, including the highest', () => {
+    // The book: "...from the skill of everyone in the contest, including
+    // himself. This reduces the skill value of the opponents but leaves him
+    // retaining the advantage."
+    const { penalty, adjusted } = applyOverHundredPenalty([103, 65]);
+    expect(penalty).toBe(3);
+    expect(adjusted).toEqual([100, 62]);
+  });
+
+  test('preserves input order', () => {
+    expect(applyOverHundredPenalty([65, 103]).adjusted).toEqual([62, 100]);
+  });
+
+  test('is a no-op when nobody exceeds 100', () => {
+    const { penalty, adjusted } = applyOverHundredPenalty([88, 47]);
+    expect(penalty).toBe(0);
+    expect(adjusted).toEqual([88, 47]);
+  });
+
+  test('the advantage is retained — the gap in skill is unchanged', () => {
+    // The whole point of the rule: the leader keeps their edge, everyone's
+    // absolute numbers fall. The DIFFERENCE must be invariant.
+    const { adjusted } = applyOverHundredPenalty([118, 70, 45]);
+    expect(adjusted[0] - adjusted[1]).toBe(118 - 70);
+    expect(adjusted[1] - adjusted[2]).toBe(70 - 45);
+  });
+
+  test('floors at 0 rather than rendering a negative percentage', () => {
+    expect(applyOverHundredPenalty([160, 40]).adjusted).toEqual([100, 0]);
+  });
+
+  test('the 0 floor is mechanically inert across the whole d100 range', () => {
+    // The floor exists only so the UI cannot show "-20%". This proves it
+    // changes no outcome, rather than asserting it in a comment: an unfloored
+    // negative target and a floored 0 must grade every possible roll the same.
+    for (let result = 1; result <= 100; result++) {
+      expect(determineOutcome(result, 0, 0, 0))
+        .toBe(determineOutcome(result, -20, -20, -20));
+    }
+  });
+});
+
+describe('Opposed Skills Over 100% — worked cases', () => {
+  test("Nocturne's Combat Style 103 vs a 65% opponent", () => {
+    const { penalty, adjusted } = applyOverHundredPenalty([103, 65]);
+    const [attacker, defender] = adjusted;
+    expect(penalty).toBe(3);
+
+    // The opponent loses 3 points of skill — the intended advantage.
+    expect(defender).toBe(62);
+
+    // And the consequence of "including himself" that is easy to miss: at
+    // exactly 100 she is no longer "more than 100%", so she regains the 99
+    // fumble under the v1.4.313 boundary, and her critical band narrows.
+    expect(determineOutcome(99, attacker, attacker, attacker)).toBe('fumble');
+    expect(determineOutcome(99, 103, 103, 103)).toBe('failure');
+    expect(determineOutcome(11, attacker, attacker, attacker)).toBe('success');
+    expect(determineOutcome(11, 103, 103, 103)).toBe('critical');
+  });
+
+  test('composes with difficulty: over 100 at standard, not at Hard', () => {
+    // "The identification of who has the highest skill must be calculated
+    // after any other modifiers for circumstances have been applied."
+    expect(overHundredPenalty(applyDifficulty(103, 'standard'), 65)).toBe(3);
+    expect(overHundredPenalty(applyDifficulty(103, 'hard'), 65)).toBe(0);
+    expect(applyDifficulty(103, 'hard')).toBe(69);
+  });
+
+  test('a Very Easy grade can push an ordinary skill over 100 and trigger it', () => {
+    // The symmetric consequence, and a real one: 80 at Very Easy is 160.
+    const eff = applyDifficulty(80, 'veryEasy');
+    expect(eff).toBe(160);
+    expect(overHundredPenalty(eff, 50)).toBe(60);
   });
 });
