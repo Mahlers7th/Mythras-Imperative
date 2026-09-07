@@ -10,6 +10,16 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.320 — September 2026
+- **v1.4.319 shipped the attack-roll Luck Point button with no CSS, so it would have rendered as a raw browser button inside the defence dialog.** The chat-card affordance was fine — `.mi-luck-buttons` / `.mi-luck-reroll` / `.mi-luck-swap` have been styled since they were built, which is why Chris's live check of a *skill roll* looked right and did not surface this. The four classes the shared component introduced (`mi-luck-row`, `mi-luck-offer`, `mi-luck-spent`, and the options dialog's `mi-luck-dialog-head`/`mi-luck-dialog-options`) had none.
+  - **Deliberately reuses the `.mi-luck-reroll` treatment** — same teal border, background and hover — rather than inventing a second look for the same spend offered somewhere else. `:disabled` gets the dimmed, non-interactive state the re-entry guard depends on being visible.
+  - `.mi-luck-spent` renders the "one per Action" note as muted italic text with the same top rule the buttons had, so retiring the affordance does not make the card jump.
+- **Caught by a check that was itself broken, which is worth recording.** The first pass at auditing this ran `grep -rc "\.$class" styles/*.css` and summed with `awk -F: '{s+=$2}'` — but `grep -c` against a *single* file prints a bare count with no `file:` prefix, so field 2 was always empty and every class came back "NOT STYLED", including ones that were plainly styled. The real gap was found only after the sanity check ("are *any* card classes styled?") returned an implausible zero. **A verification that reports everything as broken is as suspect as one that reports everything as fine** — the implausible result is the signal to check the checker.
+- **One undefined custom property caught the same way:** the first draft used `var(--mi-muted)`, which does not exist. The stylesheet's muted text is `.mi-muted { color: var(--mi-ink-3); }` — the class is named for the concept, the variable is not. Now uses `--mi-ink-3`, and all seven properties the new rules reference were verified defined.
+- CSS only. 812 tests pass (11 suites), unchanged — no JS touched. Brace balance verified. Lint unchanged.
+- **A reload is required to pick this up**: Foundry serves the stylesheet fresh from disk, but an already-open client keeps the old one until refreshed.
+- Not yet committed
+
 ## v1.4.319 — September 2026
 - **"Only one Luck Point can be used in support of a particular Action" was not enforced, and a player could spend three on one roll.** Imperative p.33 and Core p.81 both state the limit outright. The card's Re-roll and Swap buttons survived the content update that applied their own result, so nothing stopped a player re-rolling, re-rolling again, then swapping — each click correctly decrementing the pool, none of them refused. Found while auditing Luck Point support against the books.
   - **Both affordances retire together, because they are two shapes of one use.** `MythrasRoll._retireLuckButtons` replaces the whole button block with a "Luck Point spent — only one per Action" note, so having re-rolled you cannot then swap, and vice versa. Removing only the button that was clicked would have left half the bug.

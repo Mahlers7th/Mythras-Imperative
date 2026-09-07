@@ -701,6 +701,31 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 }
 .mi-luck-reroll:hover, .mi-luck-swap:hover { background: var(--mi-teal); color: #fff; }
 
+/* Shared Luck Point affordance (v1.4.319, module/rolls/luck-point.js).
+   Deliberately reuses the .mi-luck-reroll treatment above rather than
+   inventing a second look: it is the same spend, offered somewhere else. */
+.mi-luck-row {
+  display: flex; justify-content: center;
+  margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--mi-rule);
+}
+.mi-luck-offer {
+  font-size: 11px; font-weight: 600; padding: 4px 10px;
+  border: 1px solid var(--mi-teal); border-radius: var(--mi-radius);
+  background: var(--mi-teal-bg); color: var(--mi-teal-text);
+  cursor: pointer; font-family: var(--mi-font-ui); transition: background .15s, color .15s;
+}
+.mi-luck-offer:hover { background: var(--mi-teal); color: #fff; }
+.mi-luck-offer:disabled { opacity: .5; cursor: default; }
+/* Replaces the buttons once the Action's one point is spent. */
+.mi-luck-spent {
+  display: block; text-align: center; font-size: 11px; font-style: italic;
+  color: var(--mi-ink-3); font-family: var(--mi-font-ui);
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--mi-rule);
+}
+.mi-luck-dialog-head { margin: 0 0 6px; font-family: var(--mi-font-ui); }
+.mi-luck-dialog-options { margin: 6px 0 0; padding-left: 18px; font-size: 12px; font-family: var(--mi-font-ui); }
+.mi-luck-dialog-options li { margin-bottom: 3px; }
+
 .mi-manual-actions {
   display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
   border-top: 1px solid var(--mi-rule);
