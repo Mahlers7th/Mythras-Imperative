@@ -23,7 +23,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Declining:** nothing was charged and the result was **"Don't Defend — Failure"**, the pre-existing behaviour unchanged.
   - Incidental confirmation of v1.4.318 in a real exchange: Nocturne attacked at **100%** against Nex's parry (Opposed Skills Over 100% reducing her 103) and at **103%** against Don't Defend — the "an unopposed attack is not a contest" reading, holding in live play rather than only in tests.
   - Zero console errors. Action Points, Luck Points and the temporary token were all restored and asserted restored.
-- Not yet committed
+- Committed as `c67e7281329b15ad02dc9d2586942178b138fb98`
 
 ## v1.4.322 — September 2026
 - **Mitigate Damage is implemented — the second of the three Luck Point uses, and the first that is not Cheat Fate.** Imperative p.34 / Core p.81: *"A character who suffers a Major Wound may spend a Luck Point to downgrade the injury to a Serious Wound. This reduces the damage taken to one Hit Point less than what would be required to inflict a Major Wound."* Nothing in the system offered it before.
