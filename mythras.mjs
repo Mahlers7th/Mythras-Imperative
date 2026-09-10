@@ -38,11 +38,11 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey, hitLocationForRoll } from './module/utils/hit-location.js';
-import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync } from './module/utils/combat-math.js';
+import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync, mitigatedDamageForSerious } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
-import { canSpendLuck, offerLuckPoint } from './module/rolls/luck-point.js';
+import { canSpendLuck, offerLuckPoint, spendLuckPoint } from './module/rolls/luck-point.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -1948,6 +1948,7 @@ function _onRenderChatMessage(message, html) {
   html.querySelectorAll('.mi-luck-reroll').forEach(btn => _bindOnce(btn, ev => _onLuckReroll(ev, message)));
   html.querySelectorAll('.mi-luck-swap').forEach(btn => _bindOnce(btn, ev => _onLuckSwap(ev, message)));
   html.querySelectorAll('.mi-luck-loc').forEach(btn => _bindOnce(btn, ev => _onLuckHitLocation(ev, message)));
+  html.querySelectorAll('.mi-luck-mitigate').forEach(btn => _bindOnce(btn, ev => _onLuckMitigateDamage(ev, message)));
 
   // Manual mode — Roll Hit Location
   html.querySelectorAll('.mi-btn-loc[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollLocation(ev, message)));
@@ -2239,6 +2240,71 @@ async function _onLuckHitLocation(ev, message) {
   await _stampHitLocation(messageId, btn.dataset.defenderId, locId, locLabel);
 }
 
+/**
+ * Mitigate Damage (Imperative p.34 / Core p.81), v1.4.322.
+ *
+ *   "A character who suffers a Major Wound may spend a Luck Point to downgrade
+ *    the injury to a Serious Wound. This reduces the damage taken to one Hit
+ *    Point less than what would be required to inflict a Major Wound."
+ *
+ * Rewrites the pending Apply Damage button rather than applying anything
+ * itself. That is the whole reason this is safe at Stage 1: the entire
+ * apply path — opposed SEs, Bash, conditions, the HP write — stays untouched
+ * and runs exactly once, on the GM's existing Apply click, with a smaller
+ * number. Nothing is committed here, so nothing has to be unwound.
+ *
+ * The reduction is recomputed from the location's CURRENT HP at click time
+ * rather than reusing the figure the card was built with: a GM may have
+ * healed or damaged the location in between, and the rule is defined against
+ * the state the blow actually lands on.
+ */
+async function _onLuckMitigateDamage(ev, message) {
+  ev.preventDefault();
+  const btn = ev.currentTarget;
+  if (btn.disabled) return;          // synchronous re-entry guard, pre-await
+  btn.disabled = true;
+
+  const defender = _resolveActor(btn.dataset.defenderId);
+  const locItem  = defender?.items?.get(btn.dataset.locationId);
+  const applyBtn = message.content.match(/data-damage="(\d+)"/);
+  if (!defender || !locItem || !applyBtn) { btn.disabled = false; return; }
+
+  const pending  = parseInt(applyBtn[1], 10);
+  const maxHp    = locItem.system?.hp ?? 0;
+  const current  = locItem.system?.current ?? 0;
+  const reduced  = mitigatedDamageForSerious(current, maxHp);
+
+  // Guard the rule's own trigger at click time, not just at render time.
+  if (woundLevel(pending, maxHp, current - pending) !== 'major') {
+    ui.notifications.warn(game.i18n.localize('MYTHRAS.LuckMitigateNotMajor'));
+    btn.disabled = false;
+    return;
+  }
+
+  const label = btn.dataset.locationLabel || locItem.name;
+  const spent = await spendLuckPoint(defender, {
+    title:  game.i18n.localize('MYTHRAS.LuckMitigateDamage'),
+    prompt: `<p class="mi-luck-dialog-head">${defender.name} — ${label}</p>
+             <p>${pending} damage would inflict a <strong>Major Wound</strong>
+             (${current} HP of ${maxHp}).</p>
+             <p>Spending a Luck Point reduces it to <strong>${reduced}</strong>,
+             one Hit Point less than a Major Wound requires — a
+             <strong>Serious Wound</strong> instead.</p>`,
+  });
+  if (!spent) { btn.disabled = false; return; }
+
+  const updated = message.content
+    .replace(/data-damage="\d+"/, `data-damage="${reduced}"`)
+    .replace(/<span class="mi-apply-amount">[^<]*<\/span>/, `<span class="mi-apply-amount">${reduced}</span>`)
+    .replace(/<span class="mi-outcome mi-wound-major">Major Wound<\/span>/,
+      `<span class="mi-outcome mi-wound-serious">Serious Wound — mitigated from ${pending}</span>`)
+    // One point per Action: retire the affordance. The row contains only a
+    // <button>, so the first </div> after it is the row's own.
+    .replace(/<div class="mi-luck-row">[\s\S]*?<\/div>/,
+      `<span class="mi-luck-spent"><i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckPointSpent')} (mitigate)</span>`);
+  await message.update({ content: updated });
+}
+
 // Semi-Auto: Roll Damage
 async function _onSemiAutoRollDamage(ev, message) {
   ev.preventDefault();
@@ -2509,6 +2575,36 @@ async function _onSemiAutoRollDamage(ev, message) {
     }
   }
 
+  // Mitigate Damage (Imperative p.34 / Core p.81), v1.4.322 — offered only
+  // when this blow would actually inflict a Major Wound, because that is the
+  // rule's own trigger: *"a character who suffers a Major Wound may spend a
+  // Luck Point to downgrade the injury to a Serious Wound."*
+  //
+  // Predicted here rather than detected after the fact. The Apply Damage
+  // button is the commit point, so at card-build time nothing has been
+  // written yet and `woundLevel` can be asked what applying `finalDamage`
+  // WOULD do. Offering it after application would need the rollback this
+  // system does not have.
+  //
+  // The point is the DEFENDER's — they are the one suffering the wound —
+  // which is the first Luck affordance in the system spent by someone other
+  // than the actor who rolled.
+  const mitigateLoc = locationId ? defender.items.get(locationId) : null;
+  const mitigateMax = mitigateLoc?.system?.hp ?? 0;
+  const mitigateCur = mitigateLoc?.system?.current ?? 0;
+  const wouldBeMajor = !!mitigateLoc
+    && woundLevel(finalDamage, mitigateMax, mitigateCur - finalDamage) === 'major';
+  const mitigateRow = (wouldBeMajor && canSpendLuck(defender))
+    ? `<div class="mi-luck-row">
+         <button type="button" class="mi-luck-offer mi-luck-mitigate"
+           data-defender-id="${defenderId}"
+           data-location-id="${locationId ?? ''}"
+           data-location-label="${locationLabel}">
+           <i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckMitigateDamage')}
+         </button>
+       </div>`
+    : '';
+
   const dmgContent = `
     <div class="mi-chat-card">
       <div class="mi-card-header mi-card-header--stacked">
@@ -2545,9 +2641,11 @@ async function _onSemiAutoRollDamage(ev, message) {
             data-location-label="${locationLabel}"
             data-base-armour-points="${baseArmourPoints}"
             data-message-id="${messageId ?? ''}">
-            <i class="fas fa-heart-broken"></i> Apply ${finalDamage > 0 ? finalDamage : 'Stun'} to ${locationLabel}
+            <i class="fas fa-heart-broken"></i> Apply <span class="mi-apply-amount">${finalDamage > 0 ? finalDamage : 'Stun'}</span> to ${locationLabel}
           </button>
-        </div>` : '<div class="mi-outcome-row"><span class="mi-outcome success">Damage fully blocked</span></div>'}
+        </div>
+        ${wouldBeMajor ? `<div class="mi-outcome-row"><span class="mi-outcome mi-wound-major">Major Wound</span></div>` : ''}
+        ${mitigateRow}` : '<div class="mi-outcome-row"><span class="mi-outcome success">Damage fully blocked</span></div>'}
       </div>
     </div>`;
 

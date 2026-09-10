@@ -10,6 +10,7 @@ import {
   resolveOpposedRoll,
   resolveDifferential,
   resolveParryReduction,
+  mitigatedDamageForSerious,
   woundLevel,
   woundState,
   resolveWoundSync,
@@ -1000,5 +1001,75 @@ describe('resolveOpposedRoll — Opposed Skills Over 100%', () => {
     expect(resolveOpposedRoll(30, 40, 50, 118)).toBe(true);   // 30 fails at 22
     // attacker 118, defender 40 -> attacker 100, defender 22
     expect(resolveOpposedRoll(50, 118, 30, 40)).toBe(false);  // 30 fails at 22
+  });
+});
+
+// =============================================================================
+// mitigatedDamageForSerious — Mitigate Damage (Imperative p.34 / Core p.81)
+//
+// "This reduces the damage taken to one Hit Point less than what would be
+//  required to inflict a Major Wound."
+//
+// The rule is defined by its RESULT, so these mostly assert the result: apply
+// the returned damage and woundLevel must say 'serious', while one more point
+// must say 'major'. That pins the boundary from both sides rather than
+// trusting the arithmetic.
+// =============================================================================
+
+describe('mitigatedDamageForSerious', () => {
+  test('a fresh location: one point below the Major threshold', () => {
+    // 6 HP chest at full health. Major needs newCurrent <= -6, i.e. 12 damage.
+    expect(mitigatedDamageForSerious(6, 6)).toBe(11);
+    expect(woundLevel(12, 6, 6 - 12)).toBe('major');
+    expect(woundLevel(11, 6, 6 - 11)).toBe('serious');
+  });
+
+  test('the result is always Serious, and one more is always Major', () => {
+    for (const maxHp of [1, 2, 4, 5, 6, 8, 12, 20]) {
+      for (const current of [maxHp, Math.ceil(maxHp / 2), 1, 0, -1, -(maxHp - 1)]) {
+        const d = mitigatedDamageForSerious(current, maxHp);
+        expect({ maxHp, current, level: woundLevel(d, maxHp, current - d) })
+          .toEqual({ maxHp, current, level: d > 0 ? 'serious' : 'none' });
+        expect({ maxHp, current, level: woundLevel(d + 1, maxHp, current - (d + 1)) })
+          .toEqual({ maxHp, current, level: 'major' });
+      }
+    }
+  });
+
+  test('works from CURRENT hp, so an already-wounded location is handled', () => {
+    // A 5 HP arm already at -2. Major needs 3 more; one less is 2.
+    expect(mitigatedDamageForSerious(-2, 5)).toBe(2);
+    expect(woundLevel(2, 5, -2 - 2)).toBe('serious');   // -4, above -5
+    expect(woundLevel(3, 5, -2 - 3)).toBe('major');     // -5, at the threshold
+  });
+
+  test('a 1 HP location still resolves to Serious rather than Major', () => {
+    const d = mitigatedDamageForSerious(1, 1);
+    expect(d).toBe(1);
+    expect(woundLevel(d, 1, 1 - d)).toBe('serious');
+  });
+
+  test('floors at 0 — a location already past the threshold cannot go negative', () => {
+    expect(mitigatedDamageForSerious(-5, 5)).toBe(0);
+    expect(mitigatedDamageForSerious(-99, 6)).toBe(0);
+  });
+
+  test('degrades safely on malformed input rather than returning NaN', () => {
+    expect(mitigatedDamageForSerious(undefined, 6)).toBe(0);
+    expect(mitigatedDamageForSerious(6, undefined)).toBe(0);
+    expect(mitigatedDamageForSerious(NaN, NaN)).toBe(0);
+  });
+
+  test('mitigation never increases the damage it replaces', () => {
+    // The whole point is a reduction. For any blow that WOULD be major,
+    // the mitigated figure must be strictly smaller.
+    for (const maxHp of [3, 6, 9]) {
+      for (const current of [maxHp, 2, 0, -1]) {
+        for (const damage of [current + maxHp, current + maxHp + 5, current + maxHp + 50]) {
+          if (woundLevel(damage, maxHp, current - damage) !== 'major') continue;
+          expect(mitigatedDamageForSerious(current, maxHp)).toBeLessThan(damage);
+        }
+      }
+    }
   });
 });

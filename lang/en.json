@@ -85,6 +85,8 @@
   "MYTHRAS.LuckSwapPercentileOnly": "Swapping digits applies to percentile rolls only, so only a re-roll is offered here.",
   "MYTHRAS.LuckAttackReroll": "Attack roll",
   "MYTHRAS.LuckHitLocation": "Hit location roll",
+  "MYTHRAS.LuckMitigateDamage": "Mitigate Damage",
+  "MYTHRAS.LuckMitigateNotMajor": "That damage no longer inflicts a Major Wound, so there is nothing to mitigate.",
   "MYTHRAS.Cancel": "Cancel",
   "MYTHRAS.OutcomeCritical": "Critical Success",
   "MYTHRAS.OutcomeFailure": "Failure",

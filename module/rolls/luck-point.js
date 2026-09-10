@@ -202,3 +202,58 @@ export async function offerLuckPoint(actor, {
   // rather than a bare number. Null on a swap, which produces no new dice.
   return { result: newResult, mode: choice, outcome: graded ? grade(newResult) : null, roll: newRoll };
 }
+
+/**
+ * Charge one Luck Point after a plain confirmation — the spend path for the
+ * uses that are NOT Cheat Fate.
+ *
+ * Cheat Fate offers a choice between two ways of changing a roll, so it gets
+ * `offerLuckPoint`. Mitigate Damage and Desperate Effort do not: there is one
+ * effect and the only question is whether the player wants it. Giving them a
+ * re-roll/swap dialog would be nonsense, and hand-rolling a second confirm at
+ * each call site is how the pool check and the charge drift apart. Same
+ * contract as `offerLuckPoint`: nothing is charged unless a choice is made,
+ * the pool is re-read after the dialog in case it moved while it was open,
+ * and enforcing "one point per Action" remains the caller's job.
+ *
+ * @param {Actor}  actor
+ * @param {object} opts
+ * @param {string} opts.title           dialog title
+ * @param {string} opts.prompt          HTML shown in the body — say exactly
+ *   what the point buys, in the numbers of the situation at hand
+ * @param {string} [opts.confirmLabel]  defaults to "Spend Luck Point"
+ * @returns {Promise<boolean>} true if a point was charged
+ */
+export async function spendLuckPoint(actor, { title, prompt, confirmLabel }) {
+  if (!canSpendLuck(actor)) {
+    ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
+    return false;
+  }
+
+  const confirmed = await new Promise(resolve => {
+    // Dialog callbacks are not awaited (system-CLAUDE.md), so a synchronously
+    // set flag is the only reliable guard against close() resolving too.
+    let resolved = false;
+    const pick = (v) => { resolved = true; resolve(v); };
+    new Dialog({
+      title,
+      content: `<div class="mi-luck-dialog">${prompt}
+        <p class="mi-muted">${game.i18n.localize('MYTHRAS.LuckOnePerAction')}</p></div>`,
+      buttons: {
+        spend:  { icon: '<i class="fas fa-clover"></i>', label: confirmLabel ?? game.i18n.localize('MYTHRAS.SpendLuckPoint'), callback: () => pick(true) },
+        cancel: { icon: '<i class="fas fa-times"></i>',  label: game.i18n.localize('MYTHRAS.Cancel'), callback: () => pick(false) },
+      },
+      default: 'spend',
+      close: () => { if (!resolved) resolve(false); },
+    }, { classes: ['dialog', 'mi-dialog'] }).render(true);
+  });
+  if (!confirmed) return false;
+
+  const lp = actor.system.attributes?.luckPoints;
+  if (!lp || lp.value <= 0) {
+    ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
+    return false;
+  }
+  await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
+  return true;
+}

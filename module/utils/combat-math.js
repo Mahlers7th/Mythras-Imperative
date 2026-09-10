@@ -638,3 +638,36 @@ export function computeEffectiveSpeed({
   return SPEED_STEPS[idx];
 }
 
+
+/**
+ * Mitigate Damage (Imperative p.34 / Core p.81): the damage a Major Wound is
+ * reduced to when the victim spends a Luck Point.
+ *
+ *   "A character who suffers a Major Wound may spend a Luck Point to downgrade
+ *    the injury to a Serious Wound. This reduces the damage taken to one Hit
+ *    Point less than what would be required to inflict a Major Wound."
+ *
+ * `woundLevel` above puts Major at `newCurrent <= -maxHp`, so the smallest
+ * damage that inflicts one is `current + maxHp`, and one Hit Point less than
+ * that is `current + maxHp - 1`. Applying it leaves the location at `1 - maxHp`
+ * — above the Major threshold by exactly one point, and at or below zero for
+ * any location with at least 1 HP, which is Serious. That is the rule's own
+ * definition rather than a chosen approximation.
+ *
+ * Works from the location's CURRENT HP, not its maximum, so it stays correct
+ * on an already-wounded location: at current -2 of a 5 HP arm, Major needs 3
+ * and this returns 2, leaving -4 — still Serious.
+ *
+ * Floors at 0: a location already at or past the Major threshold before this
+ * blow cannot have damage "reduced" to a negative number, and the caller
+ * should not be offering the spend there anyway.
+ *
+ * @param {number} current  the location's current HP, before this damage
+ * @param {number} maxHp    the location's maximum HP
+ * @returns {number} the damage to apply instead
+ */
+export function mitigatedDamageForSerious(current, maxHp) {
+  const c = Number(current), h = Number(maxHp);
+  if (!Number.isFinite(c) || !Number.isFinite(h)) return 0;
+  return Math.max(0, c + h - 1);
+}
