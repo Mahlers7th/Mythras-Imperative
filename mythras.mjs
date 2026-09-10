@@ -37,11 +37,12 @@ import {
 // comment for why the distinction matters).
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
-import { locationNameToKey }          from './module/utils/hit-location.js';
+import { locationNameToKey, hitLocationForRoll } from './module/utils/hit-location.js';
 import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
+import { canSpendLuck, offerLuckPoint } from './module/rolls/luck-point.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -1946,6 +1947,7 @@ function _onRenderChatMessage(message, html) {
 
   html.querySelectorAll('.mi-luck-reroll').forEach(btn => _bindOnce(btn, ev => _onLuckReroll(ev, message)));
   html.querySelectorAll('.mi-luck-swap').forEach(btn => _bindOnce(btn, ev => _onLuckSwap(ev, message)));
+  html.querySelectorAll('.mi-luck-loc').forEach(btn => _bindOnce(btn, ev => _onLuckHitLocation(ev, message)));
 
   // Manual mode — Roll Hit Location
   html.querySelectorAll('.mi-btn-loc[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollLocation(ev, message)));
@@ -2056,14 +2058,37 @@ async function _onSemiAutoRollLocation(ev, message) {
     await roll.evaluate();
     d20 = roll.total;
 
-    const locs = Array.from(defender.items)
-      .filter(i => i.type === 'hit-location')
-      .sort((a, b) => (a.system.rangeMin ?? 0) - (b.system.rangeMin ?? 0));
-    const locItem = locs.find(l => d20 >= (l.system.rangeMin ?? 1) && d20 <= (l.system.rangeMax ?? 20))
-      ?? locs[locs.length - 1] ?? null;
+    const locItem = hitLocationForRoll(
+      Array.from(defender.items).filter(i => i.type === 'hit-location'), d20);
     locLabel = locItem?.name ?? _resolveHitLocation(d20);
     locId    = locItem?.id ?? null;
   }
+
+  // Cheat Fate on the hit location (v1.4.321). The attacker rolls hit
+  // location, so it is the attacker's point to spend — read from the parent
+  // outcome card's flags, the same source the Marksman block below uses.
+  //
+  // Offered ONLY on the plain 1d20 path. Choose Location produces no roll to
+  // cheat, and Marksman shifts the location by its own picker AFTER this card
+  // is posted, so a luck re-roll there would be re-rolling a number that is
+  // about to be overridden. Gating on the roll's existence keeps the
+  // affordance honest rather than merely available.
+  const locOutcomeFlags = message.flags?.['mythras-imperative'] ?? {};
+  const locAttacker     = locOutcomeFlags.attackerId ? _resolveActor(locOutcomeFlags.attackerId) : null;
+  const locMarksman     = useMarksman
+    || ((locOutcomeFlags.attackerStyleId
+      ? _resolveActor(locOutcomeFlags.attackerId)?.items.get(locOutcomeFlags.attackerStyleId)?.system.traits ?? []
+      : []).includes('rangedMarksman') && locOutcomeFlags.isRanged);
+  const locLuckRow = (!chooseLocation && !locMarksman && canSpendLuck(locAttacker))
+    ? `<div class="mi-luck-row">
+         <button type="button" class="mi-luck-offer mi-luck-loc"
+           data-attacker-id="${locOutcomeFlags.attackerId ?? ''}"
+           data-defender-id="${defenderId}"
+           data-message-id="${messageId ?? ''}">
+           <i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.SpendLuckPoint')}
+         </button>
+       </div>`
+    : '';
 
   // Post the hit location card now — with the rolled/chosen location —
   // before any Marksman picker appears.
@@ -2085,8 +2110,9 @@ async function _onSemiAutoRollLocation(ev, message) {
         <span class="mi-card-skill">Hit Location</span>
       </div>
       <div class="mi-card-body">
-        <div class="mi-card-target">1d20: <strong>${d20}</strong></div>
+        <div class="mi-card-target">1d20: <strong class="mi-loc-d20">${d20}</strong></div>
         <div class="mi-roll-result mi-roll-result--location">${locLabel}</div>
+        ${locLuckRow}
       </div>
     </div>`;
 
@@ -2126,20 +2152,91 @@ async function _onSemiAutoRollLocation(ev, message) {
     locLabel = shifted.label;
   }
 
-  // Stamp location onto the parent outcome card so Roll Damage can read it
-  if (messageId && messageId !== 'PENDING') {
-    const parentMsg = game.messages.get(messageId);
-    if (parentMsg) {
-      let updated = parentMsg.content
-        .replace(/class="mi-btn mi-btn-loc[^"]*"([^>]*)>/,
-          `class="mi-btn mi-btn-loc mi-btn--done" data-defender-id="${defenderId}" data-location-id="${locId ?? ''}" data-location-label="${locLabel}" data-message-id="${messageId}">`
-        )
-        .replace(/<i class="fas fa-(?:crosshairs|bullseye|location-arrow)"><\/i> (?:Roll Hit Location|Choose Location|Roll \+ Marksman)/,
-          `<i class="fas fa-check"></i> ${locLabel}`
-        );
-      await parentMsg.update({ content: updated });
-    }
-  }
+  await _stampHitLocation(messageId, defenderId, locId, locLabel);
+}
+
+/**
+ * Stamp the resolved hit location onto the parent outcome card, where the
+ * Roll Damage handler reads it back out of the HTML.
+ *
+ * Extracted (v1.4.321) so a Luck Point re-roll can re-stamp through the same
+ * path rather than a near-copy. **It must be idempotent**, because the second
+ * call runs against a card this function has already rewritten: the button's
+ * `class="mi-btn mi-btn-loc…"` pattern still matches once `mi-btn--done` has
+ * been appended, but the label pattern does not — after the first stamp the
+ * icon is `fa-check` and the text is the location name, not "Roll Hit
+ * Location". So the label is replaced by whichever of the two shapes is
+ * actually present.
+ */
+async function _stampHitLocation(messageId, defenderId, locId, locLabel) {
+  if (!messageId || messageId === 'PENDING') return;
+  const parentMsg = game.messages.get(messageId);
+  if (!parentMsg) return;
+
+  let updated = parentMsg.content.replace(
+    /class="mi-btn mi-btn-loc[^"]*"([^>]*)>/,
+    `class="mi-btn mi-btn-loc mi-btn--done" data-defender-id="${defenderId}" data-location-id="${locId ?? ''}" data-location-label="${locLabel}" data-message-id="${messageId}">`
+  );
+
+  const firstStamp = updated.replace(
+    /<i class="fas fa-(?:crosshairs|bullseye|location-arrow)"><\/i> (?:Roll Hit Location|Choose Location|Roll \+ Marksman)/,
+    `<i class="fas fa-check"></i> ${locLabel}`
+  );
+  updated = (firstStamp !== updated)
+    ? firstStamp
+    : updated.replace(/<i class="fas fa-check"><\/i> [^<]*/, `<i class="fas fa-check"></i> ${locLabel}`);
+
+  await parentMsg.update({ content: updated });
+}
+
+/**
+ * Cheat Fate on a hit location roll (v1.4.321).
+ *
+ * Safe to offer from the card because the location is not committed to
+ * anything yet — Roll Damage reads it back off the parent card when the GM
+ * clicks it, so re-rolling before that changes the number with no state to
+ * unwind. Re-roll only: swapping a d20's digits would produce a number off
+ * the die (a 7 becomes 70), and the book's swap is explicitly percentile.
+ */
+async function _onLuckHitLocation(ev, message) {
+  ev.preventDefault();
+  const btn = ev.currentTarget;
+  // Synchronous re-entry guard before any await — Dialog callbacks are not
+  // awaited, so a double click could otherwise charge two points.
+  if (btn.disabled) return;
+  btn.disabled = true;
+
+  const attacker  = _resolveActor(btn.dataset.attackerId);
+  const defender  = _resolveActor(btn.dataset.defenderId);
+  const messageId = btn.dataset.messageId;
+  if (!attacker || !defender) { btn.disabled = false; return; }
+
+  const currentD20 = parseInt(message.content.match(/class="mi-loc-d20">(\d+)</)?.[1] ?? '', 10);
+  const spend = await offerLuckPoint(attacker, {
+    result:    Number.isFinite(currentD20) ? currentD20 : 0,
+    label:     game.i18n.localize('MYTHRAS.LuckHitLocation'),
+    allowSwap: false,
+    formula:   '1d20',
+  });
+  if (!spend) { btn.disabled = false; return; }   // declined — nothing charged
+
+  const d20  = spend.result;
+  const locItem  = hitLocationForRoll(
+    Array.from(defender.items).filter(i => i.type === 'hit-location'), d20);
+  const locLabel = locItem?.name ?? _resolveHitLocation(d20);
+  const locId    = locItem?.id ?? null;
+
+  const updated = message.content
+    .replace(/<strong class="mi-loc-d20">\d+<\/strong>/,
+      `<strong class="mi-loc-d20">${d20}</strong> <span class="mi-rerolled">(re-rolled)</span>`)
+    .replace(/(<div class="mi-roll-result mi-roll-result--location">)[^<]*/, `$1${locLabel}`)
+    // One point per Action: retire the affordance. The row's own closing tag
+    // is the first </div> after it, since it contains only a <button>.
+    .replace(/<div class="mi-luck-row">[\s\S]*?<\/div>/,
+      `<span class="mi-luck-spent"><i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckPointSpent')} (re-roll)</span>`);
+  await message.update({ content: updated });
+
+  await _stampHitLocation(messageId, btn.dataset.defenderId, locId, locLabel);
 }
 
 // Semi-Auto: Roll Damage

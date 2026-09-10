@@ -115,33 +115,47 @@ export function luckButtonHtml({ id = '', extra = '' } = {}) {
  * @param {number} [opts.basis] critical/fumble basis; defaults to target, the
  *   same defaulting `determineOutcome` itself uses
  * @param {string} [opts.label] what is being re-rolled, shown in the dialog
- * @returns {Promise<{result:number, mode:'reroll'|'swap', outcome:string}|null>}
+ * @param {boolean} [opts.allowSwap] offer the digit swap. **Defaults to true,
+ *   but pass false for anything that is not a d100.** The book's swap is a
+ *   percentile concept — its own example is *"a 75 would become a 57"* — and
+ *   it is meaningless anywhere else: swapping a d20's 7 gives 70, off the die
+ *   entirely, and swapping a damage roll's 6 gives 60. Those callers offer the
+ *   re-roll alone, which is the half of Cheat Fate that does apply to "any
+ *   dice roll they make".
+ * @param {string} [opts.formula] dice formula for a non-d100 re-roll (e.g.
+ *   '1d20', '1d8+2'). Defaults to '1d100'.
+ * @returns {Promise<{result:number, mode:'reroll'|'swap', outcome:string, roll:Roll|null}|null>}
  *   null when nothing was spent
  */
-export async function offerLuckPoint(actor, { result, target, basis, label = 'Roll' }) {
+export async function offerLuckPoint(actor, {
+  result, target, basis, label = 'Roll', allowSwap = true, formula = '1d100',
+}) {
   if (!canSpendLuck(actor)) {
     ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
     return null;
   }
 
   const gradeBasis = basis ?? target;
+  const graded     = target != null;
   const swapped    = swapDigits(result);
   const grade      = (n) => determineOutcome(n, target, gradeBasis, gradeBasis);
+  // A damage or hit-location roll has no success band, so `target` is omitted
+  // and the dialog states the number alone rather than inventing an outcome.
+  const describe   = (n) => graded ? `${n} — ${grade(n)}` : `${n}`;
 
   // The swap is deterministic, so show exactly what it buys. The re-roll
   // cannot be previewed, which is the trade the player is choosing between.
-  const swapPreview = swapped === result
-    ? `${swapped} — no change`
-    : `${swapped} — ${grade(swapped)}`;
+  const swapPreview = swapped === result ? `${swapped} — no change` : describe(swapped);
 
   const content = `
     <div class="mi-luck-dialog">
-      <p class="mi-luck-dialog-head">${label}: <strong>${result}</strong> — ${grade(result)} (target ${target}%)</p>
+      <p class="mi-luck-dialog-head">${label}: <strong>${result}</strong>${graded ? ` — ${grade(result)} (target ${target}%)` : ''}</p>
       <p class="mi-muted">${game.i18n.localize('MYTHRAS.LuckOnePerAction')}</p>
       <ul class="mi-luck-dialog-options">
-        <li><strong>${game.i18n.localize('MYTHRAS.LuckPointReroll')}</strong> — a fresh d100</li>
-        <li><strong>${game.i18n.localize('MYTHRAS.LuckPointSwap')}</strong> — ${swapPreview}</li>
+        <li><strong>${game.i18n.localize('MYTHRAS.LuckPointReroll')}</strong> — a fresh ${formula}</li>
+        ${allowSwap ? `<li><strong>${game.i18n.localize('MYTHRAS.LuckPointSwap')}</strong> — ${swapPreview}</li>` : ''}
       </ul>
+      ${allowSwap ? '' : `<p class="mi-muted">${game.i18n.localize('MYTHRAS.LuckSwapPercentileOnly')}</p>`}
     </div>`;
 
   const choice = await new Promise(resolve => {
@@ -153,9 +167,11 @@ export async function offerLuckPoint(actor, { result, target, basis, label = 'Ro
       title: game.i18n.localize('MYTHRAS.SpendLuckPoint'),
       content,
       buttons: {
-        reroll: { icon: '<i class="fas fa-dice"></i>',        label: game.i18n.localize('MYTHRAS.LuckPointReroll'), callback: () => pick('reroll') },
-        swap:   { icon: '<i class="fas fa-exchange-alt"></i>', label: game.i18n.localize('MYTHRAS.LuckPointSwap'),   callback: () => pick('swap') },
-        cancel: { icon: '<i class="fas fa-times"></i>',        label: game.i18n.localize('MYTHRAS.Cancel'),          callback: () => pick(null) },
+        reroll: { icon: '<i class="fas fa-dice"></i>', label: game.i18n.localize('MYTHRAS.LuckPointReroll'), callback: () => pick('reroll') },
+        ...(allowSwap ? {
+          swap: { icon: '<i class="fas fa-exchange-alt"></i>', label: game.i18n.localize('MYTHRAS.LuckPointSwap'), callback: () => pick('swap') },
+        } : {}),
+        cancel: { icon: '<i class="fas fa-times"></i>', label: game.i18n.localize('MYTHRAS.Cancel'), callback: () => pick(null) },
       },
       default: 'reroll',
       close: () => { if (!resolved) resolve(null); },
@@ -174,11 +190,15 @@ export async function offerLuckPoint(actor, { result, target, basis, label = 'Ro
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
 
   let newResult = swapped;
+  let newRoll   = null;
   if (choice === 'reroll') {
-    const roll = new Roll('1d100');
-    await roll.evaluate();
-    newResult = roll.total;
+    newRoll = new Roll(formula);
+    await newRoll.evaluate();
+    newResult = newRoll.total;
   }
 
-  return { result: newResult, mode: choice, outcome: grade(newResult) };
+  // `roll` is returned so a caller that renders dice (a damage card's
+  // breakdown, a chat message's `rolls:` array) can show the real new roll
+  // rather than a bare number. Null on a swap, which produces no new dice.
+  return { result: newResult, mode: choice, outcome: graded ? grade(newResult) : null, roll: newRoll };
 }

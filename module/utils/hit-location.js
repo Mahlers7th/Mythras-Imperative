@@ -32,3 +32,32 @@ export function locationNameToKey(label) {
     ?? label?.replace(/\s+(.)/g, (_, c) => c.toUpperCase()).replace(/^\w/, c => c.toLowerCase())
     ?? label;
 }
+
+/**
+ * Resolve which hit location a d20 lands on.
+ *
+ * Extracted v1.4.321. The identical filter/sort/find existed inline in
+ * `_onSemiAutoRollLocation`, and adding the Luck Point re-roll would have made
+ * a second copy — the drift this repo has paid for repeatedly (three copies of
+ * the armour arithmetic, two of `determineOutcome`). Pure over a plain array
+ * so it is testable without Foundry.
+ *
+ * Locations are sorted by `rangeMin` and matched inclusively against
+ * `rangeMin..rangeMax`. A roll that falls in no band returns the highest
+ * location rather than nothing — the original behaviour, and the safe one: a
+ * creature with an incomplete table still resolves somewhere instead of
+ * throwing mid-attack.
+ *
+ * @param {Array<{id?: string, name?: string, system?: {rangeMin?: number, rangeMax?: number}}>} locations
+ *   the actor's `hit-location` items, in any order
+ * @param {number} d20
+ * @returns {object|null} the matching location item, or null if there are none
+ */
+export function hitLocationForRoll(locations, d20) {
+  const sorted = [...(locations ?? [])]
+    .filter(Boolean)
+    .sort((a, b) => (a.system?.rangeMin ?? 0) - (b.system?.rangeMin ?? 0));
+  if (!sorted.length) return null;
+  return sorted.find(l => d20 >= (l.system?.rangeMin ?? 1) && d20 <= (l.system?.rangeMax ?? 20))
+    ?? sorted[sorted.length - 1];
+}

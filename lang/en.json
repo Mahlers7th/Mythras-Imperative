@@ -82,7 +82,9 @@
   "MYTHRAS.LuckPointSpent": "Luck Point spent — only one per Action",
   "MYTHRAS.LuckAlreadySpent": "A Luck Point has already been spent on this Action.",
   "MYTHRAS.LuckOnePerAction": "Only one Luck Point may be spent on a single Action.",
+  "MYTHRAS.LuckSwapPercentileOnly": "Swapping digits applies to percentile rolls only, so only a re-roll is offered here.",
   "MYTHRAS.LuckAttackReroll": "Attack roll",
+  "MYTHRAS.LuckHitLocation": "Hit location roll",
   "MYTHRAS.Cancel": "Cancel",
   "MYTHRAS.OutcomeCritical": "Critical Success",
   "MYTHRAS.OutcomeFailure": "Failure",
@@ -92,7 +94,7 @@
   "MYTHRAS.RollDialogDifficulty": "Difficulty",
   "MYTHRAS.RollDialogModifier": "Modifier",
   "MYTHRAS.RollDialogPassion": "Augment with Passion",
-  "MYTHRAS.RollDialogPassionNone": "\u2014 None \u2014",
+  "MYTHRAS.RollDialogPassionNone": "— None —",
   "MYTHRAS.RollDialogRoll": "Roll",
   "MYTHRAS.RollDialogTitle": "Skill Roll",
   "MYTHRAS.SEAccidentalInjury": "Accidental Injury",
@@ -169,5 +171,5 @@
   "MYTHRAS.VehicleWeapon.FirePrompt": "Who is firing {weapon}?",
   "MYTHRAS.VehicleWeapon.SelectCrew": "Select Crew Member",
   "MYTHRAS.VehicleWeapon.SelectStyle": "Select Combat Style",
-  "MYTHRAS.VehicleWeapon.StylePrompt": "{crew} \u2014 choose combat style for {weapon}:"
+  "MYTHRAS.VehicleWeapon.StylePrompt": "{crew} — choose combat style for {weapon}:"
 }
