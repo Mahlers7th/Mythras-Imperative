@@ -21,7 +21,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Accepting:** the radios became `parry:enabled,checked evade:enabled none:enabled`, the notice went, the button became the spent note, and Nex read `AP=1 luck=3`. Resolving produced **no second dialog** and a real defence — *"Nex — Parry — Close Combat Attack (Physical) 84% 52 Success"* — a parry that could not have happened at all before v1.4.323.
   - **Ignoring the offer and resolving:** still no second dialog, nothing charged (luck unchanged at 3), and the result was *"Don't Defend — Failure"* exactly as before.
   - Zero console errors; Action Points, Luck Points and the temporary token all restored and asserted restored.
-- Not yet committed
+- Committed as `ee7aabe8a94a1cca45309f107c77967974817034`
 
 ## v1.4.323 — September 2026
 - **Desperate Effort is implemented, completing the three Luck Point uses.** Imperative p.34 / Core p.81: *"If a character has exhausted their Action Points during a fight and needs to find that last burst of desperate energy to perhaps avoid a messy demise, they may spend a Luck Point to gain an additional Action Point."*
