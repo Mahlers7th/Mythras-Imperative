@@ -32,6 +32,7 @@ import {
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
+import { canSpendLuck, spendLuckPoint } from '../rolls/luck-point.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -990,12 +991,20 @@ export class CombatEngine {
 
     const defAP = defender.system.attributes?.actionPoints;
     if (defAP && typeof defAP.value === 'number' && defAP.value <= 0) {
-      ctx.defenceType        = 'none';
-      ctx.defenderSkillTotal = 0;
-      ctx.defenceOutcome     = 'none';
-      await CombatEngine._afterDefenceResolved(ctx);
-      CombatEngine._accumulateFullAutoResult(ctx);
-      return;
+      // Desperate Effort (v1.4.323), same offer as the single-attack gate.
+      // Under a Full Auto spray this is asked once per target that is out of
+      // Action Points — which is correct rather than noisy: each incoming
+      // burst is its own attack, and "one Luck Point per Action" is per
+      // Action, not per round.
+      const rallied = await CombatEngine._offerDesperateEffort(defender);
+      if (!rallied) {
+        ctx.defenceType        = 'none';
+        ctx.defenderSkillTotal = 0;
+        ctx.defenceOutcome     = 'none';
+        await CombatEngine._afterDefenceResolved(ctx);
+        CombatEngine._accumulateFullAutoResult(ctx);
+        return;
+      }
     }
 
     // ── GM Mode — show a compact per-target defence dialog ───────────────────
@@ -1297,14 +1306,22 @@ export class CombatEngine {
     {
       const defAP = defender.system.attributes?.actionPoints;
       if (defAP && typeof defAP.value === 'number' && defAP.value <= 0) {
-        confirmedCtx.defenceType        = 'none';
-        confirmedCtx.defenderSkillTotal = 0;
-        confirmedCtx.defenceOutcome     = 'none';
-        ui.notifications.info(
-          `${defender.name} has 0 Action Points — cannot defend. Defence treated as automatic Failure.`
-        );
-        await CombatEngine._afterDefenceResolved(confirmedCtx);
-        return;
+        // Desperate Effort (v1.4.323) — the rule exists for exactly this
+        // moment, so it is offered BEFORE the automatic Failure is conceded.
+        // Declining, or having no Luck Point, falls through to the original
+        // behaviour unchanged.
+        const rallied = await CombatEngine._offerDesperateEffort(defender);
+        if (!rallied) {
+          confirmedCtx.defenceType        = 'none';
+          confirmedCtx.defenderSkillTotal = 0;
+          confirmedCtx.defenceOutcome     = 'none';
+          ui.notifications.info(
+            `${defender.name} has 0 Action Points — cannot defend. Defence treated as automatic Failure.`
+          );
+          await CombatEngine._afterDefenceResolved(confirmedCtx);
+          return;
+        }
+        // Rallied: fall through to the normal defence flow with the new point.
       }
     }
 
@@ -1436,6 +1453,75 @@ export class CombatEngine {
    * to call unconditionally even on the GM-inline path, where AttackerDialog
    * itself already rolled between its two phases.
    */
+  /**
+   * Desperate Effort (Imperative p.34 / Core p.81), v1.4.323.
+   *
+   *   "If a character has exhausted their Action Points during a fight and
+   *    needs to find that last burst of desperate energy to perhaps avoid a
+   *    messy demise, they may spend a Luck Point to gain an additional Action
+   *    Point."
+   *
+   * Offered at the zero-AP defence gate, which is the moment the rule is
+   * written for: without it the defender concedes an automatic Failure and
+   * eats the attacker's Special Effects. Nothing has been resolved at that
+   * point, so accepting simply lets the normal defence flow proceed — there is
+   * no committed consequence to unwind, which is why this belongs in Stage 1.
+   *
+   * **Only ever called at `value <= 0`, and that matters.**
+   * `CharacterData#prepareDerivedData` clamps `actionPoints.value` down to
+   * `max` every cycle, so granting a point to someone who is not exhausted
+   * would be silently reverted on the next derivation. From 0 the grant is
+   * always `1`, and `max` is floored at 1, so it can never be clamped away.
+   * Do not reuse this helper anywhere the pool might be non-zero without
+   * revisiting that.
+   *
+   * Creatures and NPCs have no `luckPoints` field at all (it lives only on
+   * `CharacterData`), so `canSpendLuck` refuses them without a guard — which
+   * matches the rule's framing of Luck as what separates heroes from the rank
+   * and file.
+   *
+   * @param {Actor} defender
+   * @returns {Promise<boolean>} true if a point was spent and an AP granted
+   */
+  static async _offerDesperateEffort(defender) {
+    if (!canSpendLuck(defender)) return false;
+
+    const ap = defender.system.attributes?.actionPoints;
+    const spent = await spendLuckPoint(defender, {
+      title:  game.i18n.localize('MYTHRAS.LuckDesperateEffort'),
+      prompt: `<p class="mi-luck-dialog-head">${defender.name} — 0 Action Points</p>
+               <p>Without an Action Point there is no defence: the attack is
+               resolved against an automatic <strong>Failure</strong>.</p>
+               <p>Spending a Luck Point grants <strong>+1 Action Point</strong>,
+               enough to parry or evade this blow.</p>`,
+      confirmLabel: game.i18n.localize('MYTHRAS.LuckDesperateEffort'),
+    });
+    if (!spent) return false;
+
+    await defender.update({
+      'system.attributes.actionPoints.value': (ap?.value ?? 0) + 1,
+    });
+
+    await ChatMessage.create({
+      content: `
+        <div class="mi-chat-card">
+          <div class="mi-card-header mi-card-header--stacked">
+            <span class="mi-card-actor">${defender.name}</span>
+            <span class="mi-card-skill">${game.i18n.localize('MYTHRAS.LuckDesperateEffort')}</span>
+          </div>
+          <div class="mi-card-body">
+            <div class="mi-outcome-row">
+              <span class="mi-outcome success">
+                <i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckDesperateEffortCard')}
+              </span>
+            </div>
+          </div>
+        </div>`,
+      speaker: ChatMessage.getSpeaker({ actor: defender }),
+    });
+    return true;
+  }
+
   static async _rollAttack(ctx) {
     if (ctx.attackResult != null) return;
 
