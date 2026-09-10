@@ -940,6 +940,23 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
   // Brace — mirrors DefenderDialog's row so GM Mode is not a lesser path.
   // See that file's comment, and combat-actions-design.md §1, for why the
   // Bash SIZ clause is the only part implemented.
+  // Desperate Effort, asked BEFORE the defence is chosen (v1.4.324).
+  //
+  // v1.4.323 wired this at the engine's zero-AP gate, which runs AFTER this
+  // panel returns — so the GM picked Parry, hit Resolve, and only then was
+  // asked whether to fund the Action Point that choice requires. Correct, and
+  // backwards to read. Offering here puts the question where the decision is.
+  //
+  // `ctx` is the same object `_readAttackerFields` returns and `_runDialog`
+  // carries on as `confirmedCtx`, so the flag set here reaches the later gate
+  // and stops it asking a second time. It is set whenever the offer is
+  // DISPLAYED, not only when taken: a GM who reads it and resolves anyway has
+  // decided, and should not be asked again on the way past.
+  const gmDefenderAP  = defender.system?.attributes?.actionPoints?.value ?? 0;
+  const gmExhausted   = gmDefenderAP <= 0;
+  const gmCanRally    = gmExhausted && canSpendLuck(defender);
+  if (gmExhausted) ctx.desperateEffortOffered = true;
+
   const gmBraceAP         = defender.system?.attributes?.actionPoints?.value ?? 0;
   const gmBraceAffordable = gmBraceAP >= 2;
   const gmBraceHint       = gmBraceAffordable
@@ -959,6 +976,18 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
       <div class="mi-dialog-section-title">
         <i class="fas fa-shield-alt"></i> ${defender.name} — Defence (GM Mode)
       </div>
+      ${gmExhausted ? `
+      <div class="mi-outcome-row" id="mi-gm-exhausted-row">
+        <span class="mi-outcome mi-wound-serious">
+          <i class="fas fa-ban"></i> ${game.i18n.localize('MYTHRAS.LuckNoActionPoints')}
+        </span>
+      </div>` : ''}
+      ${gmCanRally ? `
+      <div class="mi-luck-row" id="mi-gm-desperate-row">
+        <button type="button" class="mi-luck-offer" id="mi-gm-desperate">
+          <i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckDesperateEffort')}
+        </button>
+      </div>` : ''}
       <div class="mi-defence-options mi-defence-options--inline">
 
         <label class="mi-defence-option">
@@ -1090,6 +1119,45 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
               row.innerHTML = `<span class="mi-luck-spent"><i class="fas fa-clover"></i> ` +
                 `${game.i18n.localize('MYTHRAS.LuckPointSpent')} (${spend.mode === 'swap' ? 'swap' : 're-roll'})</span>`;
             }
+          });
+        }
+
+        // ── Zero Action Points ───────────────────────────────────────────
+        // Parry, Evade and Acrobatics each cost an Action Point, so at zero
+        // they are not choices — offering them and discarding the pick later
+        // is what made the old ordering read backwards. Don't Defend costs
+        // nothing and stays available.
+        const _gmApGatedDefences = () =>
+          [...html.find('input[name="mi-gm-def-type"]')].filter(el => el.value !== 'none');
+        if (gmExhausted) {
+          for (const el of _gmApGatedDefences()) { el.disabled = true; el.checked = false; }
+          const noneEl = html.find('input[name="mi-gm-def-type"][value="none"]')[0];
+          if (noneEl) noneEl.checked = true;
+        }
+
+        const despBtn = html.find('#mi-gm-desperate')[0];
+        if (despBtn) {
+          despBtn.addEventListener('click', async () => {
+            if (despBtn.disabled) return;   // synchronous guard, pre-await
+            despBtn.disabled = true;
+
+            const { CombatEngine } = await import('./CombatEngine.js');
+            const rallied = await CombatEngine._offerDesperateEffort(defender);
+            if (!rallied) { despBtn.disabled = false; return; }
+
+            // The point bought a defence — make the options real again.
+            for (const el of _gmApGatedDefences()) el.disabled = false;
+            const parryEl = html.find('input[name="mi-gm-def-type"][value="parry"]')[0];
+            if (parryEl && !parryEl.disabled) parryEl.checked = true;
+            html.find('#mi-gm-exhausted-row')[0]?.remove();
+            const row = html.find('#mi-gm-desperate-row')[0];
+            if (row) {
+              row.innerHTML = `<span class="mi-luck-spent"><i class="fas fa-clover"></i> ` +
+                `${game.i18n.localize('MYTHRAS.LuckPointSpent')} (+1 Action Point)</span>`;
+            }
+            // Re-run the panel's own enable/disable pass so the parry
+            // selectors match the option that is now selected.
+            html.find('input[name="mi-gm-def-type"]').first().trigger('change');
           });
         }
 

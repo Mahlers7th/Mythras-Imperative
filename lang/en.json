@@ -89,6 +89,7 @@
   "MYTHRAS.LuckMitigateNotMajor": "That damage no longer inflicts a Major Wound, so there is nothing to mitigate.",
   "MYTHRAS.LuckDesperateEffort": "Desperate Effort",
   "MYTHRAS.LuckDesperateEffortCard": "Spends a Luck Point for a last burst of energy — +1 Action Point",
+  "MYTHRAS.LuckNoActionPoints": "0 Action Points — cannot Parry, Evade or use Acrobatics",
   "MYTHRAS.Cancel": "Cancel",
   "MYTHRAS.OutcomeCritical": "Critical Success",
   "MYTHRAS.OutcomeFailure": "Failure",

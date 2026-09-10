@@ -1310,7 +1310,15 @@ export class CombatEngine {
         // moment, so it is offered BEFORE the automatic Failure is conceded.
         // Declining, or having no Luck Point, falls through to the original
         // behaviour unchanged.
-        const rallied = await CombatEngine._offerDesperateEffort(defender);
+        //
+        // In GM Mode the offer has already been made, up front in the inline
+        // defence panel where the choice is actually taken (v1.4.324). That
+        // panel sets `desperateEffortOffered` whenever it DISPLAYS the offer,
+        // so a GM who read it and resolved anyway is not asked a second time
+        // on the way past.
+        const rallied = confirmedCtx.desperateEffortOffered
+          ? false
+          : await CombatEngine._offerDesperateEffort(defender);
         if (!rallied) {
           confirmedCtx.defenceType        = 'none';
           confirmedCtx.defenderSkillTotal = 0;
