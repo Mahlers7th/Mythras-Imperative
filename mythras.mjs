@@ -44,6 +44,7 @@ import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trai
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 import { canSpendLuck, offerLuckPoint, spendLuckPoint } from './module/rolls/luck-point.js';
 import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
+import { computeDamage }              from './module/combat/damage-pipeline.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -2368,10 +2369,10 @@ async function _onSemiAutoRollDamage(ev, message) {
   if (!defender || !attacker) return;
 
   // formula from the card button already has the stepped-up DM applied (Charge handled at card-build time)
-  let dmgFormula = formula;
+  const dmgFormula = formula;
   const roll = new Roll(dmgFormula);
   await roll.evaluate();
-  let rawDamage = roll.total;
+  const rollTotal = roll.total;
 
   // Read chosenSEs from outcome flags — single source of truth for all SE flags in this function.
   // (Read early here so Impale double-roll can use it before the main block below)
@@ -2380,15 +2381,17 @@ async function _onSemiAutoRollDamage(ev, message) {
   const outcomeFlags0  = outcomeMsg0?.flags?.['mythras-imperative'] ?? {};
   const chosenSEs0     = outcomeFlags0.chosenSEs ?? [];
 
-  // Impale SE — roll damage twice, attacker picks best (rules p.44)
+  // Impale SE — roll damage twice, attacker picks best (rules p.44).
+  // The second roll is made here; which of the two wins is decided by
+  // computeDamage, so the arithmetic stays in one place.
   let impaleSection2 = '';
+  let impaleSecond   = null;
   if (chosenSEs0.includes('impale')) {
-    const roll1val = rawDamage;
+    const roll1val = rollTotal;
     const roll2    = new Roll(dmgFormula);
     await roll2.evaluate();
     const roll2val = roll2.total;
-    if (roll2val > rawDamage) rawDamage = roll2val;
-    const winner = rawDamage;
+    impaleSecond   = roll2val;
     impaleSection2 = `
       <div class="mi-card-impale-rolls">
         <span class="mi-card-note">Impale — two rolls, best used:</span>
@@ -2431,23 +2434,35 @@ async function _onSemiAutoRollDamage(ev, message) {
 
   // Maximise Damage SE — substitute each chosen die with its maximum face value.
   // Rules p.45: one die per stack count; DM dice are not affected.
-  const maximiseCount  = chosenSEs0.filter(s => s === 'maximiseDamage').length;
-  if (maximiseCount > 0) {
-    const dieTerms = roll.terms.filter(t => t.faces);
-    for (let i = 0; i < Math.min(maximiseCount, dieTerms.length); i++) {
-      rawDamage += (dieTerms[i].faces - dieTerms[i].total);
-    }
-  }
+  //
+  // Flattened to INDIVIDUAL DICE, not Foundry's Die terms. A term covers a
+  // whole group — `2d6` is one term whose `total` is the sum of both dice — so
+  // the original `faces - term.total` was 0 for every multi-die weapon and
+  // Maximise Damage silently did nothing. Fixed in v1.4.327; see the
+  // applyMaximiseDamage doc for the full account.
+  //
+  // NOTE, preserved not fixed: these are the FIRST roll's dice even when
+  // Impale's second roll is the one that won, so the shortfall added can be
+  // that of a die which did not contribute to the total in play. Correcting
+  // that needs a ruling on whether Impale's two rolls are one roll or two.
+  const maximiseCount = chosenSEs0.filter(s => s === 'maximiseDamage').length;
+  const dice = roll.terms
+    .filter(t => t.faces)
+    .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })));
 
   // Parry reduction (p.40): only applies when the defender succeeded or critically succeeded.
   // A failed or fumbled parry does not reduce damage at all.
   // We read defenceOutcome and chosen SEs from the parent outcome message flags.
+  //
+  // Resolved into a { multiplier, label } object rather than applied here, so
+  // the arithmetic all happens in computeDamage below. A null means the gate
+  // did not apply at all — no parry weapon, Circumvent Parry chosen, or the
+  // parry simply failed.
   const parryWeapon     = parryWeaponId ? defender.items.get(parryWeaponId) : null;
   const parryStyle      = parryStyleId  ? defender.items.get(parryStyleId)  : null;
   const circumventParry = chosenSEs0.includes('circumventParry');
   const enhanceParry    = chosenSEs0.includes('enhanceParry');
-  let damageAfterParry  = rawDamage;
-  let parryNote = '';
+  let parryReduction    = null;
 
   if (parryWeapon && weapon && !circumventParry) {
     // Read the defender's roll outcome from the outcome message flags
@@ -2458,18 +2473,14 @@ async function _onSemiAutoRollDamage(ev, message) {
     const parrySucceeded   = defenceOutcome === 'success' || defenceOutcome === 'critical';
 
     if (parrySucceeded) {
-      if (enhanceParry) {
-        // Enhance Parry: full block regardless of weapon size (rules p.42)
-        damageAfterParry = 0;
-        parryNote = 'fully blocked';
-      } else {
-        const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-        const pr = CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle, null, attacker, defender);
-        damageAfterParry = Math.ceil(rawDamage * pr.multiplier);
-        parryNote = pr.label === 'full' ? 'fully blocked' : pr.label === 'half' ? 'half damage' : '';
-      }
+      parryReduction = enhanceParry
+        // Enhance Parry: full block regardless of weapon size (rules p.42).
+        // Expressed as a full-block reduction rather than a special case —
+        // "blocks fully" IS a multiplier of 0.
+        ? { multiplier: 0, label: 'full' }
+        : CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle, null, attacker, defender);
     }
-    // If parry failed/fumbled: no reduction, parryNote stays ''
+    // If parry failed/fumbled: parryReduction stays null, no reduction applied
   }
 
   // Ammo trait resolution is a single shared path (CombatEngine._resolveAmmoTraits,
@@ -2516,18 +2527,40 @@ async function _onSemiAutoRollDamage(ev, message) {
   // own doc). defenceType comes straight off the button's own dataset (line
   // ~1644), same source _onSemiAutoRollDamage already uses for the card's
   // defence description below — no separate flags read needed.
-  let wardNote = '';
-  if (locationId) {
-    const wr = CombatEngine.resolveWardReduction(weapon, defender, locationId, defenceType, null, attacker);
-    if (wr.multiplier < 1) {
-      damageAfterParry = Math.ceil(damageAfterParry * wr.multiplier);
-      wardNote = wr.label === 'full' ? 'fully warded' : wr.label === 'half' ? 'half damage (warded)' : '';
-    }
-  }
+  const wardReduction = locationId
+    ? CombatEngine.resolveWardReduction(weapon, defender, locationId, defenceType, null, attacker)
+    : null;
+
+  // ── THE ARITHMETIC, in one pure call ─────────────────────────────────────
+  // Impale -> Maximise -> parry -> ward -> armour, in that order.
+  //
+  // This line is the seam the whole extraction exists for. Everything above it
+  // only *resolves inputs* — dice, reduction multipliers, armour points, flags
+  // read off the outcome card. Everything below it *commits consequences* —
+  // Sunder's permanent armour loss, the broadhead/stun flags, the zero-damage
+  // opposed Special Effects, the chat card itself.
+  //
+  // So a Luck Point spent on the damage roll can re-run computeDamage with a
+  // new rollTotal and get a wholly recomputed result without repeating a
+  // single write. That is the property `module/rolls/luck-point.js` requires
+  // of any site offering Cheat Fate, and the property this function did not
+  // have before v1.4.327.
+  const computed = computeDamage({
+    rollTotal,
+    dice,
+    impaleSecond,
+    maximiseCount,
+    parry: parryReduction,
+    ward:  wardReduction,
+    armourAP,
+  });
+  const { rawDamage, damageAfterParry, parryNote, wardNote } = computed;
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
-  let finalDamage    = Math.max(0, damageAfterParry - armourAP);
+  // The one consequence that feeds back into the number, so it stays here
+  // rather than in the pure half: _applySunder WRITES the armour reduction.
+  let finalDamage    = computed.finalDamage;
   let sunderResult   = null;
   const sunderChosen = chosenSEs0.includes('sunder');
   if (sunderChosen && !chosenSEs0.includes('bypassArmour') && armourAP > 0) {
