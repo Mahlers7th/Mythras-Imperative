@@ -23,7 +23,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Second roll wins, `[8, 10]`** — raw **10**, breakdown `[10]`.
   - **Impale + Maximise on `1d10` × 4 runs** — raw **10** every time, whichever roll won, which is the only correct answer for a maximised d10 and was not reliably true before.
   - Zero console errors. Cleanup deleted **exactly the 18 ids the test recorded**, leaving the world's message count unchanged, and Nocturne's Luck Points were restored and asserted restored.
-- Not yet committed
+- Committed as `cef37d6380e98adaebea73bd37ca53036ff7cf4b`
 
 ## v1.4.328 — September 2026
 - **Cheat Fate now works on the damage roll — the last blocked use from the Luck Point audit.** Imperative p.33 / Core p.81: *"Characters can use a Luck Point to re-roll or swap ... any dice roll they make. This can be a skill roll, **damage roll**, or anything else that has some effect."* Blocked since v1.4.319 because `_onSemiAutoRollDamage` had no moment at which the damage was known and nothing had been committed; v1.4.327's split created one, and this release uses it.
