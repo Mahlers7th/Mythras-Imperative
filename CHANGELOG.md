@@ -25,7 +25,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - The card's displayed result matched the stored `rollData.result` every time, and the Luck buttons were retired on every run.
   - Zero console errors. Cleanup deleted exactly the 3 ids the test recorded; Chris's own test cards in the log were untouched.
 - **Process note:** the first attempt at this live test failed for a reason worth recording — the fixture built a card without `flags.actorId`, and `_actorFromMessage` reads the actor from that flag rather than from the message speaker, so the handler returned before doing anything. The fixture was wrong, not the product. It is also what surfaced the second bug above, since the charge happens before the path that bails.
-- Not yet committed
+- Committed as `bbcf04ef7cb923181ce096c8488713e301588492`
 
 ## v1.4.329 — September 2026
 - **Impale's two rolls are ONE roll, and the player takes the highest** — Chris's ruling, 2026-09-12, answering the question v1.4.327 raised and deliberately left open. The ruling is load-bearing rather than cosmetic: if the two rolls are one roll, the losing roll **did not happen**, so the winner's *dice* are the dice in play and anything reading dice rather than totals must read them from the winner. Two things did not.
