@@ -17,6 +17,7 @@
     "resolveDifferential",
     "woundLevel",
     "woundState",
-    "getTraitsByCategory"
+    "getTraitsByCategory",
+    "replenishLuckPoints"
   ]
 }

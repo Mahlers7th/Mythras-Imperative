@@ -43,6 +43,7 @@ import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
 import { canSpendLuck, offerLuckPoint, spendLuckPoint } from './module/rolls/luck-point.js';
+import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -315,6 +316,23 @@ Hooks.once('init', () => {
 });
 
 // ---------------------------------------------------------------------------
+// LUCK REPLENISHMENT MENU SHIM
+// ---------------------------------------------------------------------------
+// game.settings.registerMenu wants an Application class it can construct and
+// render. There is no form here — the action is a single confirm dialog that
+// replenishLuckPoints() already owns — so this class exists only to give the
+// settings button something to open, and overrides render() to run the action
+// instead of building a window. Registering the menu (rather than shipping a
+// compendium macro) keeps the whole affordance in versioned source.
+// ---------------------------------------------------------------------------
+class LuckReplenishMenu extends foundry.applications.api.ApplicationV2 {
+  async render() {
+    await replenishLuckPoints();
+    return this;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // SETUP
 // ---------------------------------------------------------------------------
 Hooks.once('setup', () => {
@@ -353,6 +371,19 @@ Hooks.once('setup', () => {
     config:  true,
     type:    Boolean,
     default: false
+  });
+
+  // Start-of-session Luck Point replenishment — a GM button, not a hook.
+  // Foundry has no "session" concept and every automatic proxy for one (world
+  // startup, a user connecting) refills wrongly on a mid-evening restart or a
+  // prep session, silently and generously. See luck-replenish.js.
+  game.settings.registerMenu('mythras-imperative', 'luckReplenish', {
+    name:       game.i18n.localize('MYTHRAS.LuckReplenishMenu'),
+    label:      game.i18n.localize('MYTHRAS.LuckReplenishConfirm'),
+    hint:       game.i18n.localize('MYTHRAS.LuckReplenishMenuHint'),
+    icon:       'fas fa-clover',
+    type:       LuckReplenishMenu,
+    restricted: true,
   });
 
   // Vehicle stat-block templates — a saved snapshot of a vehicle's system
@@ -582,6 +613,11 @@ Hooks.once('ready', () => {
     // the 'mechanical'/'damageType' axis on CONFIG.MYTHRAS.weaponTraits
     // without hand-rolling a substring match against the registry.
     getTraitsByCategory,
+    // replenishLuckPoints (v1.4.325+): the start-of-session refill, GM-gated
+    // and confirmed through a dialog that shows what will change. Exposed so
+    // it can be bound to a hotbar macro, and so a module that owns its own
+    // session lifecycle can drive it instead of the settings button.
+    replenishLuckPoints,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────

@@ -726,6 +726,34 @@ select.mi-hero-level-select option:checked { font-weight: 600; }
 .mi-luck-dialog-options { margin: 6px 0 0; padding-left: 18px; font-size: 12px; font-family: var(--mi-font-ui); }
 .mi-luck-dialog-options li { margin-bottom: 3px; }
 
+/* Body wrapper shared by every Luck Point dialog (spendLuckPoint's confirm,
+   replenishLuckPoints' table). Two things it must supply itself:
+
+   - Padding. .mi-dialog .window-content zeroes its own so the combat dialogs
+     can run a full-bleed teal header to the window edge; a plain-text dialog
+     that doesn't re-add it sits flush against the frame.
+   - Ink. Foundry's default dialog text colour is a hardcoded near-black that
+     assumes a light surface, and --mi-paper is dark in dark mode — the same
+     failure the .mi-dialog .dialog-buttons button rule above exists to fix.
+
+   Confirmed live (v1.4.325): without this the replenishment table rendered
+   dark-on-dark, legible only in the cells that happened to carry <strong>. */
+.mi-luck-dialog { padding: 12px 14px; color: var(--mi-ink); font-family: var(--mi-font-ui); }
+.mi-luck-dialog p { margin: 0 0 8px; }
+
+.mi-luck-replenish { width: 100%; border-collapse: collapse; font-size: 12px; }
+/* background: none defeats Foundry's default row striping, which paints its own
+   surface underneath and reintroduces the contrast problem one row in two. */
+.mi-luck-replenish tr { background: none; }
+.mi-luck-replenish td {
+  padding: 4px 6px; color: var(--mi-ink);
+  border-bottom: 1px solid var(--mi-rule);
+}
+.mi-luck-replenish tr:last-child td { border-bottom: 0; }
+.mi-luck-replenish td:first-child { font-weight: 600; }
+.mi-luck-replenish td:last-child { text-align: right; }
+.mi-luck-replenish strong { color: var(--mi-teal-text); }
+
 .mi-manual-actions {
   display: flex; gap: 6px; margin-top: 8px; padding-top: 8px;
   border-top: 1px solid var(--mi-rule);

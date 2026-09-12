@@ -176,5 +176,15 @@
   "MYTHRAS.VehicleWeapon.FirePrompt": "Who is firing {weapon}?",
   "MYTHRAS.VehicleWeapon.SelectCrew": "Select Crew Member",
   "MYTHRAS.VehicleWeapon.SelectStyle": "Select Combat Style",
-  "MYTHRAS.VehicleWeapon.StylePrompt": "{crew} — choose combat style for {weapon}:"
+  "MYTHRAS.VehicleWeapon.StylePrompt": "{crew} — choose combat style for {weapon}:",
+  "MYTHRAS.LuckReplenishTitle": "Replenish Luck Points",
+  "MYTHRAS.LuckReplenishPrompt": "Luck Points replenish to their normal value at the beginning of each game session. This will refill the pools below.",
+  "MYTHRAS.LuckReplenishConfirm": "Replenish",
+  "MYTHRAS.LuckReplenishFull": "already full",
+  "MYTHRAS.LuckReplenishNobody": "No characters with a Luck Point pool were found.",
+  "MYTHRAS.LuckReplenishDone": "Luck Points replenished for {count} character(s).",
+  "MYTHRAS.LuckReplenishFailed": "Luck Point replenishment failed for {count} character(s) — see the console.",
+  "MYTHRAS.LuckReplenishGMOnly": "Only the Games Master can replenish Luck Points.",
+  "MYTHRAS.LuckReplenishMenu": "Replenish Luck Points",
+  "MYTHRAS.LuckReplenishMenuHint": "Refill every player character to their normal Luck Point value, as at the start of a new game session."
 }
