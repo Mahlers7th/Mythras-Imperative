@@ -31,7 +31,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Don't Defend** produced no offer and charged nothing.
   - Zero console errors; Luck Points and the combat style's fumble flag restored and asserted restored, and the world's message count unchanged (the test creates none).
 - **Luck Points: the audit is closed except for one item.** All three book *uses* (Cheat Fate, Desperate Effort, Mitigate Damage), Cheat Fate on **all four** rolls of an attack exchange plus sheet skill rolls, forcing an opponent's re-roll, one-point-per-Action across sites, and session replenishment are all implemented and live-verified. **Remaining: the Special Effect resistance rolls** (Bleed, Trip, Grip, Drop Foe and the rest). Those are not a finishing touch — `runSEDialog` has **18 `seType` branches**, each rolling inside its own dialog callback, with resistance rolls in a further six resolver files, and every one consumes its result immediately. Opening them means repeating the v1.4.327 damage-pipeline split per effect. Recorded as its own piece of work rather than rushed.
-- Not yet committed
+- Committed as `bc949a38f7f699d53520e89241be6299a90f45d8`
 
 ## v1.4.330 — September 2026
 - **⚠️ BUG FIXED — a Luck Point re-roll that turned a failure into a success still said "Failure".** Reported by Chris from his own testing: *"When I made a failed skill roll and used a luck point to reroll, it said I failed, even though I succeeded."* The re-roll was correct in every respect **except the one the player reads**: the new number was rolled, graded and stored correctly, the card's result was updated, the pill even changed colour — and the word beside it still said Failure.
