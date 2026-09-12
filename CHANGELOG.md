@@ -28,7 +28,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Both themes:** computed colours flip correctly — light `rgb(26,26,30)` on `rgb(221,221,227)`, dark `rgb(221,232,240)` on `rgb(14,30,45)` — and both were screenshotted and looked at, not merely measured.
   - **The settings button** was found in the real settings form, opened the dialog with all three rows, and cancelled cleanly.
   - Zero console errors. Every Luck Point value and the `theme` setting restored and asserted restored.
-- Not yet committed
+- Committed as `696356040cc337ac3d800544defca5915bf9210c`
 
 ## v1.4.324 — September 2026
 - **Desperate Effort is now asked before the defence is chosen, not after it.** v1.4.323 wired the offer at the engine's zero-AP gate, which runs *after* the GM's inline defence panel returns — so the GM picked Parry, clicked Resolve, and only then was asked whether to fund the Action Point that choice requires. Declining discarded the choice and resolved as Don't Defend. It was correct and it read backwards, was recorded as a known rough edge in that release, and is fixed here rather than left.
