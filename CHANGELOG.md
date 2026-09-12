@@ -10,6 +10,21 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.329 — September 2026
+- **Impale's two rolls are ONE roll, and the player takes the highest** — Chris's ruling, 2026-09-12, answering the question v1.4.327 raised and deliberately left open. The ruling is load-bearing rather than cosmetic: if the two rolls are one roll, the losing roll **did not happen**, so the winner's *dice* are the dice in play and anything reading dice rather than totals must read them from the winner. Two things did not.
+- **⚠️ BUG 1 — Maximise Damage read the losing roll's dice.** Flagged in v1.4.327 as a preserved quirk pending exactly this ruling. With Impale active and the second roll winning, Maximise added the shortfall of a die that contributed nothing to the total in play — so a d10 that rolled 2 and lost to a 9 would have handed the attacker its 8-point shortfall on top of the 9, for 17 out of a d10.
+- **⚠️ BUG 2 — the chat card's dice breakdown showed the losing roll's dice, and this one was never flagged because nobody had looked.** The card printed `Roll 8` with a breakdown reading `[3]` underneath it: numbers that visibly do not add up to the figure directly above them. Found only by writing a live test that *deliberately repeated until the second roll won* — a fixed number of runs would very likely have missed it, since it needs the second roll to beat the first.
+- **The fix is structural, not two patches.** A roll's total and its dice now travel together as a **candidate** — `{ total, dice }`, one entry normally and two under Impale — and `bestCandidate` picks the one that stands. Passing a total plus a loose `impaleSecond` is what let the pairing come apart in the first place; with candidates the two cannot be mismatched by accident. `computeDamage` also returns `winnerIndex`, so the caller renders the winning **Roll object** in both the dice breakdown and the message's `rolls:` array rather than assuming the first.
+- **Ties keep the earlier candidate**, matching the card's own winner styling, which has always marked the first roll as winner on `first >= second`.
+- `impaleBestOf` is replaced by `bestCandidate`. It took two numbers, which is precisely the shape that made the bug possible — a function that cannot see dice cannot keep them attached to the right total.
+- 879 tests pass (14 suites), up from 873 — six more on the candidate model, including the winning-dice case for Maximise and the `winnerIndex` contract. Lint unchanged at 0 errors.
+- **Live-verified in the running world** (Playwright, Foundry 14.367), eleven assertions, with the Impale runs **looping until the second roll won at least twice** rather than trusting a fixed sample.
+  - **Second roll wins, `[3, 8]`** — raw damage **8**, breakdown `[8]`, winner styling on the second. The old code showed breakdown `[3]` under a total of 8.
+  - **Second roll wins, `[8, 10]`** — raw **10**, breakdown `[10]`.
+  - **Impale + Maximise on `1d10` × 4 runs** — raw **10** every time, whichever roll won, which is the only correct answer for a maximised d10 and was not reliably true before.
+  - Zero console errors. Cleanup deleted **exactly the 18 ids the test recorded**, leaving the world's message count unchanged, and Nocturne's Luck Points were restored and asserted restored.
+- Not yet committed
+
 ## v1.4.328 — September 2026
 - **Cheat Fate now works on the damage roll — the last blocked use from the Luck Point audit.** Imperative p.33 / Core p.81: *"Characters can use a Luck Point to re-roll or swap ... any dice roll they make. This can be a skill roll, **damage roll**, or anything else that has some effect."* Blocked since v1.4.319 because `_onSemiAutoRollDamage` had no moment at which the damage was known and nothing had been committed; v1.4.327's split created one, and this release uses it.
 - **Offered at the `computeDamage` seam, and nowhere else.** Above that line only inputs are resolved; below it the ammo is spent, Sunder has permanently written armour loss, the outcome card carries new flags and opposed Special Effects have fired. Every one of those would need undoing, and this system has no rollback — which is exactly the constraint `module/rolls/luck-point.js` documents for any Cheat Fate site.

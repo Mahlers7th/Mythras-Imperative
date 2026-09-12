@@ -12,7 +12,7 @@
  */
 
 import {
-  impaleBestOf,
+  bestCandidate,
   applyMaximiseDamage,
   applyReduction,
   damageAfterArmour,
@@ -21,14 +21,34 @@ import {
   WARD_NOTES,
 } from '../module/combat/damage-pipeline.js';
 
-describe('impaleBestOf', () => {
+describe('bestCandidate', () => {
+  const c = (total, dice = []) => ({ total, dice });
+
   test('takes the higher roll either way round', () => {
-    expect(impaleBestOf(4, 9)).toBe(9);
-    expect(impaleBestOf(9, 4)).toBe(9);
+    expect(bestCandidate([c(4), c(9)]).index).toBe(1);
+    expect(bestCandidate([c(9), c(4)]).index).toBe(0);
   });
 
-  test('a tie keeps the value', () => {
-    expect(impaleBestOf(6, 6)).toBe(6);
+  test('a tie keeps the earlier candidate, matching the card winner styling', () => {
+    const first = c(6, [{ faces: 6, result: 6 }]);
+    expect(bestCandidate([first, c(6)]).candidate).toBe(first);
+  });
+
+  // The whole reason candidates exist: the winner's DICE travel with its total,
+  // so Maximise and the card's dice breakdown cannot read the discarded roll.
+  test('returns the winning candidate own dice, not the first roll dice', () => {
+    const loser  = c(3, [{ faces: 10, result: 3 }]);
+    const winner = c(9, [{ faces: 10, result: 9 }]);
+    expect(bestCandidate([loser, winner]).candidate.dice).toEqual(winner.dice);
+  });
+
+  test('a single candidate wins by default', () => {
+    expect(bestCandidate([c(5)]).index).toBe(0);
+  });
+
+  test('tolerates an empty or junk list', () => {
+    expect(bestCandidate([]).index).toBe(-1);
+    expect(bestCandidate(null).candidate).toEqual({ total: 0, dice: [] });
   });
 });
 
@@ -139,39 +159,64 @@ describe('damageAfterArmour', () => {
 });
 
 describe('computeDamage', () => {
+  /** One rolled candidate: a total travelling with its own dice. */
+  const c = (total, dice = []) => ({ total, dice });
+
   test('a plain unreduced hit passes the roll straight through', () => {
-    expect(computeDamage({ rollTotal: 7 })).toEqual({
+    expect(computeDamage({ candidates: [c(7)] })).toEqual({
       rawDamage: 7, damageAfterParry: 7, finalDamage: 7,
-      parryNote: '', wardNote: '',
+      parryNote: '', wardNote: '', winnerIndex: 0,
     });
   });
 
   test('armour alone', () => {
-    const r = computeDamage({ rollTotal: 9, armourAP: 4 });
+    const r = computeDamage({ candidates: [c(9)], armourAP: 4 });
     expect(r.finalDamage).toBe(5);
     expect(r.rawDamage).toBe(9);
   });
 
-  test('the full order: impale, maximise, parry, ward, armour', () => {
+  test('the full order: pick the roll, maximise, parry, ward, armour', () => {
     const r = computeDamage({
-      rollTotal:     4,
-      impaleSecond:  6,                               // -> 6
-      dice:          [{ faces: 8, result: 3 }],
-      maximiseCount: 1,                               // -> 6 + 5 = 11
-      parry:         { multiplier: 0.5, label: 'half' },  // -> ceil(5.5) = 6
-      armourAP:      2,                               // -> 4
+      candidates: [c(4, [{ faces: 8, result: 4 }]),
+                   c(6, [{ faces: 8, result: 6 }])],   // 6 wins
+      maximiseCount: 1,                                 // -> 6 + 2 = 8
+      parry:         { multiplier: 0.5, label: 'half' },// -> ceil(4) = 4
+      armourAP:      2,                                 // -> 2
     });
-    expect(r.rawDamage).toBe(11);
-    expect(r.damageAfterParry).toBe(6);
-    expect(r.finalDamage).toBe(4);
+    expect(r.winnerIndex).toBe(1);
+    expect(r.rawDamage).toBe(8);
+    expect(r.damageAfterParry).toBe(4);
+    expect(r.finalDamage).toBe(2);
     expect(r.parryNote).toBe('half damage');
+  });
+
+  // ── Chris's ruling (2026-09-12): Impale's two rolls are ONE roll and the
+  //    player takes the highest. So the discarded roll's dice are not in play.
+  test('Maximise reads the WINNING roll\'s dice, not the first roll\'s', () => {
+    const r = computeDamage({
+      candidates: [
+        c(2,  [{ faces: 10, result: 2 }]),   // loser: an 8-point shortfall
+        c(9,  [{ faces: 10, result: 9 }]),   // winner: a 1-point shortfall
+      ],
+      maximiseCount: 1,
+    });
+    // The winner stands at 9 and its own die maximises to 10.
+    // Reading the loser's dice would have given 9 + 8 = 17.
+    expect(r.winnerIndex).toBe(1);
+    expect(r.rawDamage).toBe(10);
+  });
+
+  test('winnerIndex lets the caller render the dice that actually stand', () => {
+    const r = computeDamage({ candidates: [c(3), c(11), c(7)] });
+    expect(r.winnerIndex).toBe(1);
+    expect(r.rawDamage).toBe(11);
   });
 
   test('parry and ward compound when both are supplied', () => {
     // The engine makes these mutually exclusive (resolveWardReduction returns a
     // no-op for a parry defence), but the arithmetic must still be defined.
     const r = computeDamage({
-      rollTotal: 10,
+      candidates: [c(10)],
       parry: { multiplier: 0.5, label: 'half' },   // -> 5
       ward:  { multiplier: 0.5, label: 'half' },   // -> 3 (ceil 2.5)
     });
@@ -182,7 +227,7 @@ describe('computeDamage', () => {
 
   test('Enhance Parry arrives as a full-block reduction, not a flag', () => {
     const r = computeDamage({
-      rollTotal: 14,
+      candidates: [c(14)],
       parry: { multiplier: 0, label: 'full' },
       armourAP: 3,
     });
@@ -193,7 +238,7 @@ describe('computeDamage', () => {
 
   test('a fully warded location takes nothing through armour', () => {
     const r = computeDamage({
-      rollTotal: 12,
+      candidates: [c(12)],
       ward: { multiplier: 0, label: 'full' },
       armourAP: 1,
     });
@@ -201,20 +246,21 @@ describe('computeDamage', () => {
     expect(r.wardNote).toBe('fully warded');
   });
 
-  test('rawDamage reports the post-impale, post-maximise figure the card shows', () => {
+  test('rawDamage reports the post-pick, post-maximise figure the card shows', () => {
     // The card prints "Roll <rawDamage>", so this is the number a player reads
     // and the one a Luck Point re-roll is judged against.
     const r = computeDamage({
-      rollTotal: 3, impaleSecond: 8,
-      dice: [{ faces: 10, result: 3 }], maximiseCount: 1,
+      candidates: [c(3, [{ faces: 10, result: 3 }]),
+                   c(8, [{ faces: 10, result: 8 }])],
+      maximiseCount: 1,
     });
-    expect(r.rawDamage).toBe(15);
+    expect(r.rawDamage).toBe(10);
   });
 
   test('is pure — the same input twice gives the same answer', () => {
     const input = {
-      rollTotal: 9, impaleSecond: 5,
-      dice: [{ faces: 6, result: 2 }], maximiseCount: 1,
+      candidates: [c(9, [{ faces: 6, result: 2 }]), c(5, [{ faces: 6, result: 5 }])],
+      maximiseCount: 1,
       parry: { multiplier: 0.5, label: 'half' }, armourAP: 2,
     };
     expect(computeDamage(input)).toEqual(computeDamage(input));
@@ -223,14 +269,18 @@ describe('computeDamage', () => {
   test('tolerates being called with nothing', () => {
     expect(computeDamage()).toEqual({
       rawDamage: 0, damageAfterParry: 0, finalDamage: 0,
-      parryNote: '', wardNote: '',
+      parryNote: '', wardNote: '', winnerIndex: -1,
     });
   });
 
-  test('impaleSecond of null or undefined means Impale was not chosen', () => {
-    expect(computeDamage({ rollTotal: 7, impaleSecond: null }).rawDamage).toBe(7);
-    expect(computeDamage({ rollTotal: 7 }).rawDamage).toBe(7);
-    // But a legitimate second roll of 0 must still be compared, not skipped.
-    expect(computeDamage({ rollTotal: 7, impaleSecond: 0 }).rawDamage).toBe(7);
+  test('a single candidate is the no-Impale case', () => {
+    expect(computeDamage({ candidates: [c(7)] }).rawDamage).toBe(7);
+    expect(computeDamage({ candidates: [c(7)] }).winnerIndex).toBe(0);
+  });
+
+  test('a second roll of 0 still counts as a candidate, it is not skipped', () => {
+    const r = computeDamage({ candidates: [c(7), c(0)] });
+    expect(r.rawDamage).toBe(7);
+    expect(r.winnerIndex).toBe(0);
   });
 });

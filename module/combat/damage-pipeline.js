@@ -38,16 +38,40 @@
  */
 
 /**
- * Impale (rules p.44): *"roll damage twice and pick the best."*
+ * Pick the candidate that stands, from one or more rolls of the same formula.
  *
- * @param {number} first
- * @param {number} second
- * @returns {number} the higher of the two
+ * Impale (rules p.44) is *"roll damage twice and pick the best"*, and **Chris
+ * ruled on 2026-09-12 that the two rolls are ONE roll: the player takes the
+ * highest.** That ruling is load-bearing, not cosmetic — it says the losing
+ * roll did not happen, so the winner's **dice** are the dice in play, and
+ * everything that inspects dice rather than totals must read them from the
+ * winner. Two things did not:
+ *
+ *   - **Maximise Damage** added the shortfall of the first roll's dice even
+ *     when the second roll won, so it maximised a die that contributed nothing.
+ *   - **The chat card's dice breakdown** rendered the first roll's dice under
+ *     the winning roll's total, showing numbers that did not add up to the
+ *     figure printed above them.
+ *
+ * Modelling the rolls as candidates rather than as a total plus a loose
+ * `impaleSecond` is what makes that impossible to get wrong again: a total and
+ * its dice travel together and cannot be paired up by accident.
+ *
+ * **Ties keep the earlier candidate**, matching the card's own winner styling,
+ * which marks the first roll as the winner on `first >= second`.
+ *
+ * @param {{total: number, dice: object[]}[]} candidates
+ * @returns {{candidate: {total: number, dice: object[]}, index: number}}
  */
-export function impaleBestOf(first, second) {
-  const a = Number(first)  || 0;
-  const b = Number(second) || 0;
-  return Math.max(a, b);
+export function bestCandidate(candidates) {
+  const list = (Array.isArray(candidates) ? candidates : []).filter(Boolean);
+  if (!list.length) return { candidate: { total: 0, dice: [] }, index: -1 };
+
+  let index = 0;
+  for (let i = 1; i < list.length; i++) {
+    if ((Number(list[i].total) || 0) > (Number(list[index].total) || 0)) index = i;
+  }
+  return { candidate: list[index], index };
 }
 
 /**
@@ -141,28 +165,22 @@ export function damageAfterArmour(damage, armourAP) {
  * The whole arithmetic, in one call.
  *
  * Pure and re-runnable: given the same inputs it returns the same numbers and
- * writes nothing, so a Luck Point re-roll can call it a second time with a new
- * `rollTotal` and no side effect is repeated.
+ * writes nothing, so a Luck Point re-roll can call it a second time with fresh
+ * candidates and no side effect is repeated.
  *
- * **Order is load-bearing** and matches the inline original exactly: Impale,
- * then Maximise, then parry, then ward, then armour. Parry before ward is not
- * arbitrary — `resolveWardReduction` returns a no-op multiplier when the
- * defence was a parry, so the two are mutually exclusive by construction
- * rather than by ordering, but a later reduction still compounds on an earlier
- * one and reversing them would change the rounding.
- *
- * **A preserved quirk, flagged not fixed:** `dice` are the *first* roll's dice
- * even when Impale's second roll is the one that won, so Maximise adds the
- * shortfall of a die that did not contribute to the total in play. That is the
- * original inline behaviour and is kept, because correcting it needs a ruling
- * on whether Impale's two rolls are one roll or two — unlike the multi-die bug
- * above, which had no defensible reading at all.
+ * **Order is load-bearing** and matches the inline original exactly: pick the
+ * roll, then Maximise, then parry, then ward, then armour. Parry before ward is
+ * not arbitrary — `resolveWardReduction` returns a no-op multiplier when the
+ * defence was a parry, so the two are mutually exclusive by construction rather
+ * than by ordering, but a later reduction still compounds on an earlier one and
+ * reversing them would change the rounding.
  *
  * @param {object} input
- * @param {number} input.rollTotal        the evaluated damage roll
- * @param {{faces: number, result: number}[]} [input.dice]  every individual die of
- *   the first roll, flattened out of its terms
- * @param {number} [input.impaleSecond]   second Impale roll, or null/undefined
+ * @param {{total: number, dice: {faces: number, result: number}[]}[]} input.candidates
+ *   the rolls of the damage formula, each with its own dice: one entry
+ *   normally, two under Impale. The highest total wins and **its** dice are the
+ *   ones Maximise Damage reads — see `bestCandidate` for why that pairing is
+ *   modelled rather than passed as two loose values.
  * @param {number} [input.maximiseCount]  how many dice Maximise Damage covers
  * @param {{multiplier: number, label: string}|null} [input.parry]  `null` when
  *   the parry gate did not apply at all (no parry weapon, Circumvent Parry
@@ -173,25 +191,24 @@ export function damageAfterArmour(damage, armourAP) {
  * @param {{multiplier: number, label: string}|null} [input.ward]
  * @param {number} [input.armourAP]
  * @returns {{rawDamage: number, damageAfterParry: number, finalDamage: number,
- *           parryNote: string, wardNote: string}}
+ *           parryNote: string, wardNote: string, winnerIndex: number}}
+ *   `winnerIndex` indexes `candidates`, so the caller can render the dice of
+ *   the roll that actually stands rather than assuming the first.
  */
 export function computeDamage({
-  rollTotal,
-  dice          = [],
-  impaleSecond  = null,
+  candidates    = [],
   maximiseCount = 0,
   parry         = null,
   ward          = null,
   armourAP      = 0,
 } = {}) {
-  // 1. Impale — best of two rolls.
-  let rawDamage = Number(rollTotal) || 0;
-  if (impaleSecond !== null && impaleSecond !== undefined) {
-    rawDamage = impaleBestOf(rawDamage, impaleSecond);
-  }
+  // 1. Pick the roll that stands (Impale: highest of two, ruled one roll).
+  const { candidate: winner, index: winnerIndex } = bestCandidate(candidates);
 
-  // 2. Maximise Damage.
-  rawDamage = applyMaximiseDamage(rawDamage, dice, maximiseCount);
+  // 2. Maximise Damage — on the WINNER's dice, which is the whole point of
+  //    carrying dice alongside their total.
+  const rawDamage = applyMaximiseDamage(
+    Number(winner.total) || 0, winner.dice, maximiseCount);
 
   // 3. Parry — including Enhance Parry, which the caller passes as a full-block
   //    reduction rather than as a special case (see the `parry` param doc).
@@ -207,5 +224,5 @@ export function computeDamage({
   // 5. Armour.
   const finalDamage = damageAfterArmour(damageAfterParry, armourAP);
 
-  return { rawDamage, damageAfterParry, finalDamage, parryNote, wardNote };
+  return { rawDamage, damageAfterParry, finalDamage, parryNote, wardNote, winnerIndex };
 }

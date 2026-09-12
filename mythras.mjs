@@ -2396,13 +2396,26 @@ async function _onSemiAutoRollDamage(ev, message) {
         <span class="mi-card-impale-die ${second > first ? 'mi-impale-winner' : 'mi-impale-loser'}">${second}</span>
       </div>`;
 
+  // A candidate pairs a roll's total with its own dice AND its Roll object, so
+  // the winner drives the arithmetic and the card together. Chris ruled
+  // (2026-09-12) that Impale's two rolls are ONE roll and the player takes the
+  // highest — so the losing roll did not happen, and neither Maximise Damage
+  // nor the dice breakdown may read from it.
+  const candidateOf = (r) => ({
+    total: r.total,
+    roll:  r,
+    dice:  r.terms
+      .filter(t => t.faces)
+      .flatMap(t => (t.results ?? []).map(x => ({ faces: t.faces, result: x.result ?? x }))),
+  });
+
   let impaleSection2 = '';
-  let impaleSecond   = null;
+  let candidates     = [candidateOf(roll)];
   if (chosenSEs0.includes('impale')) {
     const roll2 = new Roll(dmgFormula);
     await roll2.evaluate();
-    impaleSecond   = roll2.total;
-    impaleSection2 = impaleSectionHtml(rollTotal, impaleSecond);
+    candidates.push(candidateOf(roll2));
+    impaleSection2 = impaleSectionHtml(rollTotal, roll2.total);
   }
 
   // Bypass Armour SE: read from outcome flags, not btn.dataset, because CombatEngine cannot
@@ -2439,20 +2452,12 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Maximise Damage SE — substitute each chosen die with its maximum face value.
   // Rules p.45: one die per stack count; DM dice are not affected.
   //
-  // Flattened to INDIVIDUAL DICE, not Foundry's Die terms. A term covers a
-  // whole group — `2d6` is one term whose `total` is the sum of both dice — so
-  // the original `faces - term.total` was 0 for every multi-die weapon and
-  // Maximise Damage silently did nothing. Fixed in v1.4.327; see the
-  // applyMaximiseDamage doc for the full account.
-  //
-  // NOTE, preserved not fixed: these are the FIRST roll's dice even when
-  // Impale's second roll is the one that won, so the shortfall added can be
-  // that of a die which did not contribute to the total in play. Correcting
-  // that needs a ruling on whether Impale's two rolls are one roll or two.
+  // It reads INDIVIDUAL DICE, not Foundry's Die terms — a term covers a whole
+  // group, so `2d6` is one term whose `total` is the sum of both dice and the
+  // original `faces - term.total` was 0 for every multi-die weapon (v1.4.327).
+  // The dice come from the winning candidate, so under Impale the roll that was
+  // discarded contributes nothing (v1.4.329, Chris's one-roll ruling).
   const maximiseCount = chosenSEs0.filter(s => s === 'maximiseDamage').length;
-  const dice = roll.terms
-    .filter(t => t.faces)
-    .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })));
 
   // Parry reduction (p.40): only applies when the defender succeeded or critically succeeded.
   // A failed or fumbled parry does not reduce damage at all.
@@ -2550,14 +2555,12 @@ async function _onSemiAutoRollDamage(ev, message) {
   // of any site offering Cheat Fate, and the property this function did not
   // have before v1.4.327.
   const damageInputs = {
-    dice,
-    impaleSecond,
     maximiseCount,
     parry: parryReduction,
     ward:  wardReduction,
     armourAP,
   };
-  let computed = computeDamage({ rollTotal, ...damageInputs });
+  let computed = computeDamage({ candidates, ...damageInputs });
 
   // ── Cheat Fate on the damage roll (Imperative p.33 / Core p.81) ───────────
   // *"Characters can use a Luck Point to re-roll or swap ... any dice roll they
@@ -2576,7 +2579,6 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Impale re-rolls BOTH dice. Under Impale the damage roll *is* best-of-two
   // (p.44), so re-rolling "the damage roll" has to redo both — handing back a
   // single fresh roll compared against the old second roll would be neither.
-  let luckRoll  = null;
   let luckSpent = false;
   const attackerSpentAlready = outcomeFlags0.attackerLuckSpent === true;
   // A full block zeroes ANY damage, so no re-roll could change the outcome.
@@ -2592,24 +2594,15 @@ async function _onSemiAutoRollDamage(ev, message) {
       formula:   dmgFormula,
     });
     if (spend) {
-      luckSpent = true;
-      luckRoll  = spend.roll;
-      let newImpaleSecond = null;
-      if (impaleSecond !== null) {
+      luckSpent  = true;
+      candidates = [candidateOf(spend.roll)];
+      if (chosenSEs0.includes('impale')) {
         const reroll2 = new Roll(dmgFormula);
         await reroll2.evaluate();
-        newImpaleSecond = reroll2.total;
-        impaleSection2 = impaleSectionHtml(spend.result, newImpaleSecond);
+        candidates.push(candidateOf(reroll2));
+        impaleSection2 = impaleSectionHtml(spend.result, reroll2.total);
       }
-      const newDice = (spend.roll?.terms ?? [])
-        .filter(t => t.faces)
-        .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })));
-      computed = computeDamage({
-        ...damageInputs,
-        rollTotal:    spend.result,
-        dice:         newDice,
-        impaleSecond: newImpaleSecond,
-      });
+      computed = computeDamage({ candidates, ...damageInputs });
       // Record it on the outcome card so the rule survives this handler: a
       // second Roll Damage click, or the attack-roll offer on another card
       // built from the same Action, must both see that the point is gone.
@@ -2619,9 +2612,11 @@ async function _onSemiAutoRollDamage(ev, message) {
 
   const { rawDamage, damageAfterParry, parryNote, wardNote } = computed;
 
-  // The card must show the dice actually used. After a re-roll the original
-  // Roll object describes numbers nobody is being hit with.
-  const effectiveRoll = luckRoll ?? roll;
+  // The card must show the dice actually used — the WINNING candidate's Roll.
+  // Under Impale that is not necessarily the first roll, and after a Luck
+  // re-roll it is never the original: rendering either would print dice that do
+  // not add up to the total shown directly above them.
+  const effectiveRoll = candidates[computed.winnerIndex]?.roll ?? roll;
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
