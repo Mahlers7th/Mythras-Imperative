@@ -32,7 +32,7 @@ import {
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
-import { canSpendLuck, spendLuckPoint } from '../rolls/luck-point.js';
+import { canSpendLuck, spendLuckPoint, offerLuckPoint } from '../rolls/luck-point.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -1491,6 +1491,115 @@ export class CombatEngine {
    * @param {Actor} defender
    * @returns {Promise<boolean>} true if a point was spent and an AP granted
    */
+  /**
+   * Cheat Fate on the defence roll (Imperative p.33 / Core p.81) — v1.4.331.
+   *
+   * Called from `_afterDefenceResolved` between the defence roll (step 9b) and
+   * the differential (step 10). That gap is the whole reason this is possible:
+   * the roll exists, and **nothing derived from it has been committed** — no
+   * card, no Special Effects, no damage, no conditions. Re-grading here rewrites
+   * three fields on `ctx` and the exchange proceeds as though the new number had
+   * always been the one rolled.
+   *
+   * Returns false without charging anything when there is no roll to change
+   * (Don't Defend), when a point has already gone on this defence, or when the
+   * defender has none left.
+   *
+   * **Not gated against Mitigate Damage, deliberately.** A defender who spends
+   * here can still spend to downgrade a Major Wound later in the same exchange.
+   * The attacker's two rolls are unambiguously one Action, so they share a
+   * point; the defender's case is not the same shape — Mitigate is a reaction to
+   * the attacker's Action, and using a Luck Point is itself a Free Action. This
+   * preserves the behaviour Mitigate has shipped with since v1.4.322 rather than
+   * quietly making defenders weaker. Flagged for Chris as a rules question, not
+   * settled here.
+   *
+   * @param {object} ctx  the live attack context
+   * @returns {Promise<boolean>} true if a point was spent and ctx re-graded
+   */
+  static async _offerDefenceLuck(ctx) {
+    const defender = ctx.defender;
+    // Don't Defend makes no roll, so there is nothing to cheat.
+    if (ctx.defenceResult == null) return false;
+    if (ctx.defenderLuckSpent) return false;
+    if (!canSpendLuck(defender)) return false;
+
+    // *"Characters can even force an opponent to re-roll an attack or damage
+    // roll made against them."* Offered here as a third option on the same
+    // point, because it is the same Cheat Fate spend aimed at a different roll
+    // — not a separate use needing a separate dialog. Only when the attacker
+    // actually rolled: a Charge or an auto-hit has nothing to re-roll.
+    const canForce = ctx.attackResult != null;
+    const extraActions = canForce ? [{
+      id:    'forceAttack',
+      label: game.i18n.localize('MYTHRAS.LuckForceReroll'),
+      description: game.i18n.format('MYTHRAS.LuckForceRerollHint', {
+        name:   ctx.attacker?.name ?? 'the attacker',
+        result: ctx.attackResult,
+        grade:  ctx.attackOutcome ?? '',
+      }),
+      icon: '<i class="fas fa-reply"></i>',
+    }] : [];
+
+    const spend = await offerLuckPoint(defender, {
+      result: ctx.defenceResult,
+      // Already carries step 9a's Opposed Skills Over 100% reduction, so the
+      // re-roll is graded against the same number the original was.
+      target: ctx.defenderSkillTotal,
+      label:  game.i18n.localize('MYTHRAS.LuckDefenceReroll'),
+      extraActions,
+    });
+    if (!spend) return false;
+
+    ctx.defenderLuckSpent = true;
+
+    if (spend.mode === 'forceAttack') {
+      await CombatEngine._forceAttackReroll(ctx);
+      return true;
+    }
+
+    ctx.defenceResult  = spend.result;
+    ctx.defenceOutcome = CombatEngine._determineOutcome(spend.result, ctx.defenderSkillTotal);
+    ctx.defenceRoll    = spend.roll ?? ctx.defenceRoll;
+    return true;
+  }
+
+  /**
+   * Re-roll the attacker's attack roll because the defender spent a point to
+   * force it (Imperative p.33). The point is already charged by the caller.
+   *
+   * **The fumble flag has to move in both directions.** `_rollAttack` writes
+   * `fumbledLastSession` on the attacker's combat style when the attack fumbles,
+   * and records in `ctx.attackSetFumbleFlag` whether *this* roll was what set
+   * it. A forced re-roll can erase a fumble, in which case the flag must come
+   * back off — but only if this attack wrote it, or clearing it would silently
+   * cost the attacker an experience-roll bonus earned by an earlier fumble this
+   * session. Same bookkeeping as the attacker's own Luck re-roll in
+   * `AttackerDialog`, and the reason `attackSetFumbleFlag` exists at all.
+   *
+   * @param {object} ctx
+   */
+  static async _forceAttackReroll(ctx) {
+    const reroll = new Roll('1d100');
+    await reroll.evaluate();
+
+    ctx.attackRoll    = reroll;
+    ctx.attackResult  = reroll.total;
+    ctx.attackOutcome = CombatEngine._determineOutcome(ctx.attackResult, ctx.attackerSkillTotal);
+
+    if (ctx.attackerStyle) {
+      if (ctx.attackOutcome === 'fumble' && !ctx.attackerStyle.system.fumbledLastSession) {
+        await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+        ctx.attackSetFumbleFlag = true;
+      } else if (ctx.attackOutcome !== 'fumble' && ctx.attackSetFumbleFlag) {
+        await ctx.attackerStyle.update({ 'system.fumbledLastSession': false });
+        ctx.attackSetFumbleFlag = false;
+      }
+    }
+
+    ctx.attackForcedReroll = true;
+  }
+
   static async _offerDesperateEffort(defender) {
     if (!canSpendLuck(defender)) return false;
 
@@ -1670,6 +1779,23 @@ export class CombatEngine {
       ctx.defenceResult  = defenceRoll.total;
       ctx.defenceOutcome = CombatEngine._determineOutcome(ctx.defenceResult, ctx.defenderSkillTotal);
     }
+
+    // ── Step 9c: Cheat Fate on the defence roll ─────────────────────────────
+    // The last of the exchange's four rolls to get the affordance, and the one
+    // that needed no new plumbing once the seam was seen: the defence roll is
+    // known at 9b, and **nothing is committed until the outcome card posts at
+    // 11a**. Step 10's differential and the Surprise bonus below it are pure
+    // arithmetic on ctx, so re-grading here costs nothing and unwinds nothing.
+    //
+    // The point is the DEFENDER's — it is their roll. Swapping digits IS
+    // offered here, unlike the damage roll: this is a real d100, which is what
+    // the book's own "a 75 would become a 57" describes.
+    //
+    // Like every other Luck affordance in the system, the dialog renders on the
+    // client running the engine rather than routing to the defender's own
+    // client. That matches the Mitigate Damage offer and the attack-roll offer;
+    // a socket round-trip for all three is one change, not three.
+    await CombatEngine._offerDefenceLuck(ctx);
 
     // ── Step 10: Differential table ──────────────────────────────────────────
     const differential = CombatEngine.resolveDifferential(ctx.attackOutcome, ctx.defenceOutcome);

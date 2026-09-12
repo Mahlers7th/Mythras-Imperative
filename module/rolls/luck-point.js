@@ -124,11 +124,22 @@ export function luckButtonHtml({ id = '', extra = '' } = {}) {
  *   dice roll they make".
  * @param {string} [opts.formula] dice formula for a non-d100 re-roll (e.g.
  *   '1d20', '1d8+2'). Defaults to '1d100'.
- * @returns {Promise<{result:number, mode:'reroll'|'swap', outcome:string, roll:Roll|null}|null>}
+ * @param {{id: string, label: string, description?: string, icon?: string}[]} [opts.extraActions]
+ *   further things this one point could buy, offered alongside the re-roll.
+ *   Added for *"characters can even force an opponent to re-roll an attack or
+ *   damage roll made against them"* (v1.4.331), which is a Cheat Fate option
+ *   with a different **target** rather than a different use — same point, same
+ *   one-per-Action limit, same dialog. Choosing one charges the point and
+ *   returns `{ mode: <id> }` with `result` unchanged; the consequence belongs
+ *   to the caller, because only the caller knows whose roll it is rewriting.
+ *   An `id` of 'reroll' or 'swap' is rejected rather than silently shadowing
+ *   the built-ins.
+ * @returns {Promise<{result:number, mode:string, outcome:string, roll:Roll|null}|null>}
  *   null when nothing was spent
  */
 export async function offerLuckPoint(actor, {
   result, target, basis, label = 'Roll', allowSwap = true, formula = '1d100',
+  extraActions = [],
 }) {
   if (!canSpendLuck(actor)) {
     ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
@@ -147,6 +158,11 @@ export async function offerLuckPoint(actor, {
   // cannot be previewed, which is the trade the player is choosing between.
   const swapPreview = swapped === result ? `${swapped} — no change` : describe(swapped);
 
+  // Reject ids that would shadow the built-in modes — a caller cannot be
+  // allowed to make 'reroll' mean something else, because the return value's
+  // `mode` is how every caller tells the outcomes apart.
+  const extras = (extraActions ?? []).filter(a => a?.id && a.id !== 'reroll' && a.id !== 'swap');
+
   const content = `
     <div class="mi-luck-dialog">
       <p class="mi-luck-dialog-head">${label}: <strong>${result}</strong>${graded ? ` — ${grade(result)} (target ${target}%)` : ''}</p>
@@ -154,6 +170,7 @@ export async function offerLuckPoint(actor, {
       <ul class="mi-luck-dialog-options">
         <li><strong>${game.i18n.localize('MYTHRAS.LuckPointReroll')}</strong> — a fresh ${formula}</li>
         ${allowSwap ? `<li><strong>${game.i18n.localize('MYTHRAS.LuckPointSwap')}</strong> — ${swapPreview}</li>` : ''}
+        ${extras.map(a => `<li><strong>${a.label}</strong>${a.description ? ` — ${a.description}` : ''}</li>`).join('')}
       </ul>
       ${allowSwap ? '' : `<p class="mi-muted">${game.i18n.localize('MYTHRAS.LuckSwapPercentileOnly')}</p>`}
     </div>`;
@@ -171,6 +188,11 @@ export async function offerLuckPoint(actor, {
         ...(allowSwap ? {
           swap: { icon: '<i class="fas fa-exchange-alt"></i>', label: game.i18n.localize('MYTHRAS.LuckPointSwap'), callback: () => pick('swap') },
         } : {}),
+        ...Object.fromEntries(extras.map(a => [a.id, {
+          icon:     a.icon ?? '<i class="fas fa-reply"></i>',
+          label:    a.label,
+          callback: () => pick(a.id),
+        }])),
         cancel: { icon: '<i class="fas fa-times"></i>', label: game.i18n.localize('MYTHRAS.Cancel'), callback: () => pick(null) },
       },
       default: 'reroll',
@@ -188,6 +210,12 @@ export async function offerLuckPoint(actor, {
     return null;
   }
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
+
+  // An extra action changes something the caller owns, not this roll, so the
+  // result comes back untouched and the caller acts on `mode`.
+  if (choice !== 'reroll' && choice !== 'swap') {
+    return { result, mode: choice, outcome: graded ? grade(result) : null, roll: null };
+  }
 
   let newResult = swapped;
   let newRoll   = null;

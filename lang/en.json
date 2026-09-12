@@ -188,5 +188,8 @@
   "MYTHRAS.LuckReplenishMenu": "Replenish Luck Points",
   "MYTHRAS.LuckReplenishMenuHint": "Refill every player character to their normal Luck Point value, as at the start of a new game session.",
   "MYTHRAS.LuckDamageRoll": "Damage roll",
-  "MYTHRAS.LuckDamageReroll": "Luck Point spent — damage re-rolled"
+  "MYTHRAS.LuckDamageReroll": "Luck Point spent — damage re-rolled",
+  "MYTHRAS.LuckDefenceReroll": "Defence roll",
+  "MYTHRAS.LuckForceReroll": "Force opponent to re-roll",
+  "MYTHRAS.LuckForceRerollHint": "make {name} re-roll their attack of {result} ({grade})"
 }
