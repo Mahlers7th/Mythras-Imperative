@@ -1879,6 +1879,13 @@ export class CombatEngine {
           attackerSkillTotal: ctx.attackerSkillTotal,
           defenceResult:      ctx.defenceResult,
           defenderSkillTotal: ctx.defenderSkillTotal,
+          // One Luck Point per Action (v1.4.328). The attack roll and the
+          // damage roll are two rolls of ONE Action, offered from two different
+          // places that share no memory — the attacker dialog closes long
+          // before Roll Damage is clicked. This flag is how the second offer
+          // learns the first was taken; the damage handler sets it too, so the
+          // rule holds whichever roll the point was spent on.
+          attackerLuckSpent:  ctx.attackerLuckSpent ?? false,
         }
       }
     });

@@ -2384,21 +2384,25 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Impale SE — roll damage twice, attacker picks best (rules p.44).
   // The second roll is made here; which of the two wins is decided by
   // computeDamage, so the arithmetic stays in one place.
+  //
+  // The markup is a named function rather than an inline template because a
+  // Luck Point re-roll has to rebuild it from two new numbers, and two copies
+  // of this markup would be two places for the winner/loser classes to drift.
+  const impaleSectionHtml = (first, second) => `
+      <div class="mi-card-impale-rolls">
+        <span class="mi-card-note">Impale — two rolls, best used:</span>
+        <span class="mi-card-impale-die ${first >= second ? 'mi-impale-winner' : 'mi-impale-loser'}">${first}</span>
+        <span class="mi-card-note">vs</span>
+        <span class="mi-card-impale-die ${second > first ? 'mi-impale-winner' : 'mi-impale-loser'}">${second}</span>
+      </div>`;
+
   let impaleSection2 = '';
   let impaleSecond   = null;
   if (chosenSEs0.includes('impale')) {
-    const roll1val = rollTotal;
-    const roll2    = new Roll(dmgFormula);
+    const roll2 = new Roll(dmgFormula);
     await roll2.evaluate();
-    const roll2val = roll2.total;
-    impaleSecond   = roll2val;
-    impaleSection2 = `
-      <div class="mi-card-impale-rolls">
-        <span class="mi-card-note">Impale — two rolls, best used:</span>
-        <span class="mi-card-impale-die ${roll1val >= roll2val ? 'mi-impale-winner' : 'mi-impale-loser'}">${roll1val}</span>
-        <span class="mi-card-note">vs</span>
-        <span class="mi-card-impale-die ${roll2val > roll1val ? 'mi-impale-winner' : 'mi-impale-loser'}">${roll2val}</span>
-      </div>`;
+    impaleSecond   = roll2.total;
+    impaleSection2 = impaleSectionHtml(rollTotal, impaleSecond);
   }
 
   // Bypass Armour SE: read from outcome flags, not btn.dataset, because CombatEngine cannot
@@ -2545,16 +2549,79 @@ async function _onSemiAutoRollDamage(ev, message) {
   // single write. That is the property `module/rolls/luck-point.js` requires
   // of any site offering Cheat Fate, and the property this function did not
   // have before v1.4.327.
-  const computed = computeDamage({
-    rollTotal,
+  const damageInputs = {
     dice,
     impaleSecond,
     maximiseCount,
     parry: parryReduction,
     ward:  wardReduction,
     armourAP,
-  });
+  };
+  let computed = computeDamage({ rollTotal, ...damageInputs });
+
+  // ── Cheat Fate on the damage roll (Imperative p.33 / Core p.81) ───────────
+  // *"Characters can use a Luck Point to re-roll or swap ... any dice roll they
+  // make. This can be a skill roll, damage roll, or anything else."*
+  //
+  // Offered HERE because this is the only moment that satisfies the rule the
+  // shared component enforces: the damage is known, and nothing has been
+  // committed. Below this point the ammo is spent, Sunder has written armour
+  // loss, flags are stamped and the card is posted — all of which would have to
+  // be undone, and this system has no rollback.
+  //
+  // Re-roll only, no digit swap: the book's swap is a percentile concept whose
+  // own example is *"a 75 would become a 57"*, and swapping a damage roll of 6
+  // into 60 is nonsense.
+  //
+  // Impale re-rolls BOTH dice. Under Impale the damage roll *is* best-of-two
+  // (p.44), so re-rolling "the damage roll" has to redo both — handing back a
+  // single fresh roll compared against the old second roll would be neither.
+  let luckRoll  = null;
+  let luckSpent = false;
+  const attackerSpentAlready = outcomeFlags0.attackerLuckSpent === true;
+  // A full block zeroes ANY damage, so no re-roll could change the outcome.
+  // Suppressed rather than offered — charging a point for a provably identical
+  // result is worse than not showing the option.
+  const fullyBlocked = parryReduction?.multiplier === 0 || wardReduction?.multiplier === 0;
+
+  if (!attackerSpentAlready && !fullyBlocked && canSpendLuck(attacker)) {
+    const spend = await offerLuckPoint(attacker, {
+      result:    computed.rawDamage,
+      label:     `${game.i18n.localize('MYTHRAS.LuckDamageRoll')} (${dmgFormula})`,
+      allowSwap: false,
+      formula:   dmgFormula,
+    });
+    if (spend) {
+      luckSpent = true;
+      luckRoll  = spend.roll;
+      let newImpaleSecond = null;
+      if (impaleSecond !== null) {
+        const reroll2 = new Roll(dmgFormula);
+        await reroll2.evaluate();
+        newImpaleSecond = reroll2.total;
+        impaleSection2 = impaleSectionHtml(spend.result, newImpaleSecond);
+      }
+      const newDice = (spend.roll?.terms ?? [])
+        .filter(t => t.faces)
+        .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })));
+      computed = computeDamage({
+        ...damageInputs,
+        rollTotal:    spend.result,
+        dice:         newDice,
+        impaleSecond: newImpaleSecond,
+      });
+      // Record it on the outcome card so the rule survives this handler: a
+      // second Roll Damage click, or the attack-roll offer on another card
+      // built from the same Action, must both see that the point is gone.
+      if (outcomeMsg0) await outcomeMsg0.setFlag('mythras-imperative', 'attackerLuckSpent', true);
+    }
+  }
+
   const { rawDamage, damageAfterParry, parryNote, wardNote } = computed;
+
+  // The card must show the dice actually used. After a re-roll the original
+  // Roll object describes numbers nobody is being hit with.
+  const effectiveRoll = luckRoll ?? roll;
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
@@ -2687,7 +2754,10 @@ async function _onSemiAutoRollDamage(ev, message) {
       </div>
       <div class="mi-card-body">
         <div class="mi-card-target">Roll <strong>${rawDamage}</strong>${parryText}${armourText}</div>
-        ${CombatEngine._diceBreakdown(roll)}
+        ${CombatEngine._diceBreakdown(effectiveRoll)}
+        ${luckSpent ? `<div class="mi-outcome-row"><span class="mi-luck-spent">
+          <i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.LuckDamageReroll')}
+        </span></div>` : ''}
         ${impaleSection2}
         ${sunderResult ? `
         <div class="mi-outcome-row">
@@ -2718,7 +2788,7 @@ async function _onSemiAutoRollDamage(ev, message) {
       </div>
     </div>`;
 
-  await ChatMessage.create({ content: dmgContent, speaker: message.speaker, rolls: [roll] });
+  await ChatMessage.create({ content: dmgContent, speaker: message.speaker, rolls: [effectiveRoll] });
 }
 
 // Semi-Auto — Roll Vehicle Damage

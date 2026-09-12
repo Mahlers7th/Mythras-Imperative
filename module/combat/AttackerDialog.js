@@ -1094,6 +1094,13 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
             ctx.attackResult  = spend.result;
             ctx.attackOutcome = determineOutcome(spend.result, ctx.attackerSkillTotal);
 
+            // One Luck Point per Action, across BOTH of the attacker's rolls.
+            // This dialog is gone by the time Roll Damage is clicked, so the
+            // spend is recorded on ctx and carried onto the outcome card's
+            // flags by _postOutcomeCard — that is where the damage-roll offer
+            // reads it from.
+            ctx.attackerLuckSpent = true;
+
             // Keep fumbledLastSession honest in BOTH directions. _rollAttack
             // recorded whether it was the writer, so an erased fumble can be
             // unset without touching a flag an earlier fumble this session set.
