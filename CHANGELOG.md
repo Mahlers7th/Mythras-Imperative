@@ -22,7 +22,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **`CHANGELOG.md`'s three mentions are kept.** They are history, and history stays accurate by being left alone.
 - 843 tests pass (13 suites), unchanged. Lint unchanged at 0 errors.
 - **Live-verified in the running world** (Playwright, Foundry 14.367): a trait item opened from the Traits compendium renders correctly, the placeholder button is gone, no "Phase 11" text remains anywhere in the document, and there are zero console errors.
-- Not yet committed
+- Committed as `7d60d8d010ef3c0a716ea675d3e2d0e47b6435d5`
 
 ## v1.4.325 — September 2026
 - **Session replenishment is implemented, closing the last non-Cheat-Fate gap in the Luck Point audit.** Imperative p.7: *"when one is out of Luck Points, no more are available – unless the Games Master makes an impromptu award – until the next game session when they replenish to their normal value,"* restated on p.33 as *"Luck Points can be used during play and, at the beginning of the next session, replenish to their usual value."* All three book **uses** (Cheat Fate, Desperate Effort, Mitigate Damage) shipped in v1.4.319–324; this is the refill that makes them a renewable resource rather than a one-way drain, and it removes the hand-editing of three sheets that testing has been doing all week.
