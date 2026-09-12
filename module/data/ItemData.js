@@ -495,8 +495,7 @@ export class CurrencyData extends foundry.abstract.TypeDataModel {
 // Traits are first-class identity items that back the string-key system on
 // weapons (system.traits[]) and combat styles (system.traits[]). Each trait
 // item's system.key is the canonical identifier the engine matches against.
-// The description carries full rules text. The graph field is the Phase 11
-// node editor hook point (null until that phase begins).
+// The description carries full rules text.
 // ---------------------------------------------------------------------------
 
 export class TraitData extends foundry.abstract.TypeDataModel {
@@ -529,10 +528,7 @@ export class TraitData extends foundry.abstract.TypeDataModel {
       // Numeric parameter — used by engine-effect traits that need a rate or count.
       // e.g. Regeneration: HP recovered per round; Vampiric: Fatigue levels drained per bite.
       // Default 1. GM sets this on the trait item instance dragged onto the creature.
-      value: new fields.NumberField({ initial: 1, integer: true, min: 0 }),
-
-      // Node editor hook — null until Phase 11
-      graph: new fields.ObjectField({ initial: null, nullable: true, required: false })
+      value: new fields.NumberField({ initial: 1, integer: true, min: 0 })
     };
   }
 }

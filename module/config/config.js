@@ -610,7 +610,7 @@ export const MYTHRAS = {
   //   ('standard' | 'professional'), the name, or the base formula, and
   //   decides for itself. So "every professional skill" or "anything
   //   DEX-based" needs no extra machinery HERE; predicate scope is a problem
-  //   for the node editor's UI vocabulary, not for this seam.
+  //   for a caller's own vocabulary, not for this seam.
   //
   //   PASSIONS ARE INCLUDED DELIBERATELY. CharacterSheet._calcSkillTotals has
   //   always derived them in the same loop as skills, and

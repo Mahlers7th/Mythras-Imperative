@@ -1,12 +1,12 @@
 /**
  * module/combat/effects/index.js
  *
- * SE resolver catalogue — the node editor's entry point.
+ * SE resolver catalogue — the programmatic entry point for Special Effects.
  *
  * Maps SE id → resolver function. Built incrementally as resolvers are
  * extracted from CombatEngine into this directory (refactor 2b).
  *
- * Usage (node editor, tests, external tools):
+ * Usage (tests, modules, external tools):
  *   import { SE_RESOLVERS } from './module/combat/effects/index.js';
  *   await SE_RESOLVERS['withdraw'](ctx);
  *
@@ -82,7 +82,8 @@ export {
 // ── SE_RESOLVERS catalogue ────────────────────────────────────────────────────
 // Keys match the `id` field in CONFIG.MYTHRAS.specialEffects.
 // Used by _resolveOpposedSEs and the attackerScored dispatch in
-// _afterDefenceResolved. Also the node editor's SE entry point.
+// _afterDefenceResolved, and by game.system.api.triggerOpposedSE for a
+// module invoking a self-contained 'opposed'-phase resolver directly.
 
 export const SE_RESOLVERS = {
   withdraw:          resolveWithdraw,

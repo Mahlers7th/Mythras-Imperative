@@ -12,8 +12,9 @@
  * assembly block with a regex, and asserts set-equality against
  * frozen-api.json's manifest. This can only validate MEMBERSHIP (a name was
  * added/removed without updating the manifest) — it cannot validate
- * signatures. Signature validation is a separate, harder problem left for
- * the node editor's own conformance tests (see the design brief).
+ * signatures. Signature validation remains a separate, harder problem and is
+ * currently unsolved — see frozen-api-updated.md's v1.4.318 note for a
+ * semantic change this test could not have caught.
  */
 import fs from 'node:fs';
 import path from 'node:path';

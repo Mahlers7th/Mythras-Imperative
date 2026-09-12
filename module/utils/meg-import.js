@@ -506,7 +506,6 @@ export function megToFoundryActor(meg) {
         description:  traitDef.description ?? '',
         engineEffect: traitDef.engineEffect ?? false,
         value:        parsed.value ?? 1,
-        graph:        null,
       }
     });
   }
