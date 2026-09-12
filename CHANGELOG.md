@@ -31,7 +31,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **The flag round-trip:** after a damage spend the outcome card carried `attackerLuckSpent: true`, and a second Roll Damage click against that same card produced no offer and charged nothing.
   - Zero console errors. Cleanup deleted **exactly the 18 ids the test recorded**, leaving the world's message count unchanged, and Nocturne's Luck Points were restored to 4 and asserted restored.
 - **Luck Points are now complete for every roll in an attack exchange** — attack (v1.4.319), hit location (v1.4.321), damage (here) — plus Mitigate Damage (v1.4.322), Desperate Effort (v1.4.323/324) and session replenishment (v1.4.325). Still open from the audit: Cheat Fate on the **defence** roll, the SE resistance rolls, and *"force an opponent to re-roll"*.
-- Not yet committed
+- Committed as `724b27e1b1494f8ee761911eca59c3d80b6cf3dd`
 
 ## v1.4.327 — September 2026
 - **The damage pipeline is split into pure computation and side effects.** `_onSemiAutoRollDamage` was ~345 lines in which the two were fully interleaved — it rolled dice, decremented ammo, reduced for parry, wrote Sunder's permanent armour loss, stamped flags on the outcome card, fired opposed Special Effects and posted a chat card in one straight line, with **no point at which the result existed but nothing had yet been committed**. That missing point is precisely what a Luck Point needs, and why Cheat Fate on the damage roll has been blocked since v1.4.319.
