@@ -3194,11 +3194,25 @@ function _luckAlreadySpent(message) {
   return true;
 }
 
+// Both Luck paths charge the point and THEN ask MythrasRoll to rewrite the
+// card — but `reroll`/`swapDigits` each begin with their own precondition check
+// and return silently when it fails. That ordering meant a card missing its
+// `rollData` (or, for a re-roll, whose skill item had been deleted) took the
+// player's point and changed nothing at all: paid, no re-roll, no message.
+// Checked here first so nothing is charged for work that cannot happen.
+// v1.4.330.
+function _luckCardReady(message, actor, { needsItem }) {
+  const flags = message.flags?.['mythras-imperative'];
+  if (!flags?.rollData) return false;
+  return needsItem ? !!actor?.items?.get(flags.itemId) : true;
+}
+
 async function _onLuckReroll(ev, message) {
   ev.preventDefault();
   const actor = _actorFromMessage(message);
   if (!actor) return;
   if (_luckAlreadySpent(message)) return;
+  if (!_luckCardReady(message, actor, { needsItem: true })) return;
   const lp = actor.system.attributes?.luckPoints;
   if (!lp || lp.value <= 0) return ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
@@ -3211,6 +3225,10 @@ async function _onLuckSwap(ev, message) {
   const actor = _actorFromMessage(message);
   if (!actor) return;
   if (_luckAlreadySpent(message)) return;
+  // Swap re-grades a stored number and never touches the item, so it needs
+  // rollData alone — the re-roll's stricter check would refuse a card whose
+  // skill had since been deleted, which swap can still honour.
+  if (!_luckCardReady(message, actor, { needsItem: false })) return;
   const lp = actor.system.attributes?.luckPoints;
   if (!lp || lp.value <= 0) return ui.notifications.warn(game.i18n.localize('MYTHRAS.NoLuckPoints'));
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });

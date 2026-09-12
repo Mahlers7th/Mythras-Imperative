@@ -251,12 +251,12 @@ export class MythrasRoll {
   // -------------------------------------------------------------------------
 
   static async _postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill }) {
-    const outcomeLabels = {
-      critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
-      success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
-      failure:  game.i18n.localize('MYTHRAS.OutcomeFailure'),
-      fumble:   game.i18n.localize('MYTHRAS.OutcomeFumble')
-    };
+    // Reads through MythrasRoll.outcomeLabel so the card and the Luck Point
+    // re-stamp cannot disagree about what a given outcome is called — the
+    // v1.4.330 bug was exactly that kind of split, in the other direction.
+    const outcomeLabels = Object.fromEntries(
+      Object.keys(MythrasRoll.OUTCOME_LABEL_KEYS)
+        .map(id => [id, MythrasRoll.outcomeLabel(id)]));
 
     const diffLabel  = game.i18n.localize(CONFIG.MYTHRAS.difficultyGrades[difficulty]?.label ?? difficulty);
     const canUseLuck = roll && actor.system.attributes?.luckPoints?.value > 0;
@@ -361,6 +361,48 @@ export class MythrasRoll {
     );
   }
 
+  /** The four outcome words, in one place so no caller can invent a fifth. */
+  static get OUTCOME_LABEL_KEYS() {
+    return {
+      critical: 'MYTHRAS.OutcomeCritical',
+      success:  'MYTHRAS.OutcomeSuccess',
+      failure:  'MYTHRAS.OutcomeFailure',
+      fumble:   'MYTHRAS.OutcomeFumble',
+    };
+  }
+
+  /** Localised label for an outcome id. */
+  static outcomeLabel(outcome) {
+    const key = MythrasRoll.OUTCOME_LABEL_KEYS[outcome];
+    return key ? game.i18n.localize(key) : String(outcome ?? '');
+  }
+
+  /**
+   * Re-stamp a card's outcome pill — **both the class and the visible word**.
+   *
+   * **This exists because of a real bug (fixed v1.4.330).** The re-roll and
+   * swap paths replaced only `mi-outcome <id>`, which is the CSS class. The
+   * label beside it is separate text, so a re-roll that turned a failure into a
+   * success recoloured the pill and left it still reading *"Failure"* — the
+   * player was told they had failed a roll they had just succeeded at, having
+   * spent a Luck Point to do it. Reported from the table, not caught by tests:
+   * the tests asserted on the class, which was the half that worked.
+   *
+   * Replacing the whole span in one substitution is the fix *and* the
+   * guarantee — the colour and the word now come from the same call, so they
+   * cannot drift apart again.
+   *
+   * @param {string} content  the card's current HTML
+   * @param {string} outcome  'critical' | 'success' | 'failure' | 'fumble'
+   * @returns {string}
+   */
+  static _restampOutcome(content, outcome) {
+    return content.replace(
+      /<span class="mi-outcome [a-z]+">[\s\S]*?<\/span>/,
+      `<span class="mi-outcome ${outcome}">${MythrasRoll.outcomeLabel(outcome)}</span>`
+    );
+  }
+
   static async reroll(message, actor) {
     const rollData = message.flags?.['mythras-imperative']?.rollData;
     const itemId   = message.flags?.['mythras-imperative']?.itemId;
@@ -378,12 +420,12 @@ export class MythrasRoll {
 
     await message.update({
       content: MythrasRoll._retireLuckButtons(
-        message.content.replace(
-          /<div class="mi-roll-result">[\d]+<\/div>/,
-          `<div class="mi-roll-result">${result} <span class="mi-rerolled">(rerolled)</span></div>`
-        ).replace(
-          /mi-outcome [a-z]+/,
-          `mi-outcome ${outcome}`
+        MythrasRoll._restampOutcome(
+          message.content.replace(
+            /<div class="mi-roll-result">[\d]+<\/div>/,
+            `<div class="mi-roll-result">${result} <span class="mi-rerolled">(rerolled)</span></div>`
+          ),
+          outcome
         )
       ),
       // The re-rolled value becomes the card's own result, so a later reader
@@ -415,12 +457,12 @@ export class MythrasRoll {
 
     await message.update({
       content: MythrasRoll._retireLuckButtons(
-        message.content.replace(
-          /<div class="mi-roll-result">[\d]+<\/div>/,
-          `<div class="mi-roll-result">${swapped} <span class="mi-rerolled">(swapped from ${orig})</span></div>`
-        ).replace(
-          /mi-outcome [a-z]+/,
-          `mi-outcome ${outcome}`
+        MythrasRoll._restampOutcome(
+          message.content.replace(
+            /<div class="mi-roll-result">[\d]+<\/div>/,
+            `<div class="mi-roll-result">${swapped} <span class="mi-rerolled">(swapped from ${orig})</span></div>`
+          ),
+          outcome
         )
       ),
       'flags.mythras-imperative.luckSpent': true,

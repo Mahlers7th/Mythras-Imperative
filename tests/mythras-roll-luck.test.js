@@ -19,7 +19,11 @@ import { swapDigits, canSpendLuck } from '../module/rolls/luck-point.js';
 globalThis.game = {
   i18n: {
     localize: (k) => ({
-      'MYTHRAS.LuckPointSpent': 'Luck Point spent — only one per Action',
+      'MYTHRAS.LuckPointSpent':  'Luck Point spent — only one per Action',
+      'MYTHRAS.OutcomeCritical': 'Critical',
+      'MYTHRAS.OutcomeSuccess':  'Success',
+      'MYTHRAS.OutcomeFailure':  'Failure',
+      'MYTHRAS.OutcomeFumble':   'Fumble',
     }[k] ?? k),
   },
 };
@@ -86,6 +90,68 @@ describe('MythrasRoll._retireLuckButtons', () => {
     // Cards for actors with zero Luck Points are built without the block.
     const plain = card({ withLuck: false });
     expect(MythrasRoll._retireLuckButtons(plain)).toBe(plain);
+  });
+});
+
+describe('MythrasRoll._restampOutcome', () => {
+  // ── The bug, reported from the table on 2026-09-12 (fixed v1.4.330) ───────
+  // A failed roll re-rolled into a success still read "Failure". The old code
+  // replaced `mi-outcome failure` — the CSS CLASS — and left the word beside
+  // it alone. The pill changed colour and kept lying.
+  test('REGRESSION: updates the visible WORD, not only the class', () => {
+    const before = card();
+    expect(before).toContain('<span class="mi-outcome failure">Failure</span>');
+
+    const after = MythrasRoll._restampOutcome(before, 'success');
+    expect(after).toContain('<span class="mi-outcome success">Success</span>');
+    // The old failure text must be gone entirely — this is the assertion the
+    // pre-v1.4.330 tests were missing, because they only checked the class.
+    expect(after).not.toContain('Failure');
+    expect(after).not.toContain('mi-outcome failure');
+  });
+
+  test('handles every outcome id', () => {
+    for (const [id, label] of [
+      ['critical', 'Critical'], ['success', 'Success'],
+      ['failure', 'Failure'], ['fumble', 'Fumble'],
+    ]) {
+      expect(MythrasRoll._restampOutcome(card(), id))
+        .toContain(`<span class="mi-outcome ${id}">${label}</span>`);
+    }
+  });
+
+  test('re-stamping to the same outcome is a no-op', () => {
+    expect(MythrasRoll._restampOutcome(card(), 'failure')).toBe(card());
+  });
+
+  test('leaves the rest of the card untouched', () => {
+    const after = MythrasRoll._restampOutcome(card(), 'critical');
+    expect(after).toContain('<div class="mi-roll-result">75</div>');
+    expect(after).toContain('Target <strong>65%</strong>');
+    expect(after).toContain('mi-luck-reroll');
+  });
+
+  test('touches only the outcome pill, not the surrounding row', () => {
+    const after = MythrasRoll._restampOutcome(card(), 'success');
+    expect(after).toContain('<div class="mi-outcome-row">');
+    expect((after.match(/mi-outcome-row/g) ?? []).length).toBe(1);
+  });
+
+  test('is a no-op on a card with no outcome pill', () => {
+    const plain = '<div class="mi-chat-card">no pill here</div>';
+    expect(MythrasRoll._restampOutcome(plain, 'success')).toBe(plain);
+  });
+});
+
+describe('MythrasRoll.outcomeLabel', () => {
+  test('localises the four outcomes', () => {
+    expect(MythrasRoll.outcomeLabel('critical')).toBe('Critical');
+    expect(MythrasRoll.outcomeLabel('fumble')).toBe('Fumble');
+  });
+
+  test('an unknown id degrades to its own text rather than throwing', () => {
+    expect(MythrasRoll.outcomeLabel('weird')).toBe('weird');
+    expect(MythrasRoll.outcomeLabel(undefined)).toBe('');
   });
 });
 
