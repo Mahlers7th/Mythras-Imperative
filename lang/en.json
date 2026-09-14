@@ -191,5 +191,7 @@
   "MYTHRAS.LuckDamageReroll": "Luck Point spent — damage re-rolled",
   "MYTHRAS.LuckDefenceReroll": "Defence roll",
   "MYTHRAS.LuckForceReroll": "Force opponent to re-roll",
-  "MYTHRAS.LuckForceRerollHint": "make {name} re-roll their attack of {result} ({grade})"
+  "MYTHRAS.LuckForceRerollHint": "make {name} re-roll their attack of {result} ({grade})",
+  "MYTHRAS.LuckAsking": "Waiting for {name}’s player to decide on a Luck Point…",
+  "MYTHRAS.LuckNotYours": "{name} is not your character — their player or the GM spends that Luck Point."
 }

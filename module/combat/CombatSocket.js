@@ -44,6 +44,9 @@ const _pending = new Map();
 // Separate map for SE opposed-roll challenges (Bleed, Trip)
 const _pendingSE = new Map();
 
+// Separate map for Luck Point decision challenges routed to an actor's owner
+const _pendingLuck = new Map();
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const CombatSocket = {
@@ -158,6 +161,61 @@ export const CombatSocket = {
   seRespond(exchangeId, responseData, originUserId) {
     game.socket.emit(SOCKET_NAME, {
       type: 'mythras.seResponse',
+      payload: { exchangeId, responseData, targetUserId: originUserId }
+    });
+  },
+
+  /**
+   * Ask another user's client to make a Luck Point decision for an actor they
+   * own, and wait for the answer.
+   *
+   * **Why the decision has to travel rather than the result.** A Luck Point is
+   * the player's to spend and the dialog is theirs to see or ignore; showing it
+   * on the engine's client means the GM is asked to spend their players' points
+   * for them. It is also a permissions fact, not only a courtesy: the engine
+   * runs on the attacker's client, which cannot write to another player's actor,
+   * so the charge has to happen where the owner is.
+   *
+   * Mirrors `seChallenge` exactly — same registry, same 5-minute timeout, same
+   * "null means no" contract. A timeout is safe here in a way it is not
+   * everywhere: declining a Luck Point costs nothing and changes nothing, so an
+   * absent player simply does not spend.
+   *
+   * @param {string} exchangeId
+   * @param {object} challengePayload  plain serialisable; see `_runLuckRequest`
+   * @param {string} targetUserId
+   * @returns {Promise<object|null>}   null = declined, timed out, or no points
+   */
+  luckChallenge(exchangeId, challengePayload, targetUserId) {
+    return new Promise((resolve) => {
+      _pendingLuck.set(exchangeId, { resolve });
+
+      const timeout = setTimeout(() => {
+        if (_pendingLuck.has(exchangeId)) {
+          _pendingLuck.delete(exchangeId);
+          console.warn(`Mythras Imperative | CombatSocket — luck challenge ${exchangeId} timed out`);
+          resolve(null);
+        }
+      }, 5 * 60 * 1000);
+
+      _pendingLuck.get(exchangeId).timeout = timeout;
+
+      game.socket.emit(SOCKET_NAME, {
+        type: 'mythras.luckChallenge',
+        payload: {
+          exchangeId,
+          originUserId: game.user.id,
+          targetUserId,
+          data: challengePayload
+        }
+      });
+    });
+  },
+
+  /** Send the Luck decision back to the client that asked for it. */
+  luckRespond(exchangeId, responseData, originUserId) {
+    game.socket.emit(SOCKET_NAME, {
+      type: 'mythras.luckResponse',
       payload: { exchangeId, responseData, targetUserId: originUserId }
     });
   },
@@ -364,6 +422,45 @@ export const CombatSocket = {
         clearTimeout(pending.timeout);
         _pendingSE.delete(payload.exchangeId);
         pending.resolve(payload.responseData);
+        break;
+      }
+
+      // ── Incoming Luck decision — show the offer to the actor's owner ─────────
+      // Dynamic import, matching the seChallenge case above: the socket layer
+      // must not carry a static dependency on the roll modules, or the two
+      // import each other (luck-point's routed wrappers call back into here).
+      case 'mythras.luckChallenge': {
+        if (payload.targetUserId && payload.targetUserId !== game.user.id) return;
+
+        const { _runLuckRequest } = await import('../rolls/luck-point.js');
+        let responseData = null;
+        try {
+          responseData = await _runLuckRequest(payload.data);
+        } catch (err) {
+          // Never leave the asking client hanging for the full 5 minutes
+          // because of a fault on this one. A null reads as "declined", which
+          // is the safe answer: nothing charged, nothing changed.
+          console.error('Mythras Imperative | Luck request failed:', err);
+        }
+
+        CombatSocket.luckRespond(
+          payload.exchangeId,
+          responseData,
+          payload.originUserId
+        );
+        break;
+      }
+
+      // ── Incoming Luck response — resume whoever asked ────────────────────────
+      case 'mythras.luckResponse': {
+        if (payload.targetUserId && payload.targetUserId !== game.user.id) return;
+
+        const pendingLuck = _pendingLuck.get(payload.exchangeId);
+        if (!pendingLuck) return;
+
+        clearTimeout(pendingLuck.timeout);
+        _pendingLuck.delete(payload.exchangeId);
+        pendingLuck.resolve(payload.responseData);
         break;
       }
 

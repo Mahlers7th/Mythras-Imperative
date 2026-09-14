@@ -20,7 +20,7 @@
  */
 
 import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
-import { canSpendLuck, luckButtonHtml, offerLuckPoint } from '../rolls/luck-point.js';
+import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 
 export class AttackerDialog {
 
@@ -906,6 +906,13 @@ function _readGmDefencePanel(html, defender, ctx) {
  * @returns {Promise<object|null>} mutated ctx, or null if the GM cancels.
  */
 async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesByWeaponId, evadeSkill, acrobaticsSkill, hasDaredevil) {
+  // This panel owns the attack-roll Luck offer whenever it runs, so the
+  // engine's own offer (CombatEngine._offerAttackLuck, added v1.4.332 for the
+  // non-GM path) stands down. Set on RUN, not on spend: if the GM saw the panel
+  // they had the decision, and asking again downstream is the v1.4.323
+  // double-prompt reappearing somewhere new.
+  ctx.attackLuckOffered = true;
+
   const outcomeLabel = {
     critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),
     success:  game.i18n.localize('MYTHRAS.OutcomeSuccess'),
@@ -1084,7 +1091,7 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
             if (luckBtn.disabled) return;
             luckBtn.disabled = true;
 
-            const spend = await offerLuckPoint(ctx.attacker, {
+            const spend = await offerLuckPointRouted(ctx.attacker, {
               result: ctx.attackResult,
               target: ctx.attackerSkillTotal,
               label:  game.i18n.localize('MYTHRAS.LuckAttackReroll'),

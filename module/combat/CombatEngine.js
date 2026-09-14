@@ -32,7 +32,7 @@ import {
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
-import { canSpendLuck, spendLuckPoint, offerLuckPoint } from '../rolls/luck-point.js';
+import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted } from '../rolls/luck-point.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -1282,6 +1282,19 @@ export class CombatEngine {
     // inline/socket). No-op if AttackerDialog already rolled it (GM Mode).
     await CombatEngine._rollAttack(confirmedCtx);
 
+    // ── Cheat Fate on the attack roll ───────────────────────────────────────
+    // The attacker's own offer, at the RAW pause between their roll and the
+    // defender's reaction. In GM Mode the inline panel already hosts this
+    // button (and sets `attackLuckOffered`), so this is the path for everyone
+    // else — before v1.4.332 the offer existed ONLY on that panel, which meant
+    // an attacking player at a real table never saw it at all.
+    //
+    // Placed at this line because it is the single chokepoint every non-vehicle
+    // branch passes through, and because nothing below it has committed
+    // anything: the defence has not been requested, no card exists, no Special
+    // Effect has been chosen.
+    await CombatEngine._offerAttackLuck(confirmedCtx);
+
     // ── Step 5b: Surprised path — skip defender dialog entirely ─────────────
     if (confirmedCtx.defenderSurprised) {
       confirmedCtx.defenceType        = 'none';
@@ -1517,6 +1530,53 @@ export class CombatEngine {
    * @param {object} ctx  the live attack context
    * @returns {Promise<boolean>} true if a point was spent and ctx re-graded
    */
+  /**
+   * Cheat Fate on the attack roll, offered to the attacker's own player.
+   *
+   * The GM Mode inline panel has hosted this since v1.4.319 and keeps doing so;
+   * it sets `ctx.attackLuckOffered` when it runs, and this returns early on
+   * that flag rather than asking a second time. Set-on-run, not set-on-spend:
+   * if the panel was shown at all it owned the decision, and re-asking here
+   * would be the v1.4.323 double-prompt in a new place.
+   *
+   * Re-grading has to keep `fumbledLastSession` honest in both directions —
+   * see `_forceAttackReroll`, which does the identical bookkeeping for the
+   * defender-driven case.
+   *
+   * @param {object} ctx
+   * @returns {Promise<boolean>} true if a point was spent
+   */
+  static async _offerAttackLuck(ctx) {
+    if (ctx.attackLuckOffered) return false;
+    if (ctx.attackResult == null) return false;
+    if (!canSpendLuck(ctx.attacker)) return false;
+
+    ctx.attackLuckOffered = true;
+
+    const spend = await offerLuckPointRouted(ctx.attacker, {
+      result: ctx.attackResult,
+      target: ctx.attackerSkillTotal,
+      label:  game.i18n.localize('MYTHRAS.LuckAttackReroll'),
+    });
+    if (!spend) return false;
+
+    ctx.attackResult  = spend.result;
+    ctx.attackOutcome = CombatEngine._determineOutcome(spend.result, ctx.attackerSkillTotal);
+    ctx.attackRoll    = spend.roll ?? ctx.attackRoll;
+    ctx.attackerLuckSpent = true;
+
+    if (ctx.attackerStyle) {
+      if (ctx.attackOutcome === 'fumble' && !ctx.attackerStyle.system.fumbledLastSession) {
+        await ctx.attackerStyle.update({ 'system.fumbledLastSession': true });
+        ctx.attackSetFumbleFlag = true;
+      } else if (ctx.attackOutcome !== 'fumble' && ctx.attackSetFumbleFlag) {
+        await ctx.attackerStyle.update({ 'system.fumbledLastSession': false });
+        ctx.attackSetFumbleFlag = false;
+      }
+    }
+    return true;
+  }
+
   static async _offerDefenceLuck(ctx) {
     const defender = ctx.defender;
     // Don't Defend makes no roll, so there is nothing to cheat.
@@ -1541,7 +1601,7 @@ export class CombatEngine {
       icon: '<i class="fas fa-reply"></i>',
     }] : [];
 
-    const spend = await offerLuckPoint(defender, {
+    const spend = await offerLuckPointRouted(defender, {
       result: ctx.defenceResult,
       // Already carries step 9a's Opposed Skills Over 100% reduction, so the
       // re-roll is graded against the same number the original was.
@@ -1604,7 +1664,7 @@ export class CombatEngine {
     if (!canSpendLuck(defender)) return false;
 
     const ap = defender.system.attributes?.actionPoints;
-    const spent = await spendLuckPoint(defender, {
+    const spent = await spendLuckPointRouted(defender, {
       title:  game.i18n.localize('MYTHRAS.LuckDesperateEffort'),
       prompt: `<p class="mi-luck-dialog-head">${defender.name} — 0 Action Points</p>
                <p>Without an Action Point there is no defence: the attack is

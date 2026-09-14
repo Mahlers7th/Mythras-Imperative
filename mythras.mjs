@@ -42,7 +42,7 @@ import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel,
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
-import { canSpendLuck, offerLuckPoint, spendLuckPoint } from './module/rolls/luck-point.js';
+import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted } from './module/rolls/luck-point.js';
 import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
 import { computeDamage }              from './module/combat/damage-pipeline.js';
 
@@ -2236,6 +2236,19 @@ async function _stampHitLocation(messageId, defenderId, locId, locLabel) {
  * unwind. Re-roll only: swapping a d20's digits would produce a number off
  * the die (a 7 becomes 70), and the book's swap is explicitly percentile.
  */
+// A Luck Point on a chat card belongs to one actor. Anyone may SEE the card, so
+// the button is visible to the whole table; only that actor's owner — or the GM,
+// who then routes the decision to them — may act on it. Without this a player
+// clicking someone else's button got a raw Foundry permission error from the
+// actor.update deep inside the spend, with nothing explaining why.
+function _mayDecideLuckFor(actor) {
+  if (!actor) return false;
+  if (game.user.isGM) return true;
+  if (actor.testUserPermission(game.user, 'OWNER')) return true;
+  ui.notifications.warn(game.i18n.format('MYTHRAS.LuckNotYours', { name: actor.name }));
+  return false;
+}
+
 async function _onLuckHitLocation(ev, message) {
   ev.preventDefault();
   const btn = ev.currentTarget;
@@ -2248,9 +2261,11 @@ async function _onLuckHitLocation(ev, message) {
   const defender  = _resolveActor(btn.dataset.defenderId);
   const messageId = btn.dataset.messageId;
   if (!attacker || !defender) { btn.disabled = false; return; }
+  // The hit-location re-roll is the ATTACKER's point.
+  if (!_mayDecideLuckFor(attacker)) { btn.disabled = false; return; }
 
   const currentD20 = parseInt(message.content.match(/class="mi-loc-d20">(\d+)</)?.[1] ?? '', 10);
-  const spend = await offerLuckPoint(attacker, {
+  const spend = await offerLuckPointRouted(attacker, {
     result:    Number.isFinite(currentD20) ? currentD20 : 0,
     label:     game.i18n.localize('MYTHRAS.LuckHitLocation'),
     allowSwap: false,
@@ -2305,6 +2320,8 @@ async function _onLuckMitigateDamage(ev, message) {
   const locItem  = defender?.items?.get(btn.dataset.locationId);
   const applyBtn = message.content.match(/data-damage="(\d+)"/);
   if (!defender || !locItem || !applyBtn) { btn.disabled = false; return; }
+  // Mitigate Damage is the DEFENDER's point — they are the one wounded.
+  if (!_mayDecideLuckFor(defender)) { btn.disabled = false; return; }
 
   const pending  = parseInt(applyBtn[1], 10);
   const maxHp    = locItem.system?.hp ?? 0;
@@ -2319,7 +2336,7 @@ async function _onLuckMitigateDamage(ev, message) {
   }
 
   const label = btn.dataset.locationLabel || locItem.name;
-  const spent = await spendLuckPoint(defender, {
+  const spent = await spendLuckPointRouted(defender, {
     title:  game.i18n.localize('MYTHRAS.LuckMitigateDamage'),
     prompt: `<p class="mi-luck-dialog-head">${defender.name} — ${label}</p>
              <p>${pending} damage would inflict a <strong>Major Wound</strong>
@@ -2587,15 +2604,24 @@ async function _onSemiAutoRollDamage(ev, message) {
   const fullyBlocked = parryReduction?.multiplier === 0 || wardReduction?.multiplier === 0;
 
   if (!attackerSpentAlready && !fullyBlocked && canSpendLuck(attacker)) {
-    const spend = await offerLuckPoint(attacker, {
+    const spend = await offerLuckPointRouted(attacker, {
       result:    computed.rawDamage,
       label:     `${game.i18n.localize('MYTHRAS.LuckDamageRoll')} (${dmgFormula})`,
       allowSwap: false,
       formula:   dmgFormula,
     });
     if (spend) {
-      luckSpent  = true;
-      candidates = [candidateOf(spend.roll)];
+      luckSpent = true;
+      // A routed re-roll happened on the owner's client, so the Roll arrives
+      // rehydrated from JSON and can be null if that failed. `spend.dice`
+      // always survives, so the arithmetic is built from it and the Roll is
+      // used only for the card's visual breakdown — the total and the dice
+      // shown under it can never disagree, which is the v1.4.329/330 failure.
+      candidates = [{
+        total: spend.result,
+        roll:  spend.roll,
+        dice:  spend.dice ?? [],
+      }];
       if (chosenSEs0.includes('impale')) {
         const reroll2 = new Roll(dmgFormula);
         await reroll2.evaluate();
@@ -2616,7 +2642,13 @@ async function _onSemiAutoRollDamage(ev, message) {
   // Under Impale that is not necessarily the first roll, and after a Luck
   // re-roll it is never the original: rendering either would print dice that do
   // not add up to the total shown directly above them.
-  const effectiveRoll = candidates[computed.winnerIndex]?.roll ?? roll;
+  //
+  // No `?? roll` fallback, deliberately. A routed re-roll can come back without
+  // a rehydratable Roll, and falling back to the ORIGINAL one would print the
+  // superseded dice under the new total — precisely the defect fixed in
+  // v1.4.329 and v1.4.330. `_diceBreakdown(null)` renders nothing, and no
+  // breakdown is strictly better than a wrong one.
+  const effectiveRoll = candidates[computed.winnerIndex]?.roll ?? null;
 
   // ── Sunder SE — redirect damage at armour, carry remainder to HP ─────────
   // Rules p.46: damage after parry hits armour AP first; surplus reduces AP permanently.
@@ -2783,7 +2815,12 @@ async function _onSemiAutoRollDamage(ev, message) {
       </div>
     </div>`;
 
-  await ChatMessage.create({ content: dmgContent, speaker: message.speaker, rolls: [effectiveRoll] });
+  await ChatMessage.create({
+    content: dmgContent,
+    speaker: message.speaker,
+    // Omit rather than send [null]: a routed re-roll may have no rehydratable Roll.
+    ...(effectiveRoll ? { rolls: [effectiveRoll] } : {}),
+  });
 }
 
 // Semi-Auto — Roll Vehicle Damage

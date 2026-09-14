@@ -285,3 +285,185 @@ export async function spendLuckPoint(actor, { title, prompt, confirmLabel }) {
   await actor.update({ 'system.attributes.luckPoints.value': lp.value - 1 });
   return true;
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTING — put the offer in front of the person whose point it is
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Every offer above renders on whatever client calls it. That is correct in GM
+// Mode, where the GM plays both sides, and wrong at a real table: the engine
+// runs on the ATTACKER's client, so without routing the defender's Luck
+// decisions appear on someone else's screen, and the attacker's appear only if
+// that someone happens to be the GM running the inline panel.
+//
+// It is also a permissions fact, not only a courtesy. A player's client cannot
+// write to another player's actor, so `actor.update` for the charge has to run
+// where the owner is. Routing the DECISION rather than the RESULT settles both
+// halves at once: the dialog appears for the owner, and the charge happens on
+// their client where it is allowed.
+//
+// Fallback is deliberate and quiet: no owning user, or the owner is offline, or
+// the owner is me — run locally. That is exactly the pre-routing behaviour, so
+// a solo GM session and GM Mode are unchanged.
+
+/**
+ * The user who should be asked to make an actor's Luck decisions.
+ *
+ * Reuses `_findDefenderUserId` rather than restating its loop — one definition
+ * of "the active player who owns this actor" for the whole system. Its name is
+ * defender-shaped because the defence challenge was its first caller; the rule
+ * it implements ("first active non-GM user with OWNER permission") is general.
+ *
+ * @param {Actor} actor
+ * @returns {string|null} a user id, or null to decide locally
+ */
+export async function luckDecisionUserId(actor) {
+  if (!actor) return null;
+  const { _findDefenderUserId } = await import('../combat/CombatSocket.js');
+  const userId = _findDefenderUserId(actor);
+  // Same client means no round trip — call the local path directly.
+  return (userId && userId !== game.user.id) ? userId : null;
+}
+
+/**
+ * Run a Luck request that arrived over the socket. **Receiving side only.**
+ *
+ * Called by `CombatSocket`'s `mythras.luckChallenge` case on the owner's
+ * client. Resolves the actor locally, shows the real dialog, charges the real
+ * point, and returns a plain object — no Roll instances, which cannot cross a
+ * socket.
+ *
+ * The rolled dice are sent back in two forms on purpose: `rollJSON` so the
+ * asking client can rebuild a live Roll for the chat card's dice breakdown, and
+ * a plain `dice` array so it can still do the arithmetic if rehydration fails.
+ * A damage card that shows one roll's dice under another roll's total is a bug
+ * this system has already had twice (v1.4.329, v1.4.330).
+ *
+ * @param {object} data  { kind, actorId, tokenId, ...options }
+ * @returns {Promise<object|null>}
+ */
+export async function _runLuckRequest(data) {
+  const { resolveTokenActor } = await import('../utils/actor-resolution.js');
+  const actor = resolveTokenActor(data.tokenId ?? data.actorId) ?? game.actors.get(data.actorId);
+  if (!actor) return null;
+
+  if (data.kind === 'spend') {
+    const spent = await spendLuckPoint(actor, {
+      title:        data.title,
+      prompt:       data.prompt,
+      confirmLabel: data.confirmLabel,
+    });
+    return spent ? { spent: true } : null;
+  }
+
+  const spend = await offerLuckPoint(actor, {
+    result:       data.result,
+    target:       data.target,
+    basis:        data.basis,
+    label:        data.label,
+    allowSwap:    data.allowSwap,
+    formula:      data.formula,
+    extraActions: data.extraActions,
+  });
+  if (!spend) return null;
+
+  return {
+    result:   spend.result,
+    mode:     spend.mode,
+    outcome:  spend.outcome,
+    rollJSON: spend.roll ? spend.roll.toJSON() : null,
+    dice:     spend.roll
+      ? spend.roll.terms.filter(t => t.faces)
+          .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })))
+      : [],
+  };
+}
+
+/** Rebuild a live Roll from a socketed payload, or null if it cannot be. */
+function _rehydrateRoll(rollJSON) {
+  if (!rollJSON) return null;
+  try {
+    return Roll.fromData(rollJSON);
+  } catch (err) {
+    console.warn('Mythras | could not rehydrate a routed Luck Point roll', err);
+    return null;
+  }
+}
+
+/**
+ * `offerLuckPoint`, shown to whoever owns the actor.
+ *
+ * Same arguments, same return shape — `roll` comes back as a live Roll when the
+ * decision was remote and could be rehydrated. Callers that need the dice for
+ * arithmetic should prefer the `dice` array, which survives either way.
+ *
+ * @param {Actor}  actor
+ * @param {object} opts  as `offerLuckPoint`
+ * @returns {Promise<{result:number, mode:string, outcome:string, roll:Roll|null, dice:object[]}|null>}
+ */
+export async function offerLuckPointRouted(actor, opts = {}) {
+  const targetUserId = await luckDecisionUserId(actor);
+  if (!targetUserId) {
+    const spend = await offerLuckPoint(actor, opts);
+    if (!spend) return null;
+    return {
+      ...spend,
+      dice: spend.roll
+        ? spend.roll.terms.filter(t => t.faces)
+            .flatMap(t => (t.results ?? []).map(r => ({ faces: t.faces, result: r.result ?? r })))
+        : [],
+    };
+  }
+
+  const { CombatSocket } = await import('../combat/CombatSocket.js');
+  ui.notifications.info(game.i18n.format('MYTHRAS.LuckAsking', { name: actor.name }));
+
+  const reply = await CombatSocket.luckChallenge(
+    foundry.utils.randomID(),
+    {
+      kind:    'offer',
+      actorId: actor.id,
+      tokenId: actor.token?.id ?? null,
+      result:  opts.result, target: opts.target, basis: opts.basis,
+      label:   opts.label, allowSwap: opts.allowSwap, formula: opts.formula,
+      extraActions: opts.extraActions ?? [],
+    },
+    targetUserId
+  );
+  if (!reply) return null;
+
+  return {
+    result:  reply.result,
+    mode:    reply.mode,
+    outcome: reply.outcome,
+    roll:    _rehydrateRoll(reply.rollJSON),
+    dice:    reply.dice ?? [],
+  };
+}
+
+/**
+ * `spendLuckPoint`, shown to whoever owns the actor.
+ *
+ * @param {Actor}  actor
+ * @param {object} opts  as `spendLuckPoint`
+ * @returns {Promise<boolean>} true if a point was charged
+ */
+export async function spendLuckPointRouted(actor, opts = {}) {
+  const targetUserId = await luckDecisionUserId(actor);
+  if (!targetUserId) return spendLuckPoint(actor, opts);
+
+  const { CombatSocket } = await import('../combat/CombatSocket.js');
+  ui.notifications.info(game.i18n.format('MYTHRAS.LuckAsking', { name: actor.name }));
+
+  const reply = await CombatSocket.luckChallenge(
+    foundry.utils.randomID(),
+    {
+      kind:    'spend',
+      actorId: actor.id,
+      tokenId: actor.token?.id ?? null,
+      title:   opts.title, prompt: opts.prompt, confirmLabel: opts.confirmLabel,
+    },
+    targetUserId
+  );
+  return reply?.spent === true;
+}
