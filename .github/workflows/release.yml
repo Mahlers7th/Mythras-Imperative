@@ -16,15 +16,21 @@ name: Release
 # installing is one pasted manifest URL, and Foundry handles updates from then
 # on.
 #
-# Trigger is a version CHANGE, not a tag, because the version bump already
-# happens in the release commit itself (see CHANGELOG.md's convention). There
-# is nothing extra to remember.
+# Trigger is any push touching system.json, and the gate is "no release exists
+# for this version yet" — not a tag, and not a diff against the previous commit
+# (see the "Read the version" step for why the diff was wrong). There is nothing
+# extra to remember: bump the version, push, and it publishes once.
 
 on:
   push:
     branches: [master]
     paths:
       - 'system.json'
+      # Changing this file re-runs it, so a fix to the pipeline is proven by
+      # the push that makes it rather than by the next version bump.
+      - '.github/workflows/release.yml'
+  # Publish by hand from the Actions tab without bumping the version.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -34,27 +40,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2   # need the previous commit to diff the version
 
-      - name: Determine whether the version changed
+      # WHY THIS NO LONGER DIFFS AGAINST HEAD~1 (fixed v1.4.333)
+      #
+      # This step used to release only when system.json's version differed from
+      # the version in HEAD~1. A push runs the workflow ONCE, on its newest
+      # commit — and the release convention here is two commits per version:
+      # the bump, then "docs: record vX's commit sha in CHANGELOG". So HEAD was
+      # always the docs commit and HEAD~1 always the bump, both carrying the SAME
+      # version. Every run concluded "nothing to release", reported SUCCESS, and
+      # skipped every step after this one. No release was published from
+      # v1.4.318 to v1.4.332 — fifteen versions — while every run was green, and
+      # Foundry's manifest kept serving v1.4.317 to anyone who installed or
+      # updated, including a hosted server running a live game.
+      #
+      # The real question was never "did the version change in this commit?"
+      # but "has this version been released yet?", which the next step already
+      # answers idempotently. So this step only reads the version, and that one
+      # decides. It no longer matters how commits are grouped into a push.
+      - name: Read the version
         id: check
         run: |
           VERSION=$(node -p "require('./system.json').version")
-          # First commit on a fresh branch has no parent to compare against.
-          if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            PREV=$(git show HEAD~1:system.json | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null || echo "none")
-          else
-            PREV="none"
-          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          if [ "$VERSION" = "$PREV" ]; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "system.json touched but version is unchanged ($VERSION) — nothing to release."
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            echo "version $PREV -> $VERSION"
-          fi
+          # Kept so the conditions below need no edit; the real gate is
+          # steps.exists.outputs.already.
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "Current version: $VERSION"
 
       - name: Stop if this release already exists
         if: steps.check.outputs.changed == 'true'
