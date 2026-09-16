@@ -193,5 +193,9 @@
   "MYTHRAS.LuckForceReroll": "Force opponent to re-roll",
   "MYTHRAS.LuckForceRerollHint": "make {name} re-roll their attack of {result} ({grade})",
   "MYTHRAS.LuckAsking": "Waiting for {name}’s player to decide on a Luck Point…",
-  "MYTHRAS.LuckNotYours": "{name} is not your character — their player or the GM spends that Luck Point."
+  "MYTHRAS.LuckNotYours": "{name} is not your character — their player or the GM spends that Luck Point.",
+  "MYTHRAS.ExchangeNotResolved": "The GM’s client did not finish resolving that attack. Check the GM’s console, or try again.",
+  "MYTHRAS.NoGMForExchange": "No GM is connected, so this attack is resolving on your client and cannot change characters you do not own.",
+  "MYTHRAS.CardActionFailed": "The GM’s client could not complete that. Check the GM’s console, or try again.",
+  "MYTHRAS.SEChoiceWaiting": "Waiting for {name}’s player to choose Special Effects…"
 }

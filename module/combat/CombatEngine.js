@@ -1023,13 +1023,19 @@ export class CombatEngine {
 
     // ── Socket — challenge defender ───────────────────────────────────────────
     const exchangeId = foundry.utils.randomID(16);
-    const { CombatSocket } = await import('./CombatSocket.js');
+    const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
 
-    ui.notifications.info(
-      `${attacker.name} (Full Auto) attacks ${defender.name} — waiting for defence…`
-    );
-
-    const defenceData = await CombatSocket.challenge(ctx, exchangeId);
+    // Same self-send guard as the single-target path — see _shouldRunLocally.
+    let defenceData;
+    if (_shouldRunLocally(_findDefenderUserId(defender))) {
+      const { DefenderDialog } = await import('./DefenderDialog.js');
+      defenceData = await DefenderDialog.show(ctx, exchangeId);
+    } else {
+      ui.notifications.info(
+        `${attacker.name} (Full Auto) attacks ${defender.name} — waiting for defence…`
+      );
+      defenceData = await CombatSocket.challenge(ctx, exchangeId);
+    }
     if (!defenceData) {
       ctx.defenceType        = 'none';
       ctx.defenderSkillTotal = 0;
@@ -1209,13 +1215,94 @@ export class CombatEngine {
   }
 
   static async _runDialog(ctx) {
-    const { attacker, defender } = ctx;
-
     // ── Step 5: Attacker dialog ─────────────────────────────────────────────
     const { AttackerDialog } = await import('./AttackerDialog.js');
     const confirmedCtx = await AttackerDialog.show(ctx);
 
     if (!confirmedCtx) return; // player cancelled
+
+    // ── A player chooses; the GM's client resolves ───────────────────────────
+    // Everything below writes to documents — the defender's Action Points and
+    // wounds, conditions on its token, flags on both combat styles, the outcome
+    // card — and a player's client may only write to what that player owns.
+    // Before v1.4.333 the whole exchange ran here, on the attacker's client, so
+    // a player attacking an NPC died at the first write to the NPC:
+    //   "User Player2 lacks permission to update ActorDelta [Gareth]"
+    // with no card, no damage, and nothing on the GM's screen to say why.
+    // GM Mode never showed it, because in GM Mode the GM runs everything.
+    //
+    // The GM can write to every document, so the fix is WHERE this runs, not
+    // what it does: the eighty-odd writes below stay exactly as they are.
+    // Decisions still belong to their owners — Luck offers, the defence choice
+    // and Special Effect selection all route back to the right player from the
+    // GM's client.
+    if (!game.user.isGM) {
+      const { CombatSocket, activeGMUserId } = await import('./CombatSocket.js');
+      const gmId = activeGMUserId();
+      if (gmId) {
+        const { encodeContext } = await import('./context-codec.js');
+        // Awaited so a failure on the GM's side is not silent here, with a
+        // generous timeout: the exchange includes other people's dialogs.
+        const result = await CombatSocket.request(
+          'resolveExchange',
+          { ctx: encodeContext(confirmedCtx), initiatorId: game.user.id },
+          gmId,
+          { timeoutMs: 30 * 60 * 1000 },
+        );
+        if (!result?.ok) {
+          ui.notifications.warn(game.i18n.localize('MYTHRAS.ExchangeNotResolved'));
+        }
+        return;
+      }
+      // No GM online: resolve here and accept that writes to actors this
+      // player does not own will be refused. Said out loud rather than
+      // failing mid-exchange with a permission error nobody can read.
+      ui.notifications.warn(game.i18n.localize('MYTHRAS.NoGMForExchange'));
+    }
+
+    await CombatEngine._resolveConfirmedAttack(confirmedCtx);
+  }
+
+  /**
+   * Ask whoever WON the Special Effects to choose them.
+   *
+   * Before v1.4.333 the dialog opened wherever the engine ran — which was the
+   * attacker's client, so it happened to be right when the attacker won and
+   * wrong when the defender did. Now that a player's attack resolves on the GM's
+   * client, running it locally would hand every player's choice to the GM. So it
+   * goes to the winner's owner, and comes back as a plain list of effect ids.
+   *
+   * @param {object} ctx
+   * @returns {Promise<string[]>}
+   */
+  static async _chooseSpecialEffects(ctx) {
+    const chooser = ctx.seWinner === 'attacker' ? ctx.attacker : ctx.defender;
+    const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
+    const targetUserId = _findDefenderUserId(chooser);
+
+    if (_shouldRunLocally(targetUserId)) {
+      const { SpecialEffectDialog } = await import('./SpecialEffectDialog.js');
+      return (await SpecialEffectDialog.show(ctx)) ?? [];
+    }
+
+    const { encodeContext } = await import('./context-codec.js');
+    ui.notifications.info(game.i18n.format('MYTHRAS.SEChoiceWaiting', { name: chooser?.name ?? '' }));
+    const reply = await CombatSocket.request('seSelect', { ctx: encodeContext(ctx) }, targetUserId);
+    return Array.isArray(reply?.chosen) ? reply.chosen : [];
+  }
+
+  /**
+   * Resolve an attack whose dialog has been confirmed: roll, request the
+   * defence, adjudicate, post the card, run Special Effects.
+   *
+   * Runs on the GM's client whenever a player initiated the attack (see
+   * `_runDialog`), because nearly every step writes to a document the player
+   * may not own. Called directly for a GM's own attacks.
+   *
+   * @param {object} confirmedCtx  the context AttackerDialog returned
+   */
+  static async _resolveConfirmedAttack(confirmedCtx) {
+    const { attacker, defender } = confirmedCtx;
 
     // ── Full Auto — hand off to multi-target loop ─────────────────────────────
     // Full-auto is resolved as N independent exchanges (one per target), sharing
@@ -1363,13 +1450,22 @@ export class CombatEngine {
 
     // ── Step 6: Socket — challenge the defender ──────────────────────────────
     const exchangeId = foundry.utils.randomID(16);
-    const { CombatSocket } = await import('./CombatSocket.js');
+    const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
 
-    ui.notifications.info(
-      `${attacker.name} attacks ${defender.name} — waiting for defender response…`
-    );
-
-    const defenceData = await CombatSocket.challenge(confirmedCtx, exchangeId);
+    // When the defender's decision belongs to THIS client — an NPC while the GM
+    // runs the exchange, or an actor nobody else owns — show the dialog here.
+    // A socket request to yourself is never delivered and would sit out the
+    // full timeout (see _shouldRunLocally).
+    let defenceData;
+    if (_shouldRunLocally(_findDefenderUserId(defender))) {
+      const { DefenderDialog } = await import('./DefenderDialog.js');
+      defenceData = await DefenderDialog.show(confirmedCtx, exchangeId);
+    } else {
+      ui.notifications.info(
+        `${attacker.name} attacks ${defender.name} — waiting for defender response…`
+      );
+      defenceData = await CombatSocket.challenge(confirmedCtx, exchangeId);
+    }
 
     if (!defenceData) {
       // Timed out — treat as unable to defend
@@ -1896,9 +1992,7 @@ export class CombatEngine {
     // Full-auto: SEs are suppressed on targets 2+ (rules p.50 — only the first
     // hit of the first target in a burst or full-auto spray can benefit from SEs).
     if (ctx.seCount > 0 && ctx.seWinner !== 'none' && !ctx._fullAutoSuppressSEs) {
-      const { SpecialEffectDialog } = await import('./SpecialEffectDialog.js');
-      const chosen = await SpecialEffectDialog.show(ctx);
-      ctx.chosenSpecialEffects = chosen ?? [];
+      ctx.chosenSpecialEffects = await CombatEngine._chooseSpecialEffects(ctx);
       if (chatMsg) await CombatEngine._updateCardWithSEs(chatMsg, ctx);
     }
 
@@ -4592,11 +4686,14 @@ export class CombatEngine {
       // GM mode or Full Auto: run locally on GM client
       watchedSE = await CombatEngine._runSEDialog(dialogData);
     } else {
-      // Semi-Auto, non-GM mode: route to defender's player
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      // Semi-Auto, non-GM mode: route to defender's player — unless that is
+      // this client, where a socket request would never arrive.
+      const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
-      watchedSE = await CombatSocket.seChallenge(exchangeId, dialogData, targetUserId);
+      watchedSE = _shouldRunLocally(targetUserId)
+        ? await CombatEngine._runSEDialog(dialogData)
+        : await CombatSocket.seChallenge(exchangeId, dialogData, targetUserId);
     }
 
     if (!watchedSE) return;
@@ -4702,10 +4799,12 @@ export class CombatEngine {
     if (isGMMode || !isSemi) {
       substituteSEId = await CombatEngine._runSEDialog(dialogData);
     } else {
-      const { CombatSocket, _findDefenderUserId } = await import('./CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
       const targetUserId = _findDefenderUserId(defender);
       const exchangeId   = foundry.utils.randomID(16);
-      substituteSEId = await CombatSocket.seChallenge(exchangeId, dialogData, targetUserId);
+      substituteSEId = _shouldRunLocally(targetUserId)
+        ? await CombatEngine._runSEDialog(dialogData)
+        : await CombatSocket.seChallenge(exchangeId, dialogData, targetUserId);
     }
 
     // ── 3. Clear the flag ─────────────────────────────────────────────────────

@@ -47,6 +47,23 @@ const _pendingSE = new Map();
 // Separate map for Luck Point decision challenges routed to an actor's owner
 const _pendingLuck = new Map();
 
+// Generic request/response channel (v1.4.333) — see CombatSocket.request.
+const _pendingRequest = new Map();
+
+/**
+ * Handlers for `CombatSocket.request` / `CombatSocket.send`, by action name.
+ * Each receives the decoded payload on the TARGET client and returns a
+ * JSON-safe result (or nothing). Populated by `registerRequestHandler`, so the
+ * modules that own each action register it themselves and this file needs no
+ * static import of them.
+ */
+const _requestHandlers = new Map();
+
+/** The active GM who should execute document writes, or null. */
+export function activeGMUserId() {
+  return game.users.find(u => u.active && u.isGM)?.id ?? null;
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const CombatSocket = {
@@ -69,8 +86,19 @@ export const CombatSocket = {
    * @returns {Promise<object|null>}
    */
   async challenge(ctx, exchangeId) {
-    const serialised = CombatSocket.serialiseContext(ctx);
     const targetUserId = _findDefenderUserId(ctx.defender);
+
+    // Defence-in-depth: both current callers already branch before reaching
+    // here, but a future caller must not be able to lose a request by
+    // addressing it to itself. Mirrors the combatChallenge receiver below,
+    // including its "cancelled means Don't Defend" fallback.
+    if (_shouldRunLocally(targetUserId)) {
+      const { DefenderDialog } = await import('./DefenderDialog.js');
+      return (await DefenderDialog.show(ctx, exchangeId))
+        ?? { defenceType: 'none', weaponId: null, styleId: null, actorId: ctx.defender?.id ?? null };
+    }
+
+    const serialised = CombatSocket.serialiseContext(ctx);
 
     return new Promise((resolve, reject) => {
       _pending.set(exchangeId, { resolve, reject });
@@ -130,6 +158,17 @@ export const CombatSocket = {
    * @returns {Promise<object|null>}    null = timed out (treat as auto-resolve)
    */
   seChallenge(exchangeId, challengePayload, targetUserId) {
+    // A request addressed to this client is never delivered (see
+    // _shouldRunLocally). Run it here instead — the receiving side below does
+    // nothing but `_runSEDialog(payload.data)`, so the local answer is the
+    // remote one by construction. Guarding HERE rather than at each caller
+    // fixes all fourteen resolver call sites at once; most of them test only
+    // `isSemi && !isGMMode` before socketing, with no self-check.
+    if (_shouldRunLocally(targetUserId)) {
+      return import('./CombatEngine.js')
+        .then(({ CombatEngine }) => CombatEngine._runSEDialog(challengePayload));
+    }
+
     return new Promise((resolve) => {
       _pendingSE.set(exchangeId, { resolve });
 
@@ -208,6 +247,61 @@ export const CombatSocket = {
           targetUserId,
           data: challengePayload
         }
+      });
+    });
+  },
+
+  /**
+   * Register the handler for a named request action. Call once per action at
+   * startup, on every client — any client may be the target.
+   *
+   * @param {string} action
+   * @param {(data: object) => Promise<*>} handler
+   */
+  registerRequestHandler(action, handler) {
+    _requestHandlers.set(action, handler);
+  },
+
+  /**
+   * Ask `targetUserId`'s client to run a named action and wait for its result.
+   *
+   * The generic form of `seChallenge`/`luckChallenge`, added for the three
+   * v1.4.333 actions (resolve an exchange, run a card button, choose Special
+   * Effects) rather than hand-rolling three more message pairs. Same contract as
+   * the others: a request addressed to this client runs locally (a self-emit is
+   * never delivered — see `_shouldRunLocally`), and a timeout resolves `null`.
+   *
+   * @param {string} action          a name registered with registerRequestHandler
+   * @param {object} data            JSON-safe payload (use context-codec for ctx)
+   * @param {string|null} targetUserId
+   * @param {object} [opts]
+   * @param {number} [opts.timeoutMs]  defaults to five minutes
+   * @returns {Promise<*|null>}
+   */
+  request(action, data, targetUserId, { timeoutMs = 5 * 60 * 1000 } = {}) {
+    if (_shouldRunLocally(targetUserId)) {
+      const handler = _requestHandlers.get(action);
+      if (!handler) {
+        console.error(`Mythras Imperative | no handler registered for request "${action}"`);
+        return Promise.resolve(null);
+      }
+      return Promise.resolve().then(() => handler(data));
+    }
+
+    const requestId = foundry.utils.randomID(16);
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        if (_pendingRequest.has(requestId)) {
+          _pendingRequest.delete(requestId);
+          console.warn(`Mythras Imperative | CombatSocket — request "${action}" (${requestId}) timed out`);
+          resolve(null);
+        }
+      }, timeoutMs);
+      _pendingRequest.set(requestId, { resolve, timeout });
+
+      game.socket.emit(SOCKET_NAME, {
+        type: 'mythras.request',
+        payload: { requestId, action, data, targetUserId, originUserId: game.user.id },
       });
     });
   },
@@ -451,6 +545,40 @@ export const CombatSocket = {
         break;
       }
 
+      // ── Generic request — run the named action here and reply ──────────────
+      case 'mythras.request': {
+        if (payload.targetUserId && payload.targetUserId !== game.user.id) return;
+
+        const handler = _requestHandlers.get(payload.action);
+        let result = null;
+        if (!handler) {
+          console.error(`Mythras Imperative | no handler registered for request "${payload.action}"`);
+        } else {
+          try {
+            result = await handler(payload.data);
+          } catch (err) {
+            // Reply regardless, so the asking client is not left waiting out
+            // the timeout because of a fault on this one.
+            console.error(`Mythras Imperative | request "${payload.action}" failed:`, err);
+          }
+        }
+        game.socket.emit(SOCKET_NAME, {
+          type: 'mythras.requestResponse',
+          payload: { requestId: payload.requestId, result: result ?? null, targetUserId: payload.originUserId },
+        });
+        break;
+      }
+
+      case 'mythras.requestResponse': {
+        if (payload.targetUserId && payload.targetUserId !== game.user.id) return;
+        const pendingReq = _pendingRequest.get(payload.requestId);
+        if (!pendingReq) return;
+        clearTimeout(pendingReq.timeout);
+        _pendingRequest.delete(payload.requestId);
+        pendingReq.resolve(payload.result);
+        break;
+      }
+
       // ── Incoming Luck response — resume whoever asked ────────────────────────
       case 'mythras.luckResponse': {
         if (payload.targetUserId && payload.targetUserId !== game.user.id) return;
@@ -478,6 +606,30 @@ export const CombatSocket = {
  * Find the userId of the first active player who owns the given actor.
  * Falls back to the active GM if no player owns it.
  */
+/**
+ * Whether a request addressed to `targetUserId` must run on THIS client
+ * instead of going over the socket.
+ *
+ * **Foundry never delivers a socket emit back to the client that sent it.** So
+ * a request addressed to yourself is not slow, it is lost: the sender waits out
+ * the full five-minute timeout and then treats the defender as unable to act.
+ * `_findDefenderUserId` falls back to the GM when no active player owns the
+ * actor, which makes "addressed to myself" the ordinary case whenever the GM
+ * runs an exchange against an NPC or an unassigned character.
+ *
+ * The wound-endurance path has guarded this since it was written ("self-socket
+ * is unreliable in Foundry"); the main defence request and both Prepare Counter
+ * requests did not, and were only ever exercised in GM Mode, which never takes
+ * the socket path at all. Fixed v1.4.333 by routing every such site through
+ * this one predicate.
+ *
+ * @param {string|null} targetUserId
+ * @returns {boolean}
+ */
+export function _shouldRunLocally(targetUserId) {
+  return !targetUserId || targetUserId === game.user.id;
+}
+
 export function _findDefenderUserId(actor) {
   for (const user of game.users) {
     if (!user.active) continue;

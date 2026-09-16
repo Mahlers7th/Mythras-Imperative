@@ -36,7 +36,7 @@ import {
 // narrower re-export at line ~40 below -- see requestSkillCheck's own
 // comment for why the distinction matters).
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
-import { CombatSocket, _findDefenderUserId } from './module/combat/CombatSocket.js';
+import { CombatSocket, _findDefenderUserId, activeGMUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey, hitLocationForRoll } from './module/utils/hit-location.js';
 import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync, mitigatedDamageForSerious } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
@@ -516,6 +516,7 @@ Hooks.once('ready', () => {
   // Register the combat socket listener.
   // This must run in 'ready' — game.socket is not available before this hook.
   CombatSocket.register();
+  _registerCombatRequestHandlers();
 
   // ── Frozen API surface for modules (Destined et al.) ──────────────────────
   // syncHitLocationHP is the sole writer of hit-location item system.hp (max).
@@ -1937,15 +1938,7 @@ function _onRenderChatMessage(message, html) {
     });
   }
 
-  // Entangle trip — Yes (spend AP and trip)
-  html.querySelectorAll('.mi-btn-entangle-trip-yes').forEach(btn => _bindOnce(btn, async ev => {
-      ev.preventDefault();
-      const target = btn;
-      target.disabled = true;
-      _disableSiblingButtons(target);
-      const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await resolveEntangleTripYes(target);
-    }));
+  // Entangle trip — Yes: bound through CARD_ACTIONS below (writes to the defender).
 
   // Entangle trip — No (skip, act normally)
   html.querySelectorAll('.mi-btn-entangle-trip-no').forEach(btn => _bindOnce(btn, async ev => {
@@ -1961,55 +1954,189 @@ function _onRenderChatMessage(message, html) {
       });
     }));
 
-  // Impale — Leave In
-  // Capture btn before any await — ev.currentTarget becomes null after async suspension.
-  html.querySelectorAll('.mi-btn-impale-leave').forEach(btn => _bindOnce(btn, async ev => {
-      ev.preventDefault();
-      const target = btn; // capture before await
-      target.disabled = true;
-      _disableSiblingButtons(target);
-      const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await applyImpaleLodge(target);
-    }));
+  // Impale — Leave In / Yank Free: bound through CARD_ACTIONS below (both write to the defender).
 
-  // Impale — Yank Free
-  html.querySelectorAll('.mi-btn-impale-yank').forEach(btn => _bindOnce(btn, async ev => {
-      ev.preventDefault();
-      const target = btn; // capture before await
-      target.disabled = true;
-      _disableSiblingButtons(target);
-      const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-      await resolveImpaleYank(target);
-    }));
-
+  // Sheet skill-roll Luck buttons: the card belongs to the roller, who is also
+  // the only person who may spend the point, so these always run locally.
   html.querySelectorAll('.mi-luck-reroll').forEach(btn => _bindOnce(btn, ev => _onLuckReroll(ev, message)));
   html.querySelectorAll('.mi-luck-swap').forEach(btn => _bindOnce(btn, ev => _onLuckSwap(ev, message)));
-  html.querySelectorAll('.mi-luck-loc').forEach(btn => _bindOnce(btn, ev => _onLuckHitLocation(ev, message)));
-  html.querySelectorAll('.mi-luck-mitigate').forEach(btn => _bindOnce(btn, ev => _onLuckMitigateDamage(ev, message)));
 
-  // Manual mode — Roll Hit Location
+  // Manual mode rolls only post to chat, so they run wherever they are clicked.
   html.querySelectorAll('.mi-btn-loc[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollLocation(ev, message)));
-
-  // Semi-Auto mode — Roll Hit Location (has data-defender-id and data-message-id)
-  html.querySelectorAll('.mi-btn-loc[data-defender-id]').forEach(btn => _bindOnce(btn, ev => _onSemiAutoRollLocation(ev, message)));
-
-  // Manual mode — Roll Damage
   html.querySelectorAll('.mi-btn-dmg[data-defender-name]').forEach(btn => _bindOnce(btn, ev => _onManualRollDamage(ev, message)));
 
-  // Semi-Auto mode — Roll Damage (has data-attacker-id)
-  html.querySelectorAll('.mi-btn-dmg[data-attacker-id]').forEach(btn => _bindOnce(btn, ev => _onSemiAutoRollDamage(ev, message)));
+  // Every combat card button that WRITES to a document — hit location, damage,
+  // vehicle damage, Luck on location and mitigation, and the Special Effect
+  // follow-ups. A player's click on one of these is forwarded to the GM's
+  // client, which can write to anything. See CARD_ACTIONS.
+  for (const [action, spec] of Object.entries(CARD_ACTIONS)) {
+    html.querySelectorAll(spec.selector).forEach(btn =>
+      _bindOnce(btn, ev => _runCardAction(action, btn, message, ev)));
+  }
+}
 
-  // Semi-Auto mode — Roll Vehicle Damage
-  html.querySelectorAll('.mi-btn-veh-dmg').forEach(btn => _bindOnce(btn, ev => _onSemiAutoVehicleDamage(ev, message)));
+// ─────────────────────────────────────────────────────────────────────────────
+// CARD ACTIONS — combat card buttons that write, executed on the GM's client
+// ─────────────────────────────────────────────────────────────────────────────
+// Since v1.4.333 a player's attack is resolved on the GM's client, so the
+// outcome card is the GM's message and the defender is usually an NPC. A
+// player's click on "Roll Damage" would therefore fail twice over: it cannot
+// flag the GM's card, and it cannot write Sunder's armour loss or an Impale's
+// lodged weapon onto the NPC. So these clicks are forwarded to the GM, who can
+// do both. The decisions inside them still reach the player — a Luck offer in
+// the damage handler routes to the attacker's owner from wherever it runs.
+//
+// Every handler here reads only `dataset`, `disabled`, `innerHTML` and `style`
+// from its button (checked, v1.4.333), so the GM runs it against a plain
+// stand-in built from the clicked button's dataset. That keeps the forward
+// independent of whether the GM's own chat log happens to have the card
+// rendered.
+//
+//   local  — exactly what the button did before, for a GM click or no GM online
+//   remote — what the GM runs for a forwarded click
+//   owner  — for Luck buttons, whose point it is; checked on the CLICKER's side
+//            before forwarding, so a non-owner is refused at their own screen
+const _evFor = (btn) => ({ preventDefault() {}, currentTarget: btn });
 
-  // Semi-Auto mode — Apply Vehicle Damage (step 2: 1d10 system roll + write to actor)
-  html.querySelectorAll('.mi-btn-veh-apply').forEach(btn => _bindOnce(btn, () => _onApplyVehicleDamage(btn)));
+const _viaSiblings = (fn) => (btn) => {
+  btn.disabled = true;
+  _disableSiblingButtons(btn);
+  return fn(btn);
+};
 
-  // Semi-Auto mode — Damage Weapon direct roll (bypasses hit location flow)
-  html.querySelectorAll('.mi-btn-dmg-weapon').forEach(btn => _bindOnce(btn, ev => _onSemiAutoDamageWeapon(ev, message)));
+const CARD_ACTIONS = {
+  rollLocation: {
+    selector: '.mi-btn-loc[data-defender-id]',
+    local:  (btn, message, ev) => _onSemiAutoRollLocation(ev, message),
+    remote: (btn, message) => _onSemiAutoRollLocation(_evFor(btn), message),
+  },
+  rollDamage: {
+    selector: '.mi-btn-dmg[data-attacker-id]',
+    local:  (btn, message, ev) => _onSemiAutoRollDamage(ev, message),
+    remote: (btn, message) => _onSemiAutoRollDamage(_evFor(btn), message),
+  },
+  vehicleDamage: {
+    selector: '.mi-btn-veh-dmg',
+    local:  (btn, message, ev) => _onSemiAutoVehicleDamage(ev, message),
+    remote: (btn, message) => _onSemiAutoVehicleDamage(_evFor(btn), message),
+  },
+  vehicleApply: {
+    selector: '.mi-btn-veh-apply',
+    local:  (btn) => _onApplyVehicleDamage(btn),
+    remote: (btn) => _onApplyVehicleDamage(btn),
+  },
+  damageWeapon: {
+    selector: '.mi-btn-dmg-weapon',
+    local:  (btn, message, ev) => _onSemiAutoDamageWeapon(ev, message),
+    remote: (btn, message) => _onSemiAutoDamageWeapon(_evFor(btn), message),
+  },
+  burst: {
+    selector: '.mi-btn-burst',
+    local:  (btn, message, ev) => _onSemiAutoBurstDamage(ev, message),
+    remote: (btn, message) => _onSemiAutoBurstDamage(_evFor(btn), message),
+  },
+  luckLocation: {
+    selector: '.mi-luck-loc',
+    owner:  'attackerId',
+    local:  (btn, message, ev) => _onLuckHitLocation(ev, message),
+    remote: (btn, message) => _onLuckHitLocation(_evFor(btn), message),
+  },
+  luckMitigate: {
+    selector: '.mi-luck-mitigate',
+    owner:  'defenderId',
+    local:  (btn, message, ev) => _onLuckMitigateDamage(ev, message),
+    remote: (btn, message) => _onLuckMitigateDamage(_evFor(btn), message),
+  },
+  entangleTripYes: {
+    selector: '.mi-btn-entangle-trip-yes',
+    siblings: true,
+    local:  _viaSiblings((btn) => resolveEntangleTripYes(btn)),
+    remote: (btn) => resolveEntangleTripYes(btn),
+  },
+  impaleLeave: {
+    selector: '.mi-btn-impale-leave',
+    siblings: true,
+    local:  _viaSiblings((btn) => applyImpaleLodge(btn)),
+    remote: (btn) => applyImpaleLodge(btn),
+  },
+  impaleYank: {
+    selector: '.mi-btn-impale-yank',
+    siblings: true,
+    local:  _viaSiblings((btn) => resolveImpaleYank(btn)),
+    remote: (btn) => resolveImpaleYank(btn),
+  },
+};
 
-  // Semi-Auto mode — Burst fire (rolls 1d3 rounds of location+damage)
-  html.querySelectorAll('.mi-btn-burst').forEach(btn => _bindOnce(btn, ev => _onSemiAutoBurstDamage(ev, message)));
+async function _runCardAction(action, btn, message, ev) {
+  ev?.preventDefault?.();
+  const spec = CARD_ACTIONS[action];
+  const gmId = activeGMUserId();
+
+  // The GM, or a table with no GM connected: behave exactly as before.
+  if (game.user.isGM || !gmId) return spec.local(btn, message, ev);
+
+  // A Luck button is refused at the clicker's own screen if the point is not
+  // theirs, rather than forwarded and granted by the GM's permissions.
+  if (spec.owner) {
+    const actor = _resolveActor(btn.dataset[spec.owner]);
+    if (!_mayDecideLuckFor(actor)) return;
+  }
+
+  if (btn.disabled) return;          // synchronous re-entry guard, pre-await
+  btn.disabled = true;
+  if (spec.siblings) _disableSiblingButtons(btn);
+
+  const result = await CombatSocket.request(
+    'cardAction',
+    { messageId: message.id, action, dataset: { ...btn.dataset } },
+    gmId,
+    { timeoutMs: 30 * 60 * 1000 },
+  );
+  if (!result?.ok) {
+    btn.disabled = false;
+    ui.notifications.warn(game.i18n.localize('MYTHRAS.CardActionFailed'));
+  }
+}
+
+/**
+ * Handlers for the v1.4.333 request actions. Registered on every client; each
+ * checks it is running where it should, because the socket delivers a request
+ * to exactly one user and a misrouted one must refuse rather than half-run.
+ */
+function _registerCombatRequestHandlers() {
+  // A player's confirmed attack, resolved with GM permissions.
+  CombatSocket.registerRequestHandler('resolveExchange', async ({ ctx, initiatorId }) => {
+    if (!game.user.isGM) return null;
+    const { decodeContext } = await import('./module/combat/context-codec.js');
+    const live = decodeContext(ctx);
+    if (!live?.attacker || !live?.defender) {
+      console.error('Mythras Imperative | resolveExchange: could not rebuild the attack context', ctx);
+      return null;
+    }
+    live.initiatorUserId = initiatorId;
+    await CombatEngine._resolveConfirmedAttack(live);
+    return { ok: true };
+  });
+
+  // A player's click on a combat card button.
+  CombatSocket.registerRequestHandler('cardAction', async ({ messageId, action, dataset }) => {
+    if (!game.user.isGM) return null;
+    const message = game.messages.get(messageId);
+    const spec = CARD_ACTIONS[action];
+    if (!message || !spec) return null;
+    const standIn = { dataset: { ...dataset }, disabled: false, innerHTML: '', style: {} };
+    await spec.remote(standIn, message);
+    return { ok: true };
+  });
+
+  // Special Effect selection, shown to whoever won the effects.
+  CombatSocket.registerRequestHandler('seSelect', async ({ ctx }) => {
+    const { decodeContext } = await import('./module/combat/context-codec.js');
+    const live = decodeContext(ctx);
+    if (!live?.attacker || !live?.defender) return null;
+    const { SpecialEffectDialog } = await import('./module/combat/SpecialEffectDialog.js');
+    return { chosen: (await SpecialEffectDialog.show(live)) ?? [] };
+  });
 }
 
 Hooks.on('renderChatMessageHTML', _onRenderChatMessage);
