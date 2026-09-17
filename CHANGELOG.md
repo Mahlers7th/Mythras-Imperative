@@ -26,7 +26,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Drop Foe** and **Pin Down** both reached the player and were offered, named for their effect. Pin Down also shows the offer grading correctly against an adjusted total: Willpower 105 became 100 under Opposed Skills Over 100%, the card said so, and the offer read *"target 100%"* rather than the raw 105.
   - Cleanup by captured ID only; every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot.
 - **Still to wire:** Trip, Disarm and Blind (either combatant may be the one resisting); Entangle, Grip break-free and Impale yank (own-Action rolls, which take a fresh point); the wound Endurance roll; and last the module-facing `skillCheck`.
-- Not yet committed
+- Committed as `dbe2d535adae51da7dedf6f185e8b54f3dd9f050`
 
 ## v1.4.335 — September 2026
 - **Cheat Fate reaches the Special Effect resistance rolls — starting with Bleed and Stun Location.** This is batch 1 of the last open item in the Luck Point audit, deliberately small: one shared helper, two effects, live-tested, before the rest follow.
