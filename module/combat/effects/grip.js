@@ -59,8 +59,10 @@ export async function resolveGrip(ctx, damage, forcesFail) {
         skillOptions:       gripperSkillOptions
       });
     } else {
-      const { CombatSocket, _findUserIdForActor } = await import('../CombatSocket.js');
-      const targetUserId = _findUserIdForActor(attacker);
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
+      // _findDefenderUserId, not _findUserIdForActor: the latter matches the
+      // GM first, because a GM owns every actor (v1.4.337).
+      const targetUserId = _findDefenderUserId(attacker);
       const exchangeId   = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
         seType:             'gripChooseSkill',

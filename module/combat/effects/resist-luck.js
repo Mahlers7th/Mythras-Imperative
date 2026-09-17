@@ -58,6 +58,22 @@ import { applyOverHundredPenalty, determineOutcome } from '../../utils/roll-math
 const FLAG_FOR_SIDE = { attacker: 'attackerLuckSpent', defender: 'defenderLuckSpent' };
 
 /**
+ * The outcome-card flag that holds a side's one point for the exchange.
+ *
+ * Exported because getting it wrong is silent and expensive: Trip and Disarm
+ * are offensive OR defensive (Imperative p.46), so the resisting combatant may
+ * be either one, and writing the wrong side's flag would both let that side
+ * spend twice and block the other side for nothing. Unknown side returns null,
+ * which callers read as "no exchange to charge against".
+ *
+ * @param {'attacker'|'defender'|string} side
+ * @returns {string|null}
+ */
+export function exchangeFlagFor(side) {
+  return FLAG_FOR_SIDE[side] ?? null;
+}
+
+/**
  * Whether there is anything to offer at all, before the player's prompt
  * setting is consulted. Pure, so the gating rules are testable without
  * Foundry: no roll to change, no points, or the one point for this exchange
@@ -80,7 +96,7 @@ export function canOfferResistLuck({ roll, canSpend, alreadySpent = false, ownAc
 
 /** Read the exchange's spent flag off the outcome card, if there is one. */
 function _spentOnExchange(chatMessageId, side) {
-  const key = FLAG_FOR_SIDE[side];
+  const key = exchangeFlagFor(side);
   if (!chatMessageId || !key) return false;
   return game.messages.get(chatMessageId)?.getFlag('mythras-imperative', key) === true;
 }
@@ -148,7 +164,7 @@ export async function offerResistLuck({
     : resolveOpposedRoll(opposingRoll, opposingTotal, spend.result, resistTotal);
 
   if (!ownAction && chatMessageId) {
-    const key = FLAG_FOR_SIDE[side];
+    const key = exchangeFlagFor(side);
     if (key) await game.messages.get(chatMessageId)?.setFlag('mythras-imperative', key, true);
   }
 

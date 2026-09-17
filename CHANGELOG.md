@@ -10,6 +10,26 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.337 — September 2026
+- **Batch 3 of the resistance rolls: Trip Opponent, Disarm Opponent and Blind Opponent** — the three where the resisting combatant is not always the defender. Rules read against the code first (Imperative pp.43, 46), as Chris asked:
+  - **Trip** — *"The opponent must make an Opposed Roll of his Brawn, Evade, or Acrobatics against the character's original roll. If the target Fails, they fall prone."* Offensive **or** defensive, so the resisting side is whoever did not win the effect. The offer is graded against the skill the player actually **chose in the dialog**, including the quadruped grade shift, not the resolver's first guess.
+  - **Disarm** — *"The opponent must make an Opposed Roll of his Combat Style against the character's original roll."* Offensive or defensive likewise, and the resisting total already carries the weapon-size grade steps, so the re-grade uses the same number the contest did.
+  - **Blind** — defensive and Critical-only, and it is always the **attacker** who resists: *"The attacker must make an Opposed Roll of his Evade skill (or Weapon skill if using a shield) against the defender's original Parry roll."*
+- **⚠️ ROUTING DEFECT FOUND AND FIXED — a player's own resistance dialog was opening on the GM's screen.** Found by the batch-3 test hanging: a defensive Trip resisted by an attacking player never reached that player. `_findUserIdForActor` matches the **first active user with OWNER permission**, and `testUserPermission` returns OWNER for any GM (`if (user.isGM) level = perms.OWNER`, Foundry's own `Document#testUserPermission`), so with a GM connected it always returned the GM — for every actor, including one a player owns.
+  - Three dialog sites used it: the **defensive** Trip, the **defensive** Disarm, and **Grip's** skill choice for the gripper. All three now use `_findDefenderUserId`, whose rule is *"first active non-GM owner, else the GM"* — the same one the defence dialog and every Luck offer already use, and general despite its defender-shaped name.
+  - It also made the two halves incoherent: the resistance dialog opened on the GM while the Luck offer inside it routed to the player, since `luckDecisionUserId` already skipped GMs. This predates the Luck work — it is a v1.4.332-family routing bug that only a two-sided effect could expose.
+- **`exchangeFlagFor(side)` is exported and tested** rather than left as an inline lookup. Charging the wrong side's flag is silent in play: it would let that combatant spend twice and block the other for nothing.
+- 937 tests pass (17 suites), up from 935 — two for the side/flag mapping, including that an unrecognised side charges nothing rather than guessing. Lint unchanged at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 18 checks, zero console errors. Every case asserts **which side's point was charged**, by reading both flags off the outcome card.
+  - **Trip, offensive** (NPC trips the PC): dialog and offer on the player, skill picker offering Brawn 73 / Evade 73 / Acrobatics 90, 97 re-rolled to 5 — *"keeps their footing"* — and the **defender's** flag set, the attacker's untouched.
+  - **Trip, defensive** (PC attacking, tripped back): offer on the player, and this time the **attacker's** flag set and the defender's untouched.
+  - **Cross-check both ways:** with the *defender's* point already spent, the resisting attacker was still offered; with the *attacker's* own point spent, they were not, and the resistance dialog still ran normally.
+  - **Disarm** in both directions charged the matching side, and **Blind** charged the attacker's, with the re-rolled 5 shown on the card and *"avoids the blind"*.
+  - Cleanup by captured ID only; every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot.
+- **Observation, not changed here:** in the staged Disarm the resisting Combat Style of 103 was raised to 206 by a weapon-size grade step, which then triggered Opposed Skills Over 100% at **−106% to both sides** and clamped the disarmer's 60 to 0%. That is what the shipped rule does with a grade-boosted total (Core p.51 applies the excess to everyone, after circumstance modifiers), but a grade multiplier interacting with the over-100 rule is worth a ruling before it turns up at the table.
+- **Still to wire:** Entangle, Grip break-free and Impale yank (own-Action rolls, which take a fresh point rather than the exchange's); the wound Endurance roll; and last the module-facing `skillCheck`.
+- Not yet committed
+
 ## v1.4.336 — September 2026
 - **⚠️ CORRECTION — losing an opposed roll is a setback, even when your own roll succeeded.** Raised by Chris on reading v1.4.335: *"You can not fail the skill roll, and still lose with an opposed roll. Please double check that."* He is right, and the evidence was already sitting in the previous release's own test log:
   `ZZ Gareth (original roll) 60% 30 Success | ZZ Resist Test — Endurance 74% 30 Success | ZZ Resist Test is Bleeding`

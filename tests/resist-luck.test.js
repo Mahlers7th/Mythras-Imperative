@@ -13,7 +13,7 @@
  * an actor update, covered by the live test in CHANGELOG v1.4.335.
  */
 
-import { canOfferResistLuck } from '../module/combat/effects/resist-luck.js';
+import { canOfferResistLuck, exchangeFlagFor } from '../module/combat/effects/resist-luck.js';
 
 const base = { roll: 55, canSpend: true, alreadySpent: false, ownAction: false };
 
@@ -50,5 +50,21 @@ describe('canOfferResistLuck', () => {
 
   test('its own Action still needs a point in the pool', () => {
     expect(canOfferResistLuck({ ...base, canSpend: false, ownAction: true })).toBe(false);
+  });
+});
+
+describe('exchangeFlagFor', () => {
+  // Trip and Disarm are offensive OR defensive (Imperative p.46), so the
+  // resisting combatant may be either one. Charging the wrong side's flag
+  // would let that side spend twice and block the other for nothing, and
+  // nothing in the UI would show it.
+  test('each side maps to its own flag', () => {
+    expect(exchangeFlagFor('attacker')).toBe('attackerLuckSpent');
+    expect(exchangeFlagFor('defender')).toBe('defenderLuckSpent');
+  });
+
+  test('an unrecognised side charges nothing rather than guessing', () => {
+    expect(exchangeFlagFor('bystander')).toBeNull();
+    expect(exchangeFlagFor(undefined)).toBeNull();
   });
 });

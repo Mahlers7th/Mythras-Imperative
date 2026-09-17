@@ -201,10 +201,14 @@ export async function resolveTripOpponent(ctx, damage, forcesFail) {
         tripIsOffensive
       });
     } else {
-      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('../CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = tripIsOffensive
         ? _findDefenderUserId(defender)
-        : _findUserIdForActor(attacker);
+        // Not _findUserIdForActor: a GM has OWNER on every actor, so that
+        // helper hands a player's own resistance dialog to the GM. The rule
+        // wanted here is "the active player who owns this actor, else the GM",
+        // which is what _findDefenderUserId implements despite its name.
+        : _findDefenderUserId(attacker);
       const exchangeId = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
         seType:             'trip',
@@ -236,6 +240,23 @@ export async function resolveTripOpponent(ctx, damage, forcesFail) {
       defenderRoll, chosenSkill.total
     );
   }
+
+  // Trip can be offensive or defensive (Imperative p.46 lists both), so the
+  // point comes from whichever combatant is resisting — and out of THAT
+  // side's one point for the exchange.
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         resistingActor,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  seWinnerRoll,
+    opposingTotal: seWinnerTotal,
+    // The skill the resisting player actually chose in the dialog, already
+    // carrying the quadruped grade shift — not the resolver's first guess.
+    resistTotal:   chosenSkill.total,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Trip Opponent`,
+    side:          tripIsOffensive ? 'defender' : 'attacker',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
 
   const tripApplied = !defenderSucceeds;
   if (tripApplied) {
@@ -545,10 +566,14 @@ export async function resolveDisarmOpponent(ctx, damage, forcesFail) {
         disarmIsOffensive
       });
     } else {
-      const { CombatSocket, _findDefenderUserId, _findUserIdForActor } = await import('../CombatSocket.js');
+      const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
       const targetUserId = disarmIsOffensive
         ? _findDefenderUserId(defender)
-        : _findUserIdForActor(attacker);
+        // Not _findUserIdForActor: a GM has OWNER on every actor, so that
+        // helper hands a player's own resistance dialog to the GM. The rule
+        // wanted here is "the active player who owns this actor, else the GM",
+        // which is what _findDefenderUserId implements despite its name.
+        : _findDefenderUserId(attacker);
       const exchangeId = foundry.utils.randomID(16);
       response = await CombatSocket.seChallenge(exchangeId, {
         seType:             'disarm',
@@ -577,6 +602,21 @@ export async function resolveDisarmOpponent(ctx, damage, forcesFail) {
       defenderRoll, resistSkillTotal
     );
   }
+
+  // Offensive or defensive, as Trip. `resistSkillTotal` already carries the
+  // weapon-size grade steps (p.43: "each step ... increases the difficulty of
+  // the opponent's roll by one grade"), so the re-grade uses the same number.
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         resistingActor,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  seWinnerRoll,
+    opposingTotal: seWinnerTotal,
+    resistTotal:   resistSkillTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Disarm`,
+    side:          disarmIsOffensive ? 'defender' : 'attacker',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
 
   const disarmApplied = !defenderSucceeds;
 
@@ -744,6 +784,22 @@ export async function resolveBlindOpponent(ctx) {
   const durationRoll = new Roll('1d3');
   await durationRoll.evaluate();
   const turns = durationRoll.total;
+
+  // Blind is defender-only (p.43, Critical), and it is always the ATTACKER
+  // who resists — "the attacker must make an Opposed Roll of his Evade skill
+  // (or Weapon skill if using a shield) against the defender's original Parry
+  // roll" — so the point is the attacker's, out of their side of the exchange.
+  ({ roll: attackerRoll, succeeds: attackerSucceeds } = await offerResistLuck({
+    actor:         attacker,
+    roll:          attackerRoll,
+    succeeds:      attackerSucceeds,
+    opposingRoll:  defenceRoll,
+    opposingTotal: defenceTotal,
+    resistTotal:   resistSkillTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Blind`,
+    side:          'attacker',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
 
   const blindApplied = !attackerSucceeds;
   if (blindApplied) {
