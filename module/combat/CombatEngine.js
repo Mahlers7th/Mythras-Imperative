@@ -1661,8 +1661,17 @@ export class CombatEngine {
     // The force option only earns a prompt on a critical defence when the
     // attack it would undo actually landed.
     const attackLanded = ctx.attackOutcome === 'success' || ctx.attackOutcome === 'critical';
+    // The exchange is an opposed roll too, so a defence that SUCCEEDED can
+    // still lose it — a success against a critical hands the attacker the
+    // Special Effects. That is the setback, not the grade on its own
+    // (Chris, 2026-09-17); judging by grade alone stayed silent precisely
+    // when the point was worth spending.
+    const contestLost = CombatEngine.resolveDifferential(
+      ctx.attackOutcome, ctx.defenceOutcome,
+    ).seWinner === 'attacker';
     if (!await wantsLuckPrompt(defender, {
       outcome: ctx.defenceOutcome,
+      contestLost,
       otherRollAtStake: canForce && attackLanded,
     })) return false;
 

@@ -81,11 +81,38 @@ describe('shouldOfferLuck — graded d100 rolls', () => {
     expect(shouldOfferLuck({ mode: LUCK_PROMPT_ALWAYS, outcome: 'critical', otherRollAtStake: true })).toBe(true);
   });
 
-  test('"setbacks" follows the player\'s own roll, not the opponent\'s', () => {
-    // Chris's wording is "only on failure/fumble". A successful defence
-    // against a successful attack is not a setback on the defender's roll.
+  test('"setbacks" ignores the opponent\'s roll while the contest is still won', () => {
+    // A successful defence against a successful attack is not a setback: the
+    // force-a-re-roll option existing does not by itself make it one.
     expect(shouldOfferLuck({ mode: LUCK_PROMPT_SETBACKS, outcome: 'success', otherRollAtStake: true })).toBe(false);
     expect(shouldOfferLuck({ mode: LUCK_PROMPT_SETBACKS, outcome: 'critical', otherRollAtStake: true })).toBe(false);
+  });
+});
+
+describe('shouldOfferLuck — losing an opposed roll IS the setback', () => {
+  // Chris, 2026-09-17: "You can not fail the skill roll, and still lose with
+  // an opposed roll." Observed live in v1.4.335: Endurance 74, rolled 30 —
+  // a success — against an attacker's 30, and the Bleed applied anyway,
+  // because equal grades go to the higher roll and a tie goes to the
+  // attacker. Judging by grade alone withheld the offer at that exact moment.
+  test('a successful roll that lost the contest is offered in both modes', () => {
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_SETBACKS, outcome: 'success', contestLost: true })).toBe(true);
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_ALWAYS, outcome: 'success', contestLost: true })).toBe(true);
+  });
+
+  test('a CRITICAL that lost the contest is offered — the skip only covers wins', () => {
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_SETBACKS, outcome: 'critical', contestLost: true })).toBe(true);
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_ALWAYS, outcome: 'critical', contestLost: true })).toBe(true);
+  });
+
+  test('a critical that WON is still never offered', () => {
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_ALWAYS, outcome: 'critical', contestLost: false })).toBe(false);
+  });
+
+  test('a failed roll that somehow won the contest still follows the mode', () => {
+    // Both sides failed, say, and the defender's failure took it. Nothing to
+    // gain, but the rule stays "offer on a failed d100" for consistency.
+    expect(shouldOfferLuck({ mode: LUCK_PROMPT_SETBACKS, outcome: 'failure', contestLost: false })).toBe(true);
   });
 });
 

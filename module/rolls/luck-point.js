@@ -184,23 +184,37 @@ export function diceRange(terms) {
  * A roll this cannot judge is offered — suppressing a legal choice on a guess
  * is worse than one prompt too many.
  *
+ * **A setback is not only a failed roll.** In an opposed roll you can succeed
+ * and still lose: equal grades go to the higher roll, so an Endurance 74
+ * defender who rolls 30 against an attacker's 30 has succeeded and is Bleeding
+ * anyway (observed live, v1.4.335). Judging the prompt on the roll's own grade
+ * alone silently withholds the offer at exactly the moment the point is worth
+ * spending, so callers that know the contest's result pass `contestLost`
+ * (Chris, 2026-09-17: *"You can not fail the skill roll, and still lose with an
+ * opposed roll."*).
+ *
  * @param {object} p
  * @param {string} [p.mode]  LUCK_PROMPT_ALWAYS or LUCK_PROMPT_SETBACKS
  * @param {'critical'|'success'|'failure'|'fumble'|null} [p.outcome]
  * @param {number|null} [p.total]  an ungraded roll's total
  * @param {{max:number, mean:number}|null} [p.range]  from `diceRange`
- * @param {boolean} [p.otherRollAtStake]
+ * @param {boolean} [p.contestLost]  this roll lost its opposed contest,
+ *   whatever it graded as on its own
+ * @param {boolean} [p.otherRollAtStake]  the point could still change an
+ *   opposing roll, which is why even a critical is worth asking about
  * @returns {boolean}
  */
 export function shouldOfferLuck({
-  mode = LUCK_PROMPT_ALWAYS, outcome = null, total = null, range = null, otherRollAtStake = false,
+  mode = LUCK_PROMPT_ALWAYS, outcome = null, total = null, range = null,
+  contestLost = false, otherRollAtStake = false,
 } = {}) {
   const setbacksOnly = mode === LUCK_PROMPT_SETBACKS;
 
   if (outcome) {
-    if (outcome === 'critical' && !otherRollAtStake) return false;
+    // A critical that LOST is still worth re-rolling; one that won is not.
+    if (outcome === 'critical' && !otherRollAtStake && !contestLost) return false;
     if (!setbacksOnly) return true;
-    return outcome === 'failure' || outcome === 'fumble';
+    return contestLost || outcome === 'failure' || outcome === 'fumble';
   }
 
   if (total != null && range) {

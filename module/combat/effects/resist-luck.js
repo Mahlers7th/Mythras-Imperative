@@ -124,12 +124,13 @@ export async function offerResistLuck({
     ? resistTotal
     : applyOverHundredPenalty([opposingTotal, resistTotal]).adjusted[1];
 
-  // A critical that LOST the contest is still worth re-rolling — the opposing
-  // roll beat it, so the contest is live in exactly the way `otherRollAtStake`
-  // describes for the defence roll's forced re-roll.
+  // Losing the contest IS the setback, whatever this roll graded as on its
+  // own: an opposed roll is decided by grade first and then by the higher
+  // number, so a success can lose to an equal success. Judging the prompt on
+  // the grade alone withheld the offer exactly when the effect was landing.
   const wanted = await wantsLuckPrompt(actor, {
-    outcome: determineOutcome(roll, resistAdjusted),
-    otherRollAtStake: !succeeds,
+    outcome:     determineOutcome(roll, resistAdjusted),
+    contestLost: !succeeds,
   });
   if (!wanted) return unchanged;
 

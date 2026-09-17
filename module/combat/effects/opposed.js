@@ -883,6 +883,18 @@ export async function resolveDropFoe(ctx, damage, forcesFail) {
     );
   }
 
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackRoll,
+    opposingTotal: ctx.attackerSkillTotal ?? 0,
+    resistTotal:   enduranceTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Drop Foe`,
+    side:          'defender',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
+
   const dropApplied = !defenderSucceeds;
   if (dropApplied) {
     await applyStatusToActor(defender, 'incapacitated');
@@ -1002,6 +1014,18 @@ export async function resolvePinDown(ctx, forcesFail) {
       defenderRoll, wpTotal
     );
   }
+
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackRoll,
+    opposingTotal: ctx.attackerSkillTotal ?? 0,
+    resistTotal:   wpTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Pin Down`,
+    side:          'defender',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
 
   const pinApplied = !defenderSucceeds;
   if (pinApplied) {

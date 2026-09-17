@@ -10,6 +10,24 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.336 — September 2026
+- **⚠️ CORRECTION — losing an opposed roll is a setback, even when your own roll succeeded.** Raised by Chris on reading v1.4.335: *"You can not fail the skill roll, and still lose with an opposed roll. Please double check that."* He is right, and the evidence was already sitting in the previous release's own test log:
+  `ZZ Gareth (original roll) 60% 30 Success | ZZ Resist Test — Endurance 74% 30 Success | ZZ Resist Test is Bleeding`
+  The defender **succeeded** on Endurance and still took the Bleed, because an opposed roll is decided by grade first and then by the higher number, and a tie goes to the attacker (`resolveOpposedRoll`). Under *"only after a setback"* the Luck offer was withheld at exactly the moment the point was worth spending.
+- **What was wrong was the PROMPT, not the resolution.** Effect application has always used `resolveOpposedRoll` on both the dialog and automatic paths, and the re-grade after a spend uses it too — that half was right. The gate asked only *"did this d100 fail?"*, which is a different question from *"did this roll lose?"*.
+- **`shouldOfferLuck` now takes `contestLost`**, and a roll that lost is offered whatever it graded as. The critical skip narrows to match: a critical that **won** is still never offered, a critical that **lost** now is. `otherRollAtStake` keeps its own meaning — the point could be aimed at an opposing roll — so a successful defence against a landed attack still stays quiet under *setbacks*, which is the behaviour v1.4.334 shipped and tested.
+- **The same correction applies to the defence roll**, not only to resistance rolls: the exchange is an opposed roll too, so a successful parry that loses the differential (a success against a critical hands the attacker the Special Effects) now prompts under *setbacks*. `_offerDefenceLuck` reads `resolveDifferential`, which is pure and already runs on the same two fields a few lines later.
+- **Batch 2 of the resistance rolls: Drop Foe and Pin Down**, wired at the same seam as v1.4.335's, one line each.
+- 935 tests pass (17 suites), up from 931 — four new cases in `tests/luck-prompt.test.js` pin the correction, including that a critical which lost is offered and one that won is not. Lint unchanged at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 11 checks, zero console errors.
+  - **The correction itself:** Endurance 74 rolling 30 — a success — against an attacker's 30 lost the tie, the card read *"is Bleeding"*, and the offer **was** made under *setbacks*.
+  - **The other half:** the same roll of 30 against an attacker's 80 won the contest, the card read *"resists the Bleed"*, and **no** offer was made. The fix did not turn the setting into "always".
+  - **Defence roll:** a successful defence against a **critical** attack was offered; against a merely successful attack it was not.
+  - **Drop Foe** and **Pin Down** both reached the player and were offered, named for their effect. Pin Down also shows the offer grading correctly against an adjusted total: Willpower 105 became 100 under Opposed Skills Over 100%, the card said so, and the offer read *"target 100%"* rather than the raw 105.
+  - Cleanup by captured ID only; every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot.
+- **Still to wire:** Trip, Disarm and Blind (either combatant may be the one resisting); Entangle, Grip break-free and Impale yank (own-Action rolls, which take a fresh point); the wound Endurance roll; and last the module-facing `skillCheck`.
+- Not yet committed
+
 ## v1.4.335 — September 2026
 - **Cheat Fate reaches the Special Effect resistance rolls — starting with Bleed and Stun Location.** This is batch 1 of the last open item in the Luck Point audit, deliberately small: one shared helper, two effects, live-tested, before the rest follow.
 - **The "18 branches" estimate this repo has been carrying since v1.4.331 was wrong, and it is worth saying why.** `runSEDialog` does roll, grade and resolve inside each of its eighteen dialog callbacks — but it hands the result back to the **resolver**, and the resolver is where the consequence lives: for Bleed the Bleeding condition and the result card both come after. That gap is the seam, the same shape as the defence roll's (v1.4.331), and it needs **no** per-effect pipeline split. One call per effect, placed after the whole semi/socket/automatic branch, which is why the non-dialog automatic path is covered by the same line.
