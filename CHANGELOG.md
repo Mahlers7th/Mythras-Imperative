@@ -28,7 +28,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Cleanup by captured ID only; every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot.
 - **Observation, not changed here:** in the staged Disarm the resisting Combat Style of 103 was raised to 206 by a weapon-size grade step, which then triggered Opposed Skills Over 100% at **−106% to both sides** and clamped the disarmer's 60 to 0%. That is what the shipped rule does with a grade-boosted total (Core p.51 applies the excess to everyone, after circumstance modifiers), but a grade multiplier interacting with the over-100 rule is worth a ruling before it turns up at the table.
 - **Still to wire:** Entangle, Grip break-free and Impale yank (own-Action rolls, which take a fresh point rather than the exchange's); the wound Endurance roll; and last the module-facing `skillCheck`.
-- Not yet committed
+- Committed as `2a6011e69301f5e1325c39d8927cb4a8c01187e5`
 
 ## v1.4.336 — September 2026
 - **⚠️ CORRECTION — losing an opposed roll is a setback, even when your own roll succeeded.** Raised by Chris on reading v1.4.335: *"You can not fail the skill roll, and still lose with an opposed roll. Please double check that."* He is right, and the evidence was already sitting in the previous release's own test log:
