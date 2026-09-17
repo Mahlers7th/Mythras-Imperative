@@ -23,6 +23,7 @@ import {
   applyProneToDefender,
   applyFatigueToSkill,
 } from './helpers.js';
+import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
 import { applyGradeToSkill } from '../../utils/condition-grade.js';
 import { determineOutcome } from '../../utils/roll-math.js';
@@ -93,6 +94,20 @@ export async function resolveBleed(ctx, damage, forcesFail) {
       defenderRoll, enduranceTotal
     );
   }
+
+  // Cheat Fate, after the roll and before the Bleeding condition is written —
+  // placed after the whole branch above so the automatic path is covered too.
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackRoll,
+    opposingTotal: ctx.attackerSkillTotal ?? 0,
+    resistTotal:   enduranceTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Bleed`,
+    side:          'defender',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
 
   const bleedApplied = !defenderSucceeds;
   if (bleedApplied) {
@@ -319,6 +334,18 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
     );
   }
 
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackRoll,
+    opposingTotal: ctx.attackerSkillTotal ?? 0,
+    resistTotal:   enduranceTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Stun Location`,
+    side:          'defender',
+    chatMessageId: ctx.chatMessageId ?? null,
+  }));
+
   const stunApplied = !defenderSucceeds;
   if (stunApplied) {
     const hasKnockoutBlow = ctx.attackerStyle?.system?.traits?.includes('knockoutBlow') ?? false;
@@ -345,7 +372,22 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
       const hardTotal  = applyGradeToSkill(enduranceTotal, 'hard');
       const torsoRoll  = new Roll('1d100');
       await torsoRoll.evaluate();
-      const fallsProne = torsoRoll.total > hardTotal;
+
+      // Cheat Fate on the torso follow-up, before Prone is applied and before
+      // the card is built from the number. A flat roll, so it carries its own
+      // rule rather than the opposed contest's.
+      const keepsFooting = await offerResistLuck({
+        actor:         defender,
+        roll:          torsoRoll.total,
+        succeeds:      torsoRoll.total <= hardTotal,
+        resistTotal:   hardTotal,
+        regrade:       (n) => n <= hardTotal,
+        label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Stun (Torso)`,
+        side:          'defender',
+        chatMessageId: ctx.chatMessageId ?? null,
+      });
+      const torsoResult = keepsFooting.roll;
+      const fallsProne  = !keepsFooting.succeeds;
       if (fallsProne) {
         await applyProneToDefender(defender);
       }
@@ -359,7 +401,7 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
       // input" class as outcome-band-evidence-survey.md 4a.
       // Reading A (v1.4.315): the fumble basis is the modified value — the
       // Hard-graded total, not the raw Endurance this used to pass.
-      const torsoOutcome = determineOutcome(torsoRoll.total, hardTotal);
+      const torsoOutcome = determineOutcome(torsoResult, hardTotal);
       await ChatMessage.create({
         content: `
           <div class="mi-chat-card">
@@ -373,7 +415,7 @@ export async function resolveStunLocation(ctx, damage, forcesFail) {
                   <div class="mi-card-roll-row-top">${defender.name} — Endurance (Hard: ${hardTotal}%)</div>
                   <div class="mi-card-roll-row-bottom">
                     <span class="mi-card-roll-target">${hardTotal}%</span>
-                    <span class="mi-card-roll-result">${torsoRoll.total}</span>
+                    <span class="mi-card-roll-result">${torsoResult}</span>
                     <span class="mi-outcome ${torsoOutcome}">${torsoOutcome.charAt(0).toUpperCase() + torsoOutcome.slice(1)}</span>
                   </div>
                 </div>

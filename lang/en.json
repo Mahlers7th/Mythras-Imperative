@@ -194,6 +194,7 @@
   "MYTHRAS.LuckForceRerollHint": "make {name} re-roll their attack of {result} ({grade})",
   "MYTHRAS.LuckAsking": "Waiting for {name}’s player to decide on a Luck Point…",
   "MYTHRAS.LuckNotYours": "{name} is not your character — their player or the GM spends that Luck Point.",
+  "MYTHRAS.LuckResistRoll": "Resistance roll",
   "MYTHRAS.LuckPromptSetting": "Luck Point prompts",
   "MYTHRAS.LuckPromptSettingHint": "When combat stops to offer your character a Luck Point after an attack, defence or damage roll. You are never asked about a critical or a maximum damage roll, which a re-roll cannot improve. Luck buttons on chat cards, Desperate Effort and Mitigate Damage are unaffected.",
   "MYTHRAS.LuckPromptAlways": "Every roll",
