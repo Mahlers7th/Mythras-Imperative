@@ -29,7 +29,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Stun Location:** offered and named for its effect; after declining it, the **torso follow-up** was offered separately (*"Resistance roll — Stun (Torso): 41 — success (target 50%)"*), and its card's roll, target and grade agreed with each other.
   - Cleanup deleted by captured ID only, and every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot afterwards.
 - **Still to come, in the same shape:** Drop Foe and Pin Down; Trip, Disarm and Blind (where the resisting side may be either combatant); Entangle, Grip break-free and Impale yank (own-Action rolls); the wound Endurance roll; and last, the module-facing `skillCheck` that Destined's `requestSkillCheck` drives, which crosses the boundary and needs its own design.
-- Not yet committed
+- Committed as `938faf402f1a67c75e18b0d91b84e4e99cc04fc2`
 
 ## v1.4.334 — September 2026
 - **New per-player setting: "Luck Point prompts"** (Configure Settings, user-scoped). Chris's ruling (2026-09-17), closing the table-feel question left open in v1.4.333: each player chooses between
