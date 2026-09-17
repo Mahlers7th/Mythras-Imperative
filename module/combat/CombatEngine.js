@@ -32,7 +32,7 @@ import {
   woundLevel, resolveLossOfControl, shiftSpeedStep, computeEffectiveSpeed, shiftDamageModifier,
 } from '../utils/combat-math.js';
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
-import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted } from '../rolls/luck-point.js';
+import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckPrompt } from '../rolls/luck-point.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -996,7 +996,7 @@ export class CombatEngine {
       // Action Points — which is correct rather than noisy: each incoming
       // burst is its own attack, and "one Luck Point per Action" is per
       // Action, not per round.
-      const rallied = await CombatEngine._offerDesperateEffort(defender);
+      const rallied = await CombatEngine._offerDesperateEffort(defender, ctx);
       if (!rallied) {
         ctx.defenceType        = 'none';
         ctx.defenderSkillTotal = 0;
@@ -1418,7 +1418,7 @@ export class CombatEngine {
         // on the way past.
         const rallied = confirmedCtx.desperateEffortOffered
           ? false
-          : await CombatEngine._offerDesperateEffort(defender);
+          : await CombatEngine._offerDesperateEffort(defender, confirmedCtx);
         if (!rallied) {
           confirmedCtx.defenceType        = 'none';
           confirmedCtx.defenderSkillTotal = 0;
@@ -1562,71 +1562,6 @@ export class CombatEngine {
   // -------------------------------------------------------------------------
 
   /**
-   * Roll the attacker's d100 and determine outcome — RAW ordering (rules
-   * p.40): the attacker rolls and notes the result BEFORE the defender's
-   * reaction is requested, on every path. Called once per attack, before
-   * the defence decision is requested (challenge()/inlineDefenceData/GM
-   * Full Auto dialog). Idempotent — a no-op if already rolled, so it's safe
-   * to call unconditionally even on the GM-inline path, where AttackerDialog
-   * itself already rolled between its two phases.
-   */
-  /**
-   * Desperate Effort (Imperative p.34 / Core p.81), v1.4.323.
-   *
-   *   "If a character has exhausted their Action Points during a fight and
-   *    needs to find that last burst of desperate energy to perhaps avoid a
-   *    messy demise, they may spend a Luck Point to gain an additional Action
-   *    Point."
-   *
-   * Offered at the zero-AP defence gate, which is the moment the rule is
-   * written for: without it the defender concedes an automatic Failure and
-   * eats the attacker's Special Effects. Nothing has been resolved at that
-   * point, so accepting simply lets the normal defence flow proceed — there is
-   * no committed consequence to unwind, which is why this belongs in Stage 1.
-   *
-   * **Only ever called at `value <= 0`, and that matters.**
-   * `CharacterData#prepareDerivedData` clamps `actionPoints.value` down to
-   * `max` every cycle, so granting a point to someone who is not exhausted
-   * would be silently reverted on the next derivation. From 0 the grant is
-   * always `1`, and `max` is floored at 1, so it can never be clamped away.
-   * Do not reuse this helper anywhere the pool might be non-zero without
-   * revisiting that.
-   *
-   * Creatures and NPCs have no `luckPoints` field at all (it lives only on
-   * `CharacterData`), so `canSpendLuck` refuses them without a guard — which
-   * matches the rule's framing of Luck as what separates heroes from the rank
-   * and file.
-   *
-   * @param {Actor} defender
-   * @returns {Promise<boolean>} true if a point was spent and an AP granted
-   */
-  /**
-   * Cheat Fate on the defence roll (Imperative p.33 / Core p.81) — v1.4.331.
-   *
-   * Called from `_afterDefenceResolved` between the defence roll (step 9b) and
-   * the differential (step 10). That gap is the whole reason this is possible:
-   * the roll exists, and **nothing derived from it has been committed** — no
-   * card, no Special Effects, no damage, no conditions. Re-grading here rewrites
-   * three fields on `ctx` and the exchange proceeds as though the new number had
-   * always been the one rolled.
-   *
-   * Returns false without charging anything when there is no roll to change
-   * (Don't Defend), when a point has already gone on this defence, or when the
-   * defender has none left.
-   *
-   * **Not gated against Mitigate Damage, deliberately.** A defender who spends
-   * here can still spend to downgrade a Major Wound later in the same exchange.
-   * The attacker's two rolls are unambiguously one Action, so they share a
-   * point; the defender's case is not the same shape — Mitigate is a reaction to
-   * the attacker's Action, and using a Luck Point is itself a Free Action. This
-   * preserves the behaviour Mitigate has shipped with since v1.4.322 rather than
-   * quietly making defenders weaker. Flagged for Chris as a rules question, not
-   * settled here.
-   *
-   * @param {object} ctx  the live attack context
-   * @returns {Promise<boolean>} true if a point was spent and ctx re-graded
-   */
-  /**
    * Cheat Fate on the attack roll, offered to the attacker's own player.
    *
    * The GM Mode inline panel has hosted this since v1.4.319 and keeps doing so;
@@ -1646,6 +1581,7 @@ export class CombatEngine {
     if (ctx.attackLuckOffered) return false;
     if (ctx.attackResult == null) return false;
     if (!canSpendLuck(ctx.attacker)) return false;
+    if (!await wantsLuckPrompt(ctx.attacker, { outcome: ctx.attackOutcome })) return false;
 
     ctx.attackLuckOffered = true;
 
@@ -1673,6 +1609,31 @@ export class CombatEngine {
     return true;
   }
 
+  /**
+   * Cheat Fate on the defence roll (Imperative p.33 / Core p.81) — v1.4.331.
+   *
+   * Called from `_afterDefenceResolved` between the defence roll (step 9b) and
+   * the differential (step 10). That gap is the whole reason this is possible:
+   * the roll exists, and **nothing derived from it has been committed** — no
+   * card, no Special Effects, no damage, no conditions. Re-grading here rewrites
+   * three fields on `ctx` and the exchange proceeds as though the new number had
+   * always been the one rolled.
+   *
+   * Returns false without charging anything when there is no roll to change
+   * (Don't Defend), when the defender has already spent their point on this
+   * exchange, when they have none left, or when their "Luck Point prompts"
+   * setting does not want this roll offered.
+   *
+   * **One point per exchange for the defender** (Chris, 2026-09-17: *"You can
+   * only use 1 luck point. So you can either Cheat Fate, or mitigate
+   * damage."*). `ctx.defenderLuckSpent` is set by this offer and by Desperate
+   * Effort, and rides the outcome card's flags to the Mitigate Damage button,
+   * which is the one defender spend made after the card exists. Until v1.4.334
+   * this was deliberately left open pending that ruling.
+   *
+   * @param {object} ctx  the live attack context
+   * @returns {Promise<boolean>} true if a point was spent and ctx re-graded
+   */
   static async _offerDefenceLuck(ctx) {
     const defender = ctx.defender;
     // Don't Defend makes no roll, so there is nothing to cheat.
@@ -1696,6 +1657,14 @@ export class CombatEngine {
       }),
       icon: '<i class="fas fa-reply"></i>',
     }] : [];
+
+    // The force option only earns a prompt on a critical defence when the
+    // attack it would undo actually landed.
+    const attackLanded = ctx.attackOutcome === 'success' || ctx.attackOutcome === 'critical';
+    if (!await wantsLuckPrompt(defender, {
+      outcome: ctx.defenceOutcome,
+      otherRollAtStake: canForce && attackLanded,
+    })) return false;
 
     const spend = await offerLuckPointRouted(defender, {
       result: ctx.defenceResult,
@@ -1756,8 +1725,45 @@ export class CombatEngine {
     ctx.attackForcedReroll = true;
   }
 
-  static async _offerDesperateEffort(defender) {
+  /**
+   * Desperate Effort (Imperative p.34 / Core p.81), v1.4.323.
+   *
+   *   "If a character has exhausted their Action Points during a fight and
+   *    needs to find that last burst of desperate energy to perhaps avoid a
+   *    messy demise, they may spend a Luck Point to gain an additional Action
+   *    Point."
+   *
+   * Offered at the zero-AP defence gate, which is the moment the rule is
+   * written for: without it the defender concedes an automatic Failure and
+   * eats the attacker's Special Effects. Nothing has been resolved at that
+   * point, so accepting simply lets the normal defence flow proceed — there is
+   * no committed consequence to unwind, which is why this belongs in Stage 1.
+   *
+   * **Only ever called at `value <= 0`, and that matters.**
+   * `CharacterData#prepareDerivedData` clamps `actionPoints.value` down to
+   * `max` every cycle, so granting a point to someone who is not exhausted
+   * would be silently reverted on the next derivation. From 0 the grant is
+   * always `1`, and `max` is floored at 1, so it can never be clamped away.
+   * Do not reuse this helper anywhere the pool might be non-zero without
+   * revisiting that.
+   *
+   * Creatures and NPCs have no `luckPoints` field at all (it lives only on
+   * `CharacterData`), so `canSpendLuck` refuses them without a guard — which
+   * matches the rule's framing of Luck as what separates heroes from the rank
+   * and file.
+   *
+   * It is the defender's one point for the exchange (see `_offerDefenceLuck`),
+   * so a spend marks `ctx.defenderLuckSpent` and nothing else is offered to
+   * them afterwards — neither Cheat Fate on the defence it paid for, nor
+   * Mitigate Damage. Declining leaves the point available.
+   *
+   * @param {Actor} defender
+   * @param {object} [ctx]  the attack context, to record the spend on
+   * @returns {Promise<boolean>} true if a point was spent and an AP granted
+   */
+  static async _offerDesperateEffort(defender, ctx) {
     if (!canSpendLuck(defender)) return false;
+    if (ctx?.defenderLuckSpent) return false;
 
     const ap = defender.system.attributes?.actionPoints;
     const spent = await spendLuckPointRouted(defender, {
@@ -1770,6 +1776,7 @@ export class CombatEngine {
       confirmLabel: game.i18n.localize('MYTHRAS.LuckDesperateEffort'),
     });
     if (!spent) return false;
+    if (ctx) ctx.defenderLuckSpent = true;
 
     await defender.update({
       'system.attributes.actionPoints.value': (ap?.value ?? 0) + 1,
@@ -1795,6 +1802,15 @@ export class CombatEngine {
     return true;
   }
 
+  /**
+   * Roll the attacker's d100 and determine outcome — RAW ordering (rules
+   * p.40): the attacker rolls and notes the result BEFORE the defender's
+   * reaction is requested, on every path. Called once per attack, before
+   * the defence decision is requested (challenge()/inlineDefenceData/GM
+   * Full Auto dialog). Idempotent — a no-op if already rolled, so it's safe
+   * to call unconditionally even on the GM-inline path, where AttackerDialog
+   * itself already rolled between its two phases.
+   */
   static async _rollAttack(ctx) {
     if (ctx.attackResult != null) return;
 
@@ -1947,10 +1963,8 @@ export class CombatEngine {
     // offered here, unlike the damage roll: this is a real d100, which is what
     // the book's own "a 75 would become a 57" describes.
     //
-    // Like every other Luck affordance in the system, the dialog renders on the
-    // client running the engine rather than routing to the defender's own
-    // client. That matches the Mitigate Damage offer and the attack-roll offer;
-    // a socket round-trip for all three is one change, not three.
+    // The dialog goes to the defender's own player (v1.4.332), and only if
+    // their "Luck Point prompts" setting wants this roll (v1.4.334).
     await CombatEngine._offerDefenceLuck(ctx);
 
     // ── Step 10: Differential table ──────────────────────────────────────────
@@ -2166,6 +2180,10 @@ export class CombatEngine {
           // learns the first was taken; the damage handler sets it too, so the
           // rule holds whichever roll the point was spent on.
           attackerLuckSpent:  ctx.attackerLuckSpent ?? false,
+          // The defender's one point for the exchange (v1.4.334): Mitigate
+          // Damage is offered from the damage card, long after ctx is gone,
+          // and reads this to know whether that point is already spent.
+          defenderLuckSpent:  ctx.defenderLuckSpent ?? false,
         }
       }
     });

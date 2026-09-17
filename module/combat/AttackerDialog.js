@@ -1156,7 +1156,7 @@ async function _showGmDefencePhase(ctx, defender, defParryWeaponsAll, defStylesB
             despBtn.disabled = true;
 
             const { CombatEngine } = await import('./CombatEngine.js');
-            const rallied = await CombatEngine._offerDesperateEffort(defender);
+            const rallied = await CombatEngine._offerDesperateEffort(defender, ctx);
             if (!rallied) { despBtn.disabled = false; return; }
 
             // The point bought a defence — make the options real again.

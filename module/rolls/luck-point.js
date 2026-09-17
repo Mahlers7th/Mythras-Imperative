@@ -34,8 +34,10 @@
  *   - the attack roll, offered inside the defence dialog: RAW ordering
  *     (p.40) puts that dialog after the roll and before ANY resolution, and
  *     the dialog is already a pause, so the offer costs nothing when ignored
- *   - a damage or spell roll, IF the site is first split into
- *     roll -> offer -> apply (not done; see CHANGELOG v1.4.319)
+ *   - the damage roll, at the `computeDamage` seam (v1.4.328), and the
+ *     defence roll, between its roll and the outcome card (v1.4.331)
+ *   - a spell or Special Effect resistance roll, IF the site is first split
+ *     into roll -> offer -> apply (not done)
  *
  * ONE POINT PER ACTION
  * --------------------
@@ -97,6 +99,117 @@ export function canSpendLuck(actor) {
 export function luckButtonHtml({ id = '', extra = '' } = {}) {
   return `<button type="button" class="${LUCK_BUTTON_CLASS} ${extra}"${id ? ` id="${id}"` : ''}>` +
          `<i class="fas fa-clover"></i> ${game.i18n.localize('MYTHRAS.SpendLuckPoint')}</button>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WHEN TO ASK — the per-player "Luck Point prompts" setting (v1.4.334)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// Once offers reached the right player (v1.4.332/333), a character with Luck
+// Points was stopped by a modal after their attack, defence and damage rolls
+// on every exchange, whatever they rolled. Chris's ruling (2026-09-17): each
+// player chooses between being asked on every roll, or only after a setback —
+// a failed or fumbled d100, or a damage roll below the formula's average.
+//
+// This governs only the engine's MODAL offers. A Luck button the player clicks
+// of their own accord — a skill roll's chat card, the hit-location card, the
+// GM Mode panel, Mitigate Damage — is not an interruption and stays available.
+// Desperate Effort also stays unconditional: it is only ever offered at 0
+// Action Points, which is a setback by definition.
+
+export const LUCK_PROMPT_SETTING = 'luckPromptMode';
+export const LUCK_PROMPT_ALWAYS   = 'always';
+export const LUCK_PROMPT_SETBACKS = 'setbacks';
+
+/**
+ * The range of a plain dice-sum formula such as `1d8+1d4` or `2d6-1d2+1`.
+ * Pure: takes already-parsed terms, so it can be tested without Foundry.
+ *
+ * The mean is the midpoint of min and max, which is exact for any sum or
+ * difference of fair dice and constants — each die's mean is the midpoint of
+ * its own faces, and means add. A negative die swaps its own ends, which is
+ * why subtraction adds `-hi` to the minimum rather than `-lo`.
+ *
+ * Anything else — multiplication, keep/drop modifiers, nested rolls — returns
+ * null rather than a wrong answer; callers treat null as "cannot tell".
+ *
+ * @param {Array<{kind:'die', number:number, faces:number}
+ *              |{kind:'num', number:number}
+ *              |{kind:'op', operator:string}>} terms
+ * @returns {{min:number, max:number, mean:number}|null}
+ */
+export function diceRange(terms) {
+  let min = 0;
+  let max = 0;
+  let sign = 1;
+  let operands = 0;
+  for (const t of terms ?? []) {
+    if (t?.kind === 'op') {
+      if (t.operator === '-') sign = -sign;
+      else if (t.operator !== '+') return null;
+      continue;
+    }
+    let lo;
+    let hi;
+    if (t?.kind === 'die') {
+      if (!Number.isInteger(t.number) || t.number < 0) return null;
+      if (!Number.isInteger(t.faces)  || t.faces  < 1) return null;
+      lo = t.number;
+      hi = t.number * t.faces;
+    } else if (t?.kind === 'num') {
+      if (!Number.isFinite(t.number)) return null;
+      lo = hi = t.number;
+    } else {
+      return null;
+    }
+    if (sign > 0) { min += lo; max += hi; }
+    else          { min -= hi; max -= lo; }
+    sign = 1;
+    operands += 1;
+  }
+  if (!operands) return null;
+  return { min, max, mean: (min + max) / 2 };
+}
+
+/**
+ * Whether the engine should stop and offer a Luck Point on this roll.
+ *
+ * Two cases are skipped in EVERY mode, because no choice is lost: a critical
+ * cannot be improved by re-rolling or swapping it, and a damage roll already
+ * at its maximum cannot be beaten. The critical case still asks when the same
+ * point could instead be aimed at someone else's roll (`otherRollAtStake`) —
+ * the defender forcing an attacker's successful attack to be re-rolled.
+ *
+ * Graded d100 rolls pass `outcome`; damage rolls pass `total` and `range`.
+ * A roll this cannot judge is offered — suppressing a legal choice on a guess
+ * is worse than one prompt too many.
+ *
+ * @param {object} p
+ * @param {string} [p.mode]  LUCK_PROMPT_ALWAYS or LUCK_PROMPT_SETBACKS
+ * @param {'critical'|'success'|'failure'|'fumble'|null} [p.outcome]
+ * @param {number|null} [p.total]  an ungraded roll's total
+ * @param {{max:number, mean:number}|null} [p.range]  from `diceRange`
+ * @param {boolean} [p.otherRollAtStake]
+ * @returns {boolean}
+ */
+export function shouldOfferLuck({
+  mode = LUCK_PROMPT_ALWAYS, outcome = null, total = null, range = null, otherRollAtStake = false,
+} = {}) {
+  const setbacksOnly = mode === LUCK_PROMPT_SETBACKS;
+
+  if (outcome) {
+    if (outcome === 'critical' && !otherRollAtStake) return false;
+    if (!setbacksOnly) return true;
+    return outcome === 'failure' || outcome === 'fumble';
+  }
+
+  if (total != null && range) {
+    if (total >= range.max) return false;
+    if (!setbacksOnly) return true;
+    return total < range.mean;
+  }
+
+  return true;
 }
 
 /**
@@ -323,6 +436,72 @@ export async function luckDecisionUserId(actor) {
   const userId = _findDefenderUserId(actor);
   // Same client means no round trip — call the local path directly.
   return (userId && userId !== game.user.id) ? userId : null;
+}
+
+/**
+ * A user's "Luck Point prompts" choice.
+ *
+ * The setting is user-scoped, and the server sends every user's Setting
+ * documents to every client, so the GM's client — which runs the exchange —
+ * can read a player's choice directly and skip an unwanted offer before it is
+ * ever sent. Deciding on this side rather than the player's also spares the GM
+ * a "waiting for …" notice for an offer that was never going to appear.
+ * `game.settings.get` only reads the CURRENT user's value, hence the storage
+ * lookup for anyone else.
+ *
+ * @param {string|null} userId  null means the current user
+ * @returns {string} LUCK_PROMPT_ALWAYS or LUCK_PROMPT_SETBACKS
+ */
+export function luckPromptModeFor(userId) {
+  const id = `mythras-imperative.${LUCK_PROMPT_SETTING}`;
+  try {
+    if (!userId || userId === game.user.id) {
+      return game.settings.get('mythras-imperative', LUCK_PROMPT_SETTING) ?? LUCK_PROMPT_ALWAYS;
+    }
+    const doc = game.settings.storage.get('world')?.getSetting(id, userId);
+    return doc?.value ?? game.settings.settings.get(id)?.default ?? LUCK_PROMPT_ALWAYS;
+  } catch (err) {
+    console.warn('Mythras | could not read a Luck Point prompt setting', err);
+    return LUCK_PROMPT_ALWAYS;
+  }
+}
+
+/**
+ * `diceRange` for a Foundry formula string. Null when the formula is not a
+ * plain sum of standard dice and numbers (a `Coin` or `FateDie` is not a
+ * `Die`, and any modifier such as `kh` changes the distribution).
+ *
+ * @param {string} formula
+ * @returns {{min:number, max:number, mean:number}|null}
+ */
+export function formulaRange(formula) {
+  try {
+    const { Die, NumericTerm, OperatorTerm } = foundry.dice.terms;
+    const terms = new Roll(formula).terms.map(t => {
+      if (t instanceof Die && !t.modifiers?.length) return { kind: 'die', number: t.number, faces: t.faces };
+      if (t instanceof NumericTerm)  return { kind: 'num', number: t.number };
+      if (t instanceof OperatorTerm) return { kind: 'op', operator: t.operator };
+      return { kind: 'unsupported' };
+    });
+    return diceRange(terms);
+  } catch (err) {
+    console.warn(`Mythras | could not read the range of "${formula}"`, err);
+    return null;
+  }
+}
+
+/**
+ * Whether the player who decides this actor's Luck wants to be asked about
+ * this roll. The caller passes what it knows about the roll, as for
+ * `shouldOfferLuck`; this adds whose setting applies.
+ *
+ * @param {Actor}  actor
+ * @param {object} roll  `shouldOfferLuck`'s arguments, minus `mode`
+ * @returns {Promise<boolean>}
+ */
+export async function wantsLuckPrompt(actor, roll = {}) {
+  const deciderId = await luckDecisionUserId(actor);
+  return shouldOfferLuck({ ...roll, mode: luckPromptModeFor(deciderId) });
 }
 
 /**

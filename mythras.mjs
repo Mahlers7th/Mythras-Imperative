@@ -42,7 +42,10 @@ import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel,
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
 import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
-import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted } from './module/rolls/luck-point.js';
+import {
+  canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckPrompt, formulaRange,
+  LUCK_PROMPT_SETTING, LUCK_PROMPT_ALWAYS, LUCK_PROMPT_SETBACKS,
+} from './module/rolls/luck-point.js';
 import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
 import { computeDamage }              from './module/combat/damage-pipeline.js';
 
@@ -385,6 +388,23 @@ Hooks.once('setup', () => {
     icon:       'fas fa-clover',
     type:       LuckReplenishMenu,
     restricted: true,
+  });
+
+  // When the combat engine stops to offer a player a Luck Point (v1.4.334).
+  // User-scoped, so each player sets their own and it follows them between
+  // devices; the GM's client reads it before routing an offer, which is why
+  // this is not client-scoped. See luck-point.js, "WHEN TO ASK".
+  game.settings.register('mythras-imperative', LUCK_PROMPT_SETTING, {
+    name:    game.i18n.localize('MYTHRAS.LuckPromptSetting'),
+    hint:    game.i18n.localize('MYTHRAS.LuckPromptSettingHint'),
+    scope:   'user',
+    config:  true,
+    type:    String,
+    choices: {
+      [LUCK_PROMPT_ALWAYS]:   game.i18n.localize('MYTHRAS.LuckPromptAlways'),
+      [LUCK_PROMPT_SETBACKS]: game.i18n.localize('MYTHRAS.LuckPromptSetbacks'),
+    },
+    default: LUCK_PROMPT_ALWAYS,
   });
 
   // Vehicle stat-block templates — a saved snapshot of a vehicle's system
@@ -2462,6 +2482,16 @@ async function _onLuckMitigateDamage(ev, message) {
     return;
   }
 
+  // The defender's one point for the exchange may have gone since the card was
+  // built. `messageId` is the outcome card; a card posted before v1.4.334 has
+  // none, and is judged as before.
+  const outcomeId  = btn.dataset.messageId;
+  const outcomeMsg = outcomeId ? game.messages.get(outcomeId) : null;
+  if (outcomeMsg?.getFlag('mythras-imperative', 'defenderLuckSpent')) {
+    ui.notifications.warn(game.i18n.localize('MYTHRAS.LuckAlreadySpent'));
+    return;
+  }
+
   const label = btn.dataset.locationLabel || locItem.name;
   const spent = await spendLuckPointRouted(defender, {
     title:  game.i18n.localize('MYTHRAS.LuckMitigateDamage'),
@@ -2473,6 +2503,7 @@ async function _onLuckMitigateDamage(ev, message) {
              <strong>Serious Wound</strong> instead.</p>`,
   });
   if (!spent) { btn.disabled = false; return; }
+  if (outcomeMsg) await outcomeMsg.setFlag('mythras-imperative', 'defenderLuckSpent', true);
 
   const updated = message.content
     .replace(/data-damage="\d+"/, `data-damage="${reduced}"`)
@@ -2730,7 +2761,10 @@ async function _onSemiAutoRollDamage(ev, message) {
   // result is worse than not showing the option.
   const fullyBlocked = parryReduction?.multiplier === 0 || wardReduction?.multiplier === 0;
 
-  if (!attackerSpentAlready && !fullyBlocked && canSpendLuck(attacker)) {
+  // The player's "Luck Point prompts" setting decides whether a roll this low
+  // is worth stopping for; a roll already at the formula's maximum never is.
+  if (!attackerSpentAlready && !fullyBlocked && canSpendLuck(attacker)
+      && await wantsLuckPrompt(attacker, { total: computed.rawDamage, range: formulaRange(dmgFormula) })) {
     const spend = await offerLuckPointRouted(attacker, {
       result:    computed.rawDamage,
       label:     `${game.i18n.localize('MYTHRAS.LuckDamageRoll')} (${dmgFormula})`,
@@ -2884,9 +2918,13 @@ async function _onSemiAutoRollDamage(ev, message) {
   const mitigateCur = mitigateLoc?.system?.current ?? 0;
   const wouldBeMajor = !!mitigateLoc
     && woundLevel(finalDamage, mitigateMax, mitigateCur - finalDamage) === 'major';
-  const mitigateRow = (wouldBeMajor && canSpendLuck(defender))
+  // One point per exchange for the defender (Chris, 2026-09-17): a point
+  // already spent on Cheat Fate or Desperate Effort means no Mitigate.
+  const defenderSpentAlready = outcomeFlags0.defenderLuckSpent === true;
+  const mitigateRow = (wouldBeMajor && !defenderSpentAlready && canSpendLuck(defender))
     ? `<div class="mi-luck-row">
          <button type="button" class="mi-luck-offer mi-luck-mitigate"
+           data-message-id="${messageId ?? ''}"
            data-defender-id="${defenderId}"
            data-location-id="${locationId ?? ''}"
            data-location-label="${locationLabel}">
