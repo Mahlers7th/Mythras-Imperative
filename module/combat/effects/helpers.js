@@ -9,7 +9,7 @@
  * in module/utils/combat-math.js and IS testable without Foundry.
  */
 
-import { resolveOpposedRoll } from '../../utils/combat-math.js';
+import { resolveOpposedRoll, quadrupedTripTotal } from '../../utils/combat-math.js';
 import { applyOverHundredPenalty } from '../../utils/roll-math.js';
 import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
 import { getConditionGrade, applyGradeToSkill } from '../../utils/condition-grade.js';
@@ -338,6 +338,46 @@ export async function runWoundEnduranceDialog({
 }
 
 // -------------------------------------------------------------------------
+/**
+ * The skills a character may roll to resist a Trip Opponent attempt
+ * (Imperative p.46: *"an Opposed Roll of his Brawn, Evade, or Acrobatics"*),
+ * with the quadruped substitution applied.
+ *
+ * One definition, because there are two ways to be tripped: winning the Trip
+ * Opponent effect, and Entangle's *"automatic Trip Opponent attempt"* on the
+ * wielder's following turn. The entangle path used to offer Brawn alone, which
+ * silently denied a nimble victim their Evade or Acrobatics (fixed v1.4.339).
+ *
+ * @param {Actor} actor  the resisting character
+ * @returns {{name:string, total:number, rawTotal:number}[]} never empty
+ */
+export function tripResistSkillOptions(actor) {
+  const isQuadruped = Array.from(actor.items).some(
+    i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'quadruped'
+  );
+  const find = (name) => Array.from(actor.items).find(i => i.type === 'skill' && i.name === name);
+  const brawnSkill        = find('Brawn');
+  const movementSkillName = isQuadruped ? 'Athletics' : 'Evade';
+  const movementSkill     = find(movementSkillName);
+  const acroSkill         = find('Acrobatics');
+
+  const _adj = raw => applyFatigueToSkill(raw, actor);
+  let movementTotal = movementSkill ? _adj(movementSkill.system.total ?? 0) : 0;
+  if (isQuadruped && movementSkill) {
+    movementTotal = quadrupedTripTotal(
+      movementTotal, CONFIG.MYTHRAS?.difficultyGrades?.easy?.multiplier ?? 1.5,
+    );
+  }
+
+  const options = [
+    brawnSkill    && { name: 'Brawn', rawTotal: brawnSkill.system.total ?? 0, total: _adj(brawnSkill.system.total ?? 0) },
+    movementSkill && { name: movementSkillName, rawTotal: movementSkill.system.total ?? 0, total: movementTotal },
+    acroSkill     && { name: 'Acrobatics', rawTotal: acroSkill.system.total ?? 0, total: _adj(acroSkill.system.total ?? 0) },
+  ].filter(Boolean);
+
+  return options.length ? options : [{ name: 'Brawn', rawTotal: 0, total: 0 }];
+}
+
 export async function runSEDialog(data) {
   const T = 'systems/mythras-imperative/templates/dialogs';
   const { seType, attackerName, defenderName, attackRoll,

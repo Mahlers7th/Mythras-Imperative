@@ -149,6 +149,15 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
   let defenderRoll = null;
   let freeSucceeds = false;
 
+  // The gripper ROLLS their preferred skill — p.44 calls for an Opposed Roll,
+  // and until v1.4.339 their skill total was passed where a roll belongs, so
+  // they could never fail (and, at 96+, could never succeed). Rolled here,
+  // before the victim's dialog, so the dialog shows the real number to beat.
+  const gripperActor = game.actors.get(gripperActorId) ?? null;
+  const gripperRollObj = new Roll('1d100');
+  await gripperRollObj.evaluate();
+  let gripperRoll = gripperRollObj.total;
+
   if (isSemi && !isGMMode) {
     const { CombatSocket, _findDefenderUserId } = await import('../CombatSocket.js');
     const targetUserId = _findDefenderUserId(grippedActor);
@@ -157,7 +166,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
       seType:             'gripBreakFree',
       attackerName:       gripperName,
       defenderName:       grippedActor.name,
-      attackRoll:         gripperSkillTotal,
+      attackRoll:         gripperRoll,
       attackerSkillTotal: gripperSkillTotal,
       lastCardId:         null,
       defenderSkill:      chosenSkill.name,
@@ -179,7 +188,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
       seType:             'gripBreakFree',
       attackerName:       gripperName,
       defenderName:       grippedActor.name,
-      attackRoll:         gripperSkillTotal,
+      attackRoll:         gripperRoll,
       attackerSkillTotal: gripperSkillTotal,
       lastCardId:         null,
       defenderSkill:      chosenSkill.name,
@@ -201,7 +210,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
     await roll.evaluate();
     defenderRoll = roll.total;
     freeSucceeds = resolveOpposedRoll(
-      gripperSkillTotal, gripperSkillTotal,
+      gripperRoll, gripperSkillTotal,
       defenderRoll, chosenSkill.total
     );
   }
@@ -218,6 +227,27 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
     label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Break Free (Grip)`,
     ownAction:     true,
   }));
+
+  // The gripper may cheat their own roll too, now that they make one. Only
+  // when the victim actually rolled: against an unopposed hold there is
+  // nothing for the gripper to improve.
+  if (gripperActor && defenderRoll != null) {
+    const held = await offerResistLuck({
+      actor:         gripperActor,
+      roll:          gripperRoll,
+      succeeds:      !freeSucceeds,
+      opposingRoll:  defenderRoll,
+      opposingTotal: chosenSkill.total,
+      resistTotal:   gripperSkillTotal,
+      // Judged in the canonical orientation — gripper first — so ties break
+      // the same way they do in the contest above.
+      regrade:       (n) => !resolveOpposedRoll(n, gripperSkillTotal, defenderRoll, chosenSkill.total),
+      label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Hold the Grip`,
+      ownAction:     true,
+    });
+    gripperRoll  = held.roll;
+    freeSucceeds = !held.succeeds;
+  }
 
   // Resolve base actor for persistent flag writes
   const baseGripped = game.actors.get(grippedActor.id) ?? grippedActor;
@@ -246,7 +276,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
             </div>
             <div class="mi-se-roll-row">
               <span class="mi-se-roll-label">${gripperName} — ${gripperSkillName}</span>
-              <span class="mi-se-roll-val">${gripperSkillTotal}%</span>
+              <span class="mi-se-roll-val">${gripperRoll} vs ${gripperSkillTotal}%</span>
             </div>
           </div>
         </div>`,
@@ -277,7 +307,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
             </div>
             <div class="mi-se-roll-row">
               <span class="mi-se-roll-label">${gripperName} — ${gripperSkillName}</span>
-              <span class="mi-se-roll-val">${gripperSkillTotal}%</span>
+              <span class="mi-se-roll-val">${gripperRoll} vs ${gripperSkillTotal}%</span>
             </div>
           </div>
         </div>`,

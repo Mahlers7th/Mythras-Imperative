@@ -10,6 +10,25 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.339 — September 2026
+- **Chris's rulings on the two gaps v1.4.338 reported** (2026-09-18): *"for 1. use the book ruling. 2. let them pick."* Both are real combat-behaviour changes, not Luck plumbing.
+- **The gripper now rolls.** Imperative p.44: *"The opponent may attempt to break free on his turn, requiring an Opposed Roll of either Brawn or Unarmed against whichever of the two skills the gripper prefers."* The gripper's skill **total** was being passed where a roll belongs, so they could never fail — and, because `determineOutcome` grades 96+ as a failure, a gripper at 96% or better could never *succeed* either. The roll is made before the victim's dialog opens, so the dialog shows the real number to beat, and the gripper may Cheat Fate their own roll (*"Hold the Grip"*) when the victim actually rolled.
+- **The impaling wielder now rolls, and an unresisted yank is decided by that roll.** p.46: *"The wielder must pass an unopposed Brawn roll (or win an Opposed Brawn roll if the opponent resists)."* Previously only the victim rolled, against the wielder's combat-style total standing in for a roll — so the yank could only ever fail on the victim's dice, and the card printed *"Brawn roll"* for a roll nobody made. Now:
+  - the wielder rolls **Brawn** (not the attack skill, which is what the stand-in used) and may spend a point on it before the victim is asked;
+  - **victim resists** → opposed Brawn against Brawn; **victim declines** → the wielder's unopposed roll decides it;
+  - both cards print both rolls, and *"did not resist"* when there was no opposing roll.
+- **Entangle's automatic Trip lets the victim pick.** It is *"an automatic Trip Opponent attempt"*, so the victim gets Trip Opponent's own choice — *"Brawn, Evade, or Acrobatics"* — with the quadruped substitution. It rolled Brawn alone, silently denying a nimble victim their best skill: in the live test the character has Brawn 73, Evade 73 and **Acrobatics 90**. The two paths now share one definition, `tripResistSkillOptions`, so they cannot drift; Entangle's path opens the same dialog, which is why its window is now titled *"Resist Trip"*.
+- **New pure helper:** `quadrupedTripTotal` (`combat-math.js`), the one piece of arithmetic in that option list. Easy is a **multiplier** — *"add half again to the skill value"* — and the flat ±20% column is the book's optional simplification, per your correction on the over-100 case; the tests pin that, including that a result above 100 is **not** capped here because Opposed Skills Over 100% handles it at adjudication.
+- **⚠️ A missing import was caught by lint, not by `node --check`.** `determineOutcome` was used in `impale.js` without being imported — valid syntax, `ReferenceError` at runtime. `no-undef` is an **error** in this repo's ESLint config and named all three call sites; this is exactly the gap `system-CLAUDE.md` warns about when it says `node --check` is "insufficient alone".
+- 941 tests pass (17 suites), up from 937. Lint at 0 errors, 68 warnings (one fewer — the inline quadruped block that went into the shared helper).
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 13 checks, zero console errors, plus the v1.4.338 suite re-run at 17/17 to prove the rulings did not disturb the Luck wiring.
+  - **Entangle Trip:** the dialog offered **Brawn (73%) / Evade (73%) / Acrobatics (90%)**, Acrobatics was chosen, the card read *"ZZ B5 PC — Acrobatics 97 vs 90%"*, and the Luck offer was graded against 90 — the chosen skill, not a default.
+  - **Grip:** with the **player** holding and the NPC struggling, the NPC's dialog went to the GM, the card showed *both* rolls (*"NPC — Brawn 97 vs 79%"* and *"PC — Brawn 97 vs 73%"*), and the gripper was offered *"Hold the Grip"* on their own roll.
+  - **Impale yank, unresisted:** wielder rolled **97** → *"fails to yank … remains lodged"*; wielder rolled **30** → *"wrenches … free"*, 1 damage to the Chest. Both cards carried *"ZZ B5 NPC — Brawn did not resist"*.
+  - Both combatants were throwaway copies, so no real actor was touched; cleanup compared every world actor, the message count, the scene tokens and Player2's setting against the pre-test snapshot.
+- **Still to wire for Luck:** the wound Endurance roll, then the module-facing `skillCheck`.
+- Not yet committed
+
 ## v1.4.338 — September 2026
 - **Batch 4 of the resistance rolls — the own-Action ones: Entangle's automatic Trip, Entangle break-free, Grip break-free and the Impale yank.** Rules first, as before:
   - **Entangle** (Imperative p.44): *"On his following turn, the wielder may spend an Action Point to make an automatic Trip Opponent attempt. An entangled victim can attempt to free himself on his turn by either attempting an Opposed Roll using Brawn to yank free..."*

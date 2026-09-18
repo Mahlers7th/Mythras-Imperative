@@ -18,6 +18,7 @@ import {
   shiftDamageModifier,
   getImpaleGrade,
   resolveBashSizGate,
+  quadrupedTripTotal,
   DM_TABLE,
   weaponBaseMax,
   compareInitiative,
@@ -1071,5 +1072,36 @@ describe('mitigatedDamageForSerious', () => {
         }
       }
     }
+  });
+});
+
+describe('quadrupedTripTotal', () => {
+  // Imperative p.46: a quadruped resisting Trip Opponent substitutes Athletics
+  // for Evade and treats the roll as ONE DIFFICULTY GRADE EASIER. Easy is a
+  // multiplier in Mythras — "add half again to the skill value" — not the flat
+  // +20% of the book's optional simplified column (confirmed with Chris,
+  // 2026-09-17), so this is where that arithmetic is pinned.
+  test('Easy adds half again, rounded up', () => {
+    expect(quadrupedTripTotal(60, 1.5)).toBe(90);
+    expect(quadrupedTripTotal(41, 1.5)).toBe(62);   // 61.5 rounds up
+  });
+
+  test('the multiplier is a parameter, so a changed grade table is honoured', () => {
+    expect(quadrupedTripTotal(60, 2)).toBe(120);
+    expect(quadrupedTripTotal(60, 1)).toBe(60);
+  });
+
+  test('never negative, and rubbish in gives 0 rather than NaN', () => {
+    expect(quadrupedTripTotal(-5, 1.5)).toBe(0);
+    expect(quadrupedTripTotal(undefined, 1.5)).toBe(0);
+    expect(quadrupedTripTotal(60, undefined)).toBe(90);   // defaults to Easy
+    expect(quadrupedTripTotal('x', 1.5)).toBe(0);
+  });
+
+  test('a total above 100 is NOT capped here — the over-100 rule handles it', () => {
+    // 103 at Easy is 155, and Opposed Skills Over 100% then takes the excess
+    // off every participant. Capping here would pre-empt a rule that belongs
+    // at adjudication time.
+    expect(quadrupedTripTotal(103, 1.5)).toBe(155);
   });
 });

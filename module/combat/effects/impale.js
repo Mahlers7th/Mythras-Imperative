@@ -32,6 +32,7 @@ import {
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
 import { getImpaleGrade, resolveOpposedRoll } from '../../utils/combat-math.js';
+import { determineOutcome } from '../../utils/roll-math.js';
 
 const NS = 'mythras-imperative';
 
@@ -289,6 +290,31 @@ export async function resolveImpaleYank(btn) {
   const brawnRaw   = brawnSkill?.system.total ?? 0;
   const brawnTotal = applyFatigueToSkill(brawnRaw, defender);
 
+  // p.46: "The wielder must pass an unopposed Brawn roll (or win an Opposed
+  // Brawn roll if the opponent resists)." Until v1.4.339 the wielder never
+  // rolled at all — their combat style total stood in for a roll, so the yank
+  // could only ever fail by the victim's dice, and a Brawn roll was named on
+  // the card without one being made. Note it is BRAWN, not the attack skill.
+  const atkBrawnSkill = Array.from(attacker.items).find(i => i.type === 'skill' && i.name === 'Brawn');
+  const atkBrawnRaw   = atkBrawnSkill?.system.total ?? 0;
+  const atkBrawnTotal = applyFatigueToSkill(atkBrawnRaw, attacker);
+  const wielderRollObj = new Roll('1d100');
+  await wielderRollObj.evaluate();
+  let wielderRoll = wielderRollObj.total;
+
+  // The wielder's own Cheat Fate, on their own Action, before the victim is
+  // asked whether to resist — graded unopposed, which is what it is until
+  // somebody opposes it.
+  ({ roll: wielderRoll } = await offerResistLuck({
+    actor:       attacker,
+    roll:        wielderRoll,
+    succeeds:    ['critical', 'success'].includes(determineOutcome(wielderRoll, atkBrawnTotal)),
+    resistTotal: atkBrawnTotal,
+    regrade:     (n) => ['critical', 'success'].includes(determineOutcome(n, atkBrawnTotal)),
+    label:       `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Yank Free`,
+    ownAction:   true,
+  }));
+
   let defenderRoll     = null;
   let defenderSucceeds = false;
 
@@ -300,8 +326,8 @@ export async function resolveImpaleYank(btn) {
       seType:             'impaleYank',
       attackerName:       attacker.name,
       defenderName:       defender.name,
-      attackRoll:         attackerSkillTotal,
-      attackerSkillTotal,
+      attackRoll:         wielderRoll,
+      attackerSkillTotal: atkBrawnTotal,
       defenderSkill:      'Brawn',
       defenderRaw:        brawnRaw,
       defenderTotal:      brawnTotal
@@ -313,7 +339,7 @@ export async function resolveImpaleYank(btn) {
     await roll.evaluate();
     defenderRoll     = roll.total;
     defenderSucceeds = resolveOpposedRoll(
-      attackerSkillTotal, attackerSkillTotal,
+      wielderRoll, atkBrawnTotal,
       defenderRoll, brawnTotal
     );
   }
@@ -324,14 +350,18 @@ export async function resolveImpaleYank(btn) {
     actor:         defender,
     roll:          defenderRoll,
     succeeds:      defenderSucceeds,
-    opposingRoll:  attackerSkillTotal,
-    opposingTotal: attackerSkillTotal,
+    opposingRoll:  wielderRoll,
+    opposingTotal: atkBrawnTotal,
     resistTotal:   brawnTotal,
     label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Resist Yank`,
     ownAction:     true,
   }));
 
-  const yankSucceeds = !defenderSucceeds;
+  // Unopposed unless the victim rolled: "pass an unopposed Brawn roll (or win
+  // an Opposed Brawn roll if the opponent resists)".
+  const yankSucceeds = defenderRoll == null
+    ? ['critical', 'success'].includes(determineOutcome(wielderRoll, atkBrawnTotal))
+    : !defenderSucceeds;
 
   // Stamp the decision card resolved regardless of outcome
   const decisionMsg = game.messages.contents.find(
@@ -379,7 +409,8 @@ export async function resolveImpaleYank(btn) {
         <div class="mi-outcome-row"><span class="mi-outcome success"><i class="fas fa-check-circle"></i>
           ${attacker.name} wrenches ${weapon.name} free — ${yankDamage} additional damage to ${hitLocationLabel} (armour ignored${isBarbed ? ', barbed weapon: full damage' : ''}).
         </span></div>
-        <div class="mi-se-roll-row"><span class="mi-se-roll-label">Brawn roll</span><span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span></div>
+        <div class="mi-se-roll-row"><span class="mi-se-roll-label">${attacker.name} — Brawn</span><span class="mi-se-roll-val">${wielderRoll} vs ${atkBrawnTotal}%</span></div>
+        <div class="mi-se-roll-row"><span class="mi-se-roll-label">${defender.name} — Brawn</span><span class="mi-se-roll-val">${defenderRoll ?? 'did not resist'}${defenderRoll == null ? '' : ` vs ${brawnTotal}%`}</span></div>
       </div></div>`,
       speaker: ChatMessage.getSpeaker({ actor: attacker })
     });
@@ -409,7 +440,8 @@ export async function resolveImpaleYank(btn) {
         <div class="mi-outcome-row"><span class="mi-outcome mi-wound-minor"><i class="fas fa-times-circle"></i>
           ${attacker.name} fails to yank ${weapon.name} free — it remains lodged. May try again next turn.
         </span></div>
-        <div class="mi-se-roll-row"><span class="mi-se-roll-label">Brawn roll</span><span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span></div>
+        <div class="mi-se-roll-row"><span class="mi-se-roll-label">${attacker.name} — Brawn</span><span class="mi-se-roll-val">${wielderRoll} vs ${atkBrawnTotal}%</span></div>
+        <div class="mi-se-roll-row"><span class="mi-se-roll-label">${defender.name} — Brawn</span><span class="mi-se-roll-val">${defenderRoll ?? 'did not resist'}${defenderRoll == null ? '' : ` vs ${brawnTotal}%`}</span></div>
       </div></div>`,
       speaker: ChatMessage.getSpeaker({ actor: attacker })
     });

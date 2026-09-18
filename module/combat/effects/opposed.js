@@ -22,6 +22,7 @@ import {
   applyStatusToActor,
   applyProneToDefender,
   applyFatigueToSkill,
+  tripResistSkillOptions,
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
@@ -154,31 +155,9 @@ export async function resolveTripOpponent(ctx, damage, forcesFail) {
   const seWinnerRoll    = tripIsOffensive ? attackRoll            : (ctx.defenceResult ?? 0);
   const seWinnerTotal   = tripIsOffensive ? (ctx.attackerSkillTotal ?? 0) : (ctx.defenderSkillTotal ?? 0);
 
-  const isQuadruped = Array.from(resistingActor.items).some(
-    i => i.type === 'trait' && i.system.category === 'creature' && i.system.key === 'quadruped'
-  );
-
-  const brawnSkill = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-  // Quadrupeds substitute Athletics for Evade (rules p.47).
-  const movementSkillName = isQuadruped ? 'Athletics' : 'Evade';
-  const movementSkill = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === movementSkillName);
-  const acroSkill  = Array.from(resistingActor.items).find(i => i.type === 'skill' && i.name === 'Acrobatics');
-
-  const _adj = raw => applyFatigueToSkill(raw, resistingActor);
-  let movementTotal = movementSkill ? _adj(movementSkill.system.total ?? 0) : 0;
-  if (isQuadruped && movementSkill) {
-    // "...treat the roll as one Difficulty Grade easier."
-    const easyMultiplier = CONFIG.MYTHRAS?.difficultyGrades?.easy?.multiplier ?? 1.5;
-    movementTotal = Math.max(0, Math.ceil(movementTotal * easyMultiplier));
-  }
-
-  const skillOptions = [
-    brawnSkill    && { name: 'Brawn', rawTotal: brawnSkill.system.total ?? 0, total: _adj(brawnSkill.system.total ?? 0) },
-    movementSkill && { name: movementSkillName, rawTotal: movementSkill.system.total ?? 0, total: movementTotal },
-    acroSkill     && { name: 'Acrobatics', rawTotal: acroSkill.system.total  ?? 0, total: _adj(acroSkill.system.total  ?? 0) }
-  ].filter(Boolean);
-
-  if (skillOptions.length === 0) skillOptions.push({ name: 'Brawn', rawTotal: 0, total: 0 });
+  // Brawn, Evade or Acrobatics, with the quadruped substitution — one shared
+  // definition, because Entangle's automatic Trip must offer the same three.
+  const skillOptions = tripResistSkillOptions(resistingActor);
 
   let chosenSkill      = skillOptions[0];
   let defenderRoll     = null;

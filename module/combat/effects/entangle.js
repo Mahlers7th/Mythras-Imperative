@@ -21,6 +21,7 @@ import {
   runSEDialog,
   applyProneToDefender,
   spendActionPoint,
+  tripResistSkillOptions,
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
@@ -207,10 +208,12 @@ export async function resolveEntangleTripYes(btn) {
   const isSemi   = game.settings.get(NS, 'automationLevel') === 'semi';
   const isGMMode = game.settings.get(NS, 'gmMode') ?? false;
 
-  const brawnSkill = Array.from(defender.items).find(i => i.type === 'skill' && i.name === 'Brawn');
-  const brawnRaw   = brawnSkill?.system.total ?? 0;
-  const brawnTotal = applyFatigueToSkill(brawnRaw, defender);
-
+  // It is "an automatic Trip Opponent attempt" (p.44), so the victim gets Trip
+  // Opponent's own choice of Brawn, Evade or Acrobatics — this used to roll
+  // Brawn alone, which quietly denied a nimble victim their best skill
+  // (Chris, 2026-09-18: "let them pick"). Same dialog and options as Trip.
+  const skillOptions   = tripResistSkillOptions(defender);
+  let chosenSkill      = skillOptions[0];
   let defenderRoll     = null;
   let defenderSucceeds = false;
 
@@ -219,38 +222,43 @@ export async function resolveEntangleTripYes(btn) {
     const targetUserId = _findDefenderUserId(defender);
     const exchangeId   = foundry.utils.randomID(16);
     const response = await CombatSocket.seChallenge(exchangeId, {
-      seType:             'entangleTrip',
+      seType:             'trip',
       attackerName:       attacker.name,
       defenderName:       defender.name,
       attackRoll:         attackerRoll,
       attackerSkillTotal,
-      defenderSkill:      'Brawn',
-      defenderRaw:        brawnRaw,
-      defenderTotal:      brawnTotal
+      skillOptions,
+      tripIsOffensive:    true
     }, targetUserId);
-    defenderRoll     = response?.roll     ?? null;
-    defenderSucceeds = response?.succeeds ?? false;
+    if (response) {
+      chosenSkill      = { name: response.chosenSkillName, total: response.chosenSkillTotal, rawTotal: response.chosenSkillRaw ?? response.chosenSkillTotal };
+      defenderRoll     = response.roll;
+      defenderSucceeds = response.succeeds;
+    }
   } else if (isSemi && isGMMode) {
     const response = await runSEDialog({
-      seType:             'entangleTrip',
+      seType:             'trip',
       attackerName:       attacker.name,
       defenderName:       defender.name,
       attackRoll:         attackerRoll,
       attackerSkillTotal,
       lastCardId:         null,
-      defenderSkill:      'Brawn',
-      defenderRaw:        brawnRaw,
-      defenderTotal:      brawnTotal
+      skillOptions,
+      tripIsOffensive:    true
     });
-    defenderRoll     = response?.roll     ?? null;
-    defenderSucceeds = response?.succeeds ?? false;
+    if (response) {
+      chosenSkill      = { name: response.chosenSkillName, total: response.chosenSkillTotal, rawTotal: response.chosenSkillRaw ?? response.chosenSkillTotal };
+      defenderRoll     = response.roll;
+      defenderSucceeds = response.succeeds;
+    }
   } else {
+    chosenSkill = skillOptions.reduce((best, sk) => sk.total > best.total ? sk : best);
     const roll = new Roll('1d100');
     await roll.evaluate();
     defenderRoll     = roll.total;
     defenderSucceeds = resolveOpposedRoll(
       attackerRoll, attackerSkillTotal,
-      defenderRoll, brawnTotal
+      defenderRoll, chosenSkill.total
     );
   }
 
@@ -262,7 +270,7 @@ export async function resolveEntangleTripYes(btn) {
     succeeds:      defenderSucceeds,
     opposingRoll:  attackerRoll,
     opposingTotal: attackerSkillTotal,
-    resistTotal:   brawnTotal,
+    resistTotal:   chosenSkill.total,
     label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Entangle Trip`,
     ownAction:     true,
   }));
@@ -285,8 +293,8 @@ export async function resolveEntangleTripYes(btn) {
             </span>
           </div>
           <div class="mi-se-roll-row">
-            <span class="mi-se-roll-label">${defender.name} — Brawn</span>
-            <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${brawnTotal}%</span>
+            <span class="mi-se-roll-label">${defender.name} — ${chosenSkill.name}</span>
+            <span class="mi-se-roll-val">${defenderRoll ?? 'auto'} vs ${chosenSkill.total}%</span>
           </div>
         </div>
       </div>`,

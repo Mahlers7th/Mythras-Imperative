@@ -157,6 +157,28 @@ export function resolveParryReduction(atkSize, defSize, opts = {}) {
  * @param {number} newCurrent  HP after damage (may be negative)
  * @returns {'none'|'minor'|'serious'|'major'}
  */
+/**
+ * A quadruped's substituted movement skill for Trip Opponent, one Difficulty
+ * Grade easier (Imperative p.46: *"Quadruped opponents (or creatures with even
+ * more legs) may substitute their Athletics skill for Evade and treat the roll
+ * as one Difficulty Grade easier."*).
+ *
+ * Pure, and separated from the option list so the one piece of arithmetic in
+ * it is pinned by tests: Easy is a **multiplier** in Mythras ("add half again
+ * to the skill value"), not a flat bonus, and the flat ±20% column is the
+ * book's optional simplification rather than the rule.
+ *
+ * @param {number} total           the fatigue-adjusted movement skill
+ * @param {number} easyMultiplier  the Easy grade's multiplier, normally 1.5
+ * @returns {number}
+ */
+export function quadrupedTripTotal(total, easyMultiplier = 1.5) {
+  const t = Number(total);
+  const m = Number(easyMultiplier);
+  if (!Number.isFinite(t) || !Number.isFinite(m)) return 0;
+  return Math.max(0, Math.ceil(t * m));
+}
+
 export function woundLevel(damage, maxHp, newCurrent) {
   if (damage <= 0)          return 'none';
   if (newCurrent <= -maxHp) return 'major';
