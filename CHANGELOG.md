@@ -27,7 +27,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Impale yank, unresisted:** wielder rolled **97** → *"fails to yank … remains lodged"*; wielder rolled **30** → *"wrenches … free"*, 1 damage to the Chest. Both cards carried *"ZZ B5 NPC — Brawn did not resist"*.
   - Both combatants were throwaway copies, so no real actor was touched; cleanup compared every world actor, the message count, the scene tokens and Player2's setting against the pre-test snapshot.
 - **Still to wire for Luck:** the wound Endurance roll, then the module-facing `skillCheck`.
-- Not yet committed
+- Committed as `fdb0a324c549b55b89ab3f343deee13ce6bb0d7a`
 
 ## v1.4.338 — September 2026
 - **Batch 4 of the resistance rolls — the own-Action ones: Entangle's automatic Trip, Entangle break-free, Grip break-free and the Impale yank.** Rules first, as before:
