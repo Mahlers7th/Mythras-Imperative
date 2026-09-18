@@ -26,7 +26,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Both combatants were throwaway copies; every world actor, the message count, the scene tokens and Player2's setting matched the pre-test snapshot afterwards.
 - **What the whole audit now covers:** Cheat Fate on all four rolls of an exchange and on sheet skill rolls; forcing an opponent's attack re-roll; Desperate Effort; Mitigate Damage; every Special Effect resistance roll (Bleed, Stun Location and its torso follow-up, Drop Foe, Pin Down, Trip, Disarm, Blind, Entangle's Trip and break-free, Grip break-free, Impale yank — both sides); the wound Endurance roll; requested skill checks; session replenishment; one point per Action across sites, and one point per exchange per side; and a per-player prompt setting over all of it.
 - **Deliberately still not offered:** spell rolls (`spellcasting.js` deducts Magic Points and resolves the resist in one breath, so the seam does not exist yet), and forcing an opponent's **damage** re-roll (Chris, 2026-09-17: skipped as too intrusive).
-- Not yet committed
+- Committed as `38454419fbc9e851d0fcc2ac49a36b2040e1cd97`
 
 ## v1.4.339 — September 2026
 - **Chris's rulings on the two gaps v1.4.338 reported** (2026-09-18): *"for 1. use the book ruling. 2. let them pick."* Both are real combat-behaviour changes, not Luck plumbing.
