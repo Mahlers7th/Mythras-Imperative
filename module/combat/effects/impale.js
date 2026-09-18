@@ -30,6 +30,7 @@ import {
   applyFatigueToSkill,
   getItem,
 } from './helpers.js';
+import { offerResistLuck } from './resist-luck.js';
 import { getImpaleGrade, resolveOpposedRoll } from '../../utils/combat-math.js';
 
 const NS = 'mythras-imperative';
@@ -316,6 +317,19 @@ export async function resolveImpaleYank(btn) {
       defenderRoll, brawnTotal
     );
   }
+
+  // Resisting the yank answers the wielder's Ready Weapon Action on a later
+  // turn, not the exchange that caused the impale — a fresh point.
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackerSkillTotal,
+    opposingTotal: attackerSkillTotal,
+    resistTotal:   brawnTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Resist Yank`,
+    ownAction:     true,
+  }));
 
   const yankSucceeds = !defenderSucceeds;
 

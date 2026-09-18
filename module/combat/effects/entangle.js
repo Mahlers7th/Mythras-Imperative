@@ -22,6 +22,7 @@ import {
   applyProneToDefender,
   spendActionPoint,
 } from './helpers.js';
+import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
 
 const NS = 'mythras-imperative';
@@ -253,6 +254,19 @@ export async function resolveEntangleTripYes(btn) {
     );
   }
 
+  // Cheat Fate — the wielder's Action, not the original exchange, so there is
+  // no outcome card to charge against and the victim's point is a fresh one.
+  ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+    actor:         defender,
+    roll:          defenderRoll,
+    succeeds:      defenderSucceeds,
+    opposingRoll:  attackerRoll,
+    opposingTotal: attackerSkillTotal,
+    resistTotal:   brawnTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Entangle Trip`,
+    ownAction:     true,
+  }));
+
   const tripApplied = !defenderSucceeds;
   if (tripApplied) await applyProneToDefender(defender);
 
@@ -342,6 +356,19 @@ export async function resolveEntangleBreakFree(entangledActor, entry, entangleId
       defenderRoll, brawnTotal
     );
   }
+
+  // Breaking free is the victim's OWN Action on their turn (p.44), so it
+  // takes a fresh point rather than the exchange's.
+  ({ roll: defenderRoll, succeeds: freeSucceeds } = await offerResistLuck({
+    actor:         entangledActor,
+    roll:          defenderRoll,
+    succeeds:      freeSucceeds,
+    opposingRoll:  attackerRoll,
+    opposingTotal: attackerSkillTotal,
+    resistTotal:   brawnTotal,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Break Free (Entangle)`,
+    ownAction:     true,
+  }));
 
   // Resolve base actor for persistent flag writes
   const baseEntangled = game.actors.get(entangledActor.id) ?? entangledActor;

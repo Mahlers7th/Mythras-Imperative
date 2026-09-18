@@ -10,6 +10,30 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.338 — September 2026
+- **Batch 4 of the resistance rolls — the own-Action ones: Entangle's automatic Trip, Entangle break-free, Grip break-free and the Impale yank.** Rules first, as before:
+  - **Entangle** (Imperative p.44): *"On his following turn, the wielder may spend an Action Point to make an automatic Trip Opponent attempt. An entangled victim can attempt to free himself on his turn by either attempting an Opposed Roll using Brawn to yank free..."*
+  - **Grip** (p.44): *"The opponent may attempt to break free on his turn, requiring an Opposed Roll of either Brawn or Unarmed against whichever of the two skills the gripper prefers."*
+  - **Impale** (p.46): *"To withdraw an impaled weapon during melee requires use of the Ready Weapon Combat Action. The wielder must pass an unopposed Brawn roll (or win an Opposed Brawn roll if the opponent resists)."*
+- **These take a FRESH point, not the exchange's.** They answer an Action taken on a later turn, so `ownAction: true` — the outcome card's `attackerLuckSpent`/`defenderLuckSpent` are neither read nor written. Live-tested explicitly: with **both** flags staged as spent, a Grip break-free is still offered.
+- **⚠️ BUG FIXED — a gripped character with two skills to choose from could never break free.** Grip's skill picker rolls the moment a skill is chosen, and its button callback is `async`. Dialog callbacks are not awaited, and this dialog's `close` handler had **no `resolved` guard**, so the close fired while `roll.evaluate()` was still pending and won the race — resolving *"no roll, stay gripped"* every time. The card read *"Brawn **auto** vs 73%"* and the victim stayed gripped whatever they picked. Only the multi-skill path was affected (one skill → a different branch, correctly guarded), which is why it survived: it needs a character with **both** Brawn and Unarmed.
+  - Found while wiring Cheat Fate onto that roll — the offer could not appear because there was never a roll to change. The fix is the pattern the rest of the file already uses, and the same trap `system-CLAUDE.md` documents.
+  - The other four unguarded `close` handlers in `helpers.js` were checked and are safe: their callbacks resolve **synchronously**, so the first resolve wins and the close is a no-op.
+- 937 tests pass (17 suites), unchanged — this batch is four wiring lines and a dialog race, both Foundry-coupled and covered live. Lint unchanged at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 17 checks, zero console errors.
+  - **Entangle Trip:** offer on the victim, 97 re-rolled to 5, *"maintains balance"*, and the card printed the 5 it was graded on.
+  - **Entangle break-free:** offered, charged, and the re-roll *"yanks free of Net"*.
+  - **Grip break-free:** offered and declined with nothing charged — and after the fix the card shows a real roll (*"Brawn 97 vs 73%"*), with a later case breaking free on a 5.
+  - **Impale yank:** the victim resisting the yank was offered and charged.
+  - **The prompt setting still applies:** under *setbacks*, a break-free critical that won its contest was not offered.
+  - Cleanup by captured ID; every world actor, the message count, the scene tokens and Player2's setting document matched the pre-test snapshot.
+- **⚠️ THE FIRST RUN OF THIS TEST WROTE TO A REAL ACTOR, and the cause is worth knowing.** `resolveEntangleTripYes` resolves its actors with `game.actors.get(id)`, and for an **unlinked token** that returns the **base** actor — so the test's staged call spent an Action Point on the real Gareth (1 → 0). Caught by the test's own snapshot comparison (`actorsChanged: ["Gareth"]`), restored to **1** and read back. The `.ldb` blocks are compressed so the history only yielded the post-change version; the value is certain nonetheless, because `spendActionPoint` decrements by exactly one and the snapshot proved a change occurred. AP is reset at every round boundary in combat, so a base creature's stored value is a starting point only. The test now builds a **throwaway copy** of the NPC and never touches a real actor.
+- **Rules gaps found while reading, NOT changed here — they need a ruling before code:**
+  1. **The gripper and the impaling wielder never roll.** Both sites pass the opponent's *skill total* where a roll should be (`resolveOpposedRoll(total, total, …)`), so the victim is opposed by a deterministic stand-in. The book calls for an Opposed Roll in Grip, and for the **wielder's own Brawn roll** in Impale (unopposed, or opposed if the victim resists) — the wielder's roll does not exist in the code at all. A side effect: a stand-in of 96+ grades as a *failure*, so a very highly skilled gripper would auto-lose.
+  2. **Entangle's automatic Trip only offers Brawn.** It is *"an automatic Trip Opponent attempt"*, and Trip Opponent lets the victim choose *"Brawn, Evade, or Acrobatics"* (with the quadruped substitution). The dedicated Trip resolver already offers that choice; the entangle path does not.
+- **Still to wire:** the wound Endurance roll, and last the module-facing `skillCheck` that Destined's `requestSkillCheck` drives.
+- Not yet committed
+
 ## v1.4.337 — September 2026
 - **Batch 3 of the resistance rolls: Trip Opponent, Disarm Opponent and Blind Opponent** — the three where the resisting combatant is not always the defender. Rules read against the code first (Imperative pp.43, 46), as Chris asked:
   - **Trip** — *"The opponent must make an Opposed Roll of his Brawn, Evade, or Acrobatics against the character's original roll. If the target Fails, they fall prone."* Offensive **or** defensive, so the resisting side is whoever did not win the effect. The offer is graded against the skill the player actually **chose in the dialog**, including the quadruped grade shift, not the resolver's first guess.

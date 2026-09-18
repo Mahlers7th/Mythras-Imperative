@@ -15,6 +15,7 @@ import {
   applyFatigueToSkill,
   runSEDialog,
 } from './helpers.js';
+import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
 
 const NS = 'mythras-imperative';
@@ -204,6 +205,19 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
       defenderRoll, chosenSkill.total
     );
   }
+
+  // The victim's own Action on their turn (p.44), against whichever skill the
+  // gripper prefers — a fresh point, and graded against the skill they chose.
+  ({ roll: defenderRoll, succeeds: freeSucceeds } = await offerResistLuck({
+    actor:         grippedActor,
+    roll:          defenderRoll,
+    succeeds:      freeSucceeds,
+    opposingRoll:  gripperSkillTotal,
+    opposingTotal: gripperSkillTotal,
+    resistTotal:   chosenSkill.total,
+    label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Break Free (Grip)`,
+    ownAction:     true,
+  }));
 
   // Resolve base actor for persistent flag writes
   const baseGripped = game.actors.get(grippedActor.id) ?? grippedActor;

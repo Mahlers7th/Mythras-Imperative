@@ -750,11 +750,21 @@ export async function runSEDialog(data) {
       defenderName, gripperName, gripperSkillName, gripperSkillTotal
     });
     return new Promise(resolveOuter => {
+      // ⚠️ The button callback is async and Dialog callbacks are NOT awaited
+      // (system-CLAUDE.md), so without a synchronously-set flag the dialog's
+      // own `close` fires while `roll.evaluate()` is still pending and wins
+      // the race — resolving "no roll, stay gripped" every single time. A
+      // gripped character with BOTH Brawn and Unarmed could therefore never
+      // break free: the card read "Brawn auto vs 73%" whatever they picked.
+      // Found live in v1.4.338 while wiring Cheat Fate onto this roll, which
+      // could not be offered because there was never a roll to change.
+      let resolved = false;
       const btns = {};
       for (const sk of skillOptions) {
         btns[sk.name] = {
           label: `${sk.name} (${sk.total}%)`,
           callback: async () => {
+            resolved = true;
             const roll = new Roll('1d100');
             await roll.evaluate();
             const succeeds = resolveOpposedRoll(
@@ -769,7 +779,7 @@ export async function runSEDialog(data) {
         content,
         buttons: btns,
         default: skillOptions[0].name,
-        close: () => resolveOuter({ chosenSkillName: skillOptions[0].name, chosenSkillTotal: skillOptions[0].total, chosenSkillRaw: skillOptions[0].rawTotal ?? skillOptions[0].total, roll: null, succeeds: false })
+        close: () => { if (!resolved) resolveOuter({ chosenSkillName: skillOptions[0].name, chosenSkillTotal: skillOptions[0].total, chosenSkillRaw: skillOptions[0].rawTotal ?? skillOptions[0].total, roll: null, succeeds: false }); }
       }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }
