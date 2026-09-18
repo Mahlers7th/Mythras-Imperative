@@ -32,7 +32,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   1. **The gripper and the impaling wielder never roll.** Both sites pass the opponent's *skill total* where a roll should be (`resolveOpposedRoll(total, total, …)`), so the victim is opposed by a deterministic stand-in. The book calls for an Opposed Roll in Grip, and for the **wielder's own Brawn roll** in Impale (unopposed, or opposed if the victim resists) — the wielder's roll does not exist in the code at all. A side effect: a stand-in of 96+ grades as a *failure*, so a very highly skilled gripper would auto-lose.
   2. **Entangle's automatic Trip only offers Brawn.** It is *"an automatic Trip Opponent attempt"*, and Trip Opponent lets the victim choose *"Brawn, Evade, or Acrobatics"* (with the quadruped substitution). The dedicated Trip resolver already offers that choice; the entangle path does not.
 - **Still to wire:** the wound Endurance roll, and last the module-facing `skillCheck` that Destined's `requestSkillCheck` drives.
-- Not yet committed
+- Committed as `7073380294ecfce8dd5c28c4aefe23e111b22218`
 
 ## v1.4.337 — September 2026
 - **Batch 3 of the resistance rolls: Trip Opponent, Disarm Opponent and Blind Opponent** — the three where the resisting combatant is not always the defender. Rules read against the code first (Imperative pp.43, 46), as Chris asked:
