@@ -30,7 +30,7 @@ This system was built for personal use as a fully-featured implementation of Myt
 - Currency management
 
 ### Combat Engine
-A custom combat resolution engine (~10,600 lines) handling the full Mythras combat sequence:
+A custom combat resolution engine (~14,500 lines) handling the full Mythras combat sequence:
 - Full melee combat flow — attack, parry, evade, success level resolution, differential table
 - Hit location determination and damage application with AP tracking
 - All melee Special Effects (Bleed, Impale, Stun Location, Choose Location, Grip, Disarm, etc.)
@@ -38,7 +38,15 @@ A custom combat resolution engine (~10,600 lines) handling the full Mythras comb
 - Firearm rules — semi-auto, burst fire, full auto, ammunition tracking
 - Firearm Special Effects (Weapon Malfunction, Duck Back, Rapid Reload, Marksman, etc.)
 - GM Mode — GM controls both sides of combat from a single dialog
-- Combat socket — player defender dialog for multi-client sessions
+- Combat socket — at a real table each decision opens on the client it belongs to: the defence dialog, Special Effect choices and Luck Point offers all reach the owning player, while the GM's client performs the writes
+
+### Luck Points
+- Cheat Fate — re-roll or swap the digits of any roll in an exchange (attack, defence, hit location, damage), sheet skill rolls, and the Special Effect resistance rolls (Bleed, Stun Location, Drop Foe, Pin Down, Trip, Disarm, Blind, Entangle, Grip, Impale)
+- Forcing an opponent to re-roll their attack
+- Desperate Effort (+1 Action Point at zero) and Mitigate Damage (downgrade a Major Wound)
+- One point per exchange for the defender, enforced across every use
+- Start-of-session replenishment, from a GM settings-menu button
+- **Luck Point prompts** — a per-player setting choosing whether combat stops to offer a point on every roll, or only after a failure, a fumble, a below-average damage roll or a lost opposed roll
 
 ### Actor Types
 - **Character** — full PC sheet
