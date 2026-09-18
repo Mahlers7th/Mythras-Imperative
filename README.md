@@ -41,7 +41,7 @@ A custom combat resolution engine (~14,500 lines) handling the full Mythras comb
 - Combat socket — at a real table each decision opens on the client it belongs to: the defence dialog, Special Effect choices and Luck Point offers all reach the owning player, while the GM's client performs the writes
 
 ### Luck Points
-- Cheat Fate — re-roll or swap the digits of any roll in an exchange (attack, defence, hit location, damage), sheet skill rolls, and the Special Effect resistance rolls (Bleed, Stun Location, Drop Foe, Pin Down, Trip, Disarm, Blind, Entangle, Grip, Impale)
+- Cheat Fate — re-roll or swap the digits of any roll in an exchange (attack, defence, hit location, damage), sheet skill rolls, the Special Effect resistance rolls (Bleed, Stun Location, Drop Foe, Pin Down, Trip, Disarm, Blind, Entangle, Grip, Impale), and the wound Endurance roll that decides a useless limb, unconsciousness or death
 - Forcing an opponent to re-roll their attack
 - Desperate Effort (+1 Action Point at zero) and Mitigate Damage (downgrade a Major Wound)
 - One point per exchange for the defender, enforced across every use

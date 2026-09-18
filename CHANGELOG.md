@@ -10,6 +10,24 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.340 — September 2026
+- **The Luck Point audit is COMPLETE.** The last two sites are wired: the **wound Endurance roll** and the module-facing **`requestSkillCheck`**. Every roll the book lets a Luck Point touch now offers one, at a seam where nothing has been committed.
+- **The wound Endurance roll — the one that matters most.** Imperative p.31: a Serious or Major Wound forces *"an Opposed Roll of his Endurance versus the successful attack roll of his enemy"*, and failure means a useless limb, unconsciousness, or for a Major Wound to the abdomen, chest or head *"an instant and gratuitous death"*. The offer sits between the roll and the first status write in `_resolveWoundConsequences`.
+  - **It is the defender's one point for the exchange** (`side: 'defender'`, the outcome card's flag), which makes Mitigate Damage a real choice rather than a free extra: spend to downgrade the Major Wound, **or** keep the point to cheat the roll that wound causes. Outside a normal exchange there is no card, and it falls back to a fresh point.
+- **`requestSkillCheck` — the boundary one, additive and signature-unchanged.** Destined's `needsRoll` boosts call it; the consequence belongs to the **caller**, and the caller has not seen the result yet, so the same seam applies. All three routes (socket, GM-mode dialog, automated) pass through one wrapper.
+  - **The re-grade repeats the dialog's own arithmetic.** `chosenSkillTotal` is the **pre-difficulty** total, so a re-rolled result is graded after `applyDifficulty` — grading against the raw skill would silently hand the caller an easier check than it asked for. Pinned live: Endurance 74 at **Hard** is 50, and a re-roll of 60 comes back `failure`, which it would not have if the raw 74 had been used.
+  - `ownAction: true` — a requested check is its own Action and never touches an exchange's flags. Nothing is offered on a cancel, a GM override, a timeout, or an actor with no points, and the returned object keeps every field module code reads.
+- 941 tests pass (17 suites), unchanged — both sites are a single call at an existing seam, covered live. Lint at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 18 checks, no unexpected console errors — the two that appear are the system's own *"has died from the Major Wound!"* notification, from the cases staged to be fatal.
+  - **Major Wound to the chest, Endurance 97 — declined:** the character **dies**, nothing charged.
+  - **The same wound, point spent:** 97 re-rolled to 5, *"endures the wound"*, **not dead**, point charged 4 → 3, and the exchange flag set.
+  - **Point already spent that exchange:** no offer, and the roll resolves as it would have — the death stands.
+  - **`requestSkillCheck` declined:** the module receives `97 / failure / false` unchanged. **Re-rolled:** it receives `5 / critical / true`, with every field of the contract present.
+  - Both combatants were throwaway copies; every world actor, the message count, the scene tokens and Player2's setting matched the pre-test snapshot afterwards.
+- **What the whole audit now covers:** Cheat Fate on all four rolls of an exchange and on sheet skill rolls; forcing an opponent's attack re-roll; Desperate Effort; Mitigate Damage; every Special Effect resistance roll (Bleed, Stun Location and its torso follow-up, Drop Foe, Pin Down, Trip, Disarm, Blind, Entangle's Trip and break-free, Grip break-free, Impale yank — both sides); the wound Endurance roll; requested skill checks; session replenishment; one point per Action across sites, and one point per exchange per side; and a per-player prompt setting over all of it.
+- **Deliberately still not offered:** spell rolls (`spellcasting.js` deducts Magic Points and resolves the resist in one breath, so the seam does not exist yet), and forcing an opponent's **damage** re-roll (Chris, 2026-09-17: skipped as too intrusive).
+- Not yet committed
+
 ## v1.4.339 — September 2026
 - **Chris's rulings on the two gaps v1.4.338 reported** (2026-09-18): *"for 1. use the book ruling. 2. let them pick."* Both are real combat-behaviour changes, not Luck plumbing.
 - **The gripper now rolls.** Imperative p.44: *"The opponent may attempt to break free on his turn, requiring an Opposed Roll of either Brawn or Unarmed against whichever of the two skills the gripper prefers."* The gripper's skill **total** was being passed where a roll belongs, so they could never fail — and, because `determineOutcome` grades 96+ as a failure, a gripper at 96% or better could never *succeed* either. The roll is made before the victim's dialog opens, so the dialog shows the real number to beat, and the gripper may Cheat Fate their own roll (*"Hold the Grip"*) when the victim actually rolled.

@@ -33,6 +33,7 @@ import {
 } from '../utils/combat-math.js';
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
 import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckPrompt } from '../rolls/luck-point.js';
+import { offerResistLuck } from './effects/resist-luck.js';
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
@@ -5213,6 +5214,31 @@ export class CombatEngine {
         defenderRoll, enduranceTotal
       );
     }
+
+    // ── Cheat Fate on the wound Endurance roll ────────────────────────────
+    // The last seam in the Luck Point audit, and the one that matters most:
+    // a failed roll here is a useless limb, unconsciousness, or — for a Major
+    // Wound to the abdomen, chest or head — *"an instant and gratuitous
+    // death"* (Imperative p.31). Nothing has been applied at this line; every
+    // status write is below it.
+    //
+    // It belongs to the DEFENDER'S one point for this exchange: the wound came
+    // from this blow, so a defender who already spent on Cheat Fate, Desperate
+    // Effort or Mitigate Damage has made their choice — and Mitigate, which
+    // downgrades the Major Wound itself, is the direct alternative to cheating
+    // the roll it would have caused. Outside a normal exchange there is no
+    // outcome card, and the helper then treats it as a fresh point.
+    ({ roll: defenderRoll, succeeds: defenderSucceeds } = await offerResistLuck({
+      actor:         defender,
+      roll:          defenderRoll,
+      succeeds:      defenderSucceeds,
+      opposingRoll:  attackRoll,
+      opposingTotal: ctx.attackerSkillTotal ?? 0,
+      resistTotal:   enduranceTotal,
+      label:         `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — Wound Endurance`,
+      side:          'defender',
+      chatMessageId: ctx.chatMessageId ?? null,
+    }));
 
     // ── Apply consequences on failure ─────────────────────────────────────
     let effectLabel = '';

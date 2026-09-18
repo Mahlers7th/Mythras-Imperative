@@ -22,6 +22,7 @@ import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js'
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
+import { offerResistLuck } from './module/combat/effects/resist-luck.js';
 import {
   resolveEntangleBreakFree,
   resolveGripBreakFree,
@@ -1093,6 +1094,44 @@ export async function requestSkillCheck(actor, {
   const isSemi   = game.settings.get('mythras-imperative', 'automationLevel') === 'semi';
   const isGMMode = game.settings.get('mythras-imperative', 'gmMode') ?? false;
 
+  /**
+   * Cheat Fate on a requested skill check (v1.4.340) — the last site in the
+   * Luck Point audit, and the only one that crosses the module boundary.
+   *
+   * Safe for the same reason every other site is: the consequence belongs to
+   * the CALLER, and the caller has not seen this result yet. The returned
+   * shape is unchanged; only `roll`, `grade` and `succeeds` can differ from
+   * what was first rolled, which is exactly what a re-roll means.
+   *
+   * `ownAction: true` — a requested check is its own Action, not part of a
+   * combat exchange, so it never reads or writes the exchange's spent flags.
+   * Nothing to offer on a cancel, a GM override, or an actor with no points.
+   *
+   * The re-grade repeats the dialog's own arithmetic: `chosenSkillTotal` is
+   * the PRE-difficulty total, and the grade comes from it after
+   * `applyDifficulty` — grading the new roll against the raw total would
+   * quietly hand back an easier check than the one that was asked for.
+   */
+  const offerLuckOnCheck = async (response) => {
+    if (!response || response.cancelled || response.gmOverride) return response;
+    if (response.roll == null) return response;
+    const base   = response.chosenSkillTotal ?? 0;
+    const target = difficulty ? applyDifficulty(base, difficulty) : base;
+    const graded = (n) => determineOutcome(n, target);
+    const { roll: newRoll } = await offerResistLuck({
+      actor,
+      roll:        response.roll,
+      succeeds:    !!response.succeeds,
+      resistTotal: target,
+      regrade:     (n) => ['critical', 'success'].includes(graded(n)),
+      label:       `${game.i18n.localize('MYTHRAS.LuckResistRoll')} — ${title}`,
+      ownAction:   true,
+    });
+    if (newRoll === response.roll) return response;
+    const grade = graded(newRoll);
+    return { ...response, roll: newRoll, grade, succeeds: grade === 'critical' || grade === 'success' };
+  };
+
   const payload = {
     seType: 'skillCheck',
     title, prompt, difficulty, allowGMOverride,
@@ -1115,11 +1154,11 @@ export async function requestSkillCheck(actor, {
         cancelled: true, gmOverride: false, reason: 'timeout'
       };
     }
-    return response;
+    return offerLuckOnCheck(response);
   }
 
   if (isSemi && isGMMode) {
-    return runSEDialog(payload);
+    return offerLuckOnCheck(await runSEDialog(payload));
   }
 
   // manual / full -- both fully automated, no dialog, matching
@@ -1134,10 +1173,13 @@ export async function requestSkillCheck(actor, {
   // previously matched neither reading - see fumble-basis-design.md.
   const grade     = determineOutcome(roll.total, target);
   const succeeds  = grade === 'critical' || grade === 'success';
-  return {
+  // Automated modes roll with no dialog, but the offer still applies: the
+  // caller has not acted on the result yet, and a player watching their
+  // character's check fail should be able to spend on it.
+  return offerLuckOnCheck({
     chosenSkillName: best.name, chosenSkillTotal: best.total, chosenSkillRaw: best.rawTotal,
     roll: roll.total, grade, succeeds, cancelled: false, gmOverride: false
-  };
+  });
 }
 
 // ---------------------------------------------------------------------------
