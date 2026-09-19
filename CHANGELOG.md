@@ -19,8 +19,9 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **Where the books disagree, Classic Fantasy wins and Core's value goes in the description** rather than being silently dropped. Three cases: the lockbox (CF: 2 ENC, 5 SP, holds 10 ENC — Core: 1-4 ENC, 75-250 SP) and the capacities of the large and small chests.
 - **Nothing is invented.** Clothing carries ENC 0 because none of the three books gives clothing an ENC and it is worn rather than carried — the entry says so. The quality-tiered prices (cheap/reasonable/superior) are spelled out in each garment's description with the reasonable price stored.
 - **Ids are exactly 16 alphanumeric characters**, derived from the item name so regeneration is stable. Foundry builds a document with `id: null` and `uuid: null` from anything else — it looks fine in the compendium and silently does nothing when dragged, which is how four Destined entries stayed broken until v1.9.131.
-- Verified by compiling the pack and extracting it again: **105 documents in, 105 out**, every id still valid, no field lost in the round trip.
-- Not yet committed
+- Verified by compiling the pack and extracting it again: **105 documents in, 105 out**, every id still valid, no field lost in the round trip. All 13 packs rebuilt and checked against their source file counts — 367 documents, nothing lost.
+- **Live-verified in Foundry 14.367**, 9 checks, no console errors: the pack registers with 105 documents, every one carries a **non-null uuid** and resolves through `fromUuid` exactly as a sheet drop resolves it, and five items dragged onto an actor kept their ENC, price and description and rendered on the Gear tab. That last part is the check that offline work cannot do — a bad id looks perfect in the sidebar and does nothing at all on drop.
+- Committed as `0bd119743e348452fe996205f59fab109623c67c`
 
 ## v1.4.341 — September 2026
 - **Found by building a character.** Making a Destined hero from scratch, by the book, surfaced two system-level faults that only show up during creation — the one moment when every derived number moves at once.
