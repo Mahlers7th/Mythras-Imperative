@@ -10,6 +10,14 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.343 — September 2026
+- **⚠️ The Encumbrance readout on every character sheet has always shown 0.** Found immediately on being asked to test dragging the new gear onto a sheet — five items totalling 5 ENC landed, each row showed its own ENC correctly, and the header still read **"Encumbrance 0 / 10"**.
+- **The number and the bar beside it came from different places.** `CharacterSheet#_calcEncumbrance` computes the carried load correctly (equipped weapons and armour, plus gear and ammo by quantity) into `currentEnc` — but only `encPercent` and `encOver` were passed to the template. The template printed **`system.encumbrance.current`**, a *stored* field that **nothing in the codebase has ever written**; its one and only appearance anywhere was that template line. So the bar filled up accurately while the figure next to it sat at 0 forever.
+- **Fixed by passing `currentEnc` to the template and rendering it.** The dead schema field is left in place so existing actor data keeps validating, but now carries a comment saying nothing writes it and nothing should read it — a stored field that looks authoritative is exactly how this survived.
+- Live-verified: the same five-item drop now reads **"Encumbrance 5 / 10"**, matching 1+1+0+1+2 from the rows.
+- 952 tests pass (17 suites), lint at 0 errors.
+- Not yet committed
+
 ## v1.4.342 — September 2026
 - **A Gear compendium — 105 items, the equipment that is neither armour nor a weapon.** The system shipped packs for armour, melee and ranged weapons and ammo, and nothing at all for the rope, lanterns, lock picks and spell books a party actually buys. New `_source/gear/` and a `gear` pack, sitting next to `armour` in the manifest.
 - **Sourced from three books, with the precedence order this project already uses, and every entry cites its page.**

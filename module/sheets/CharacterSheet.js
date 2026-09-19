@@ -222,6 +222,12 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       hitLocations,
       wardWeapons,
       resistanceSkills,
+      // currentEnc is the LIVE total from _calcEncumbrance. It has to reach the
+      // template, because `system.encumbrance.current` is a stored field that
+      // NOTHING in this codebase ever writes — until v1.4.343 the sheet showed
+      // that stored 0 next to a bar driven by the computed value, so the bar
+      // filled up while the number beside it read "0 / 10" forever.
+      currentEnc,
       encPercent,
       encOver,
       isGM: game.user.isGM

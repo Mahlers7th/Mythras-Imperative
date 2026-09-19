@@ -158,6 +158,11 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
 
       // --- Encumbrance -----------------------------------------------------
       encumbrance: new fields.SchemaField({
+        // NOT a live value — nothing writes this, and nothing should read it.
+        // Carried load is computed per render by CharacterSheet#_calcEncumbrance
+        // (equipped weapons and armour, plus gear and ammo by quantity) and
+        // reaches the template as `currentEnc`. Kept only so existing actor
+        // data keeps validating; delete it in a migration, not in passing.
         current: new fields.NumberField({ initial: 0, min: 0 }),
         max:     new fields.NumberField({ initial: 0, min: 0 })  // computed from STR+SIZ
       }),
