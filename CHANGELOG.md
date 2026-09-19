@@ -16,7 +16,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **Fixed by passing `currentEnc` to the template and rendering it.** The dead schema field is left in place so existing actor data keeps validating, but now carries a comment saying nothing writes it and nothing should read it — a stored field that looks authoritative is exactly how this survived.
 - Live-verified: the same five-item drop now reads **"Encumbrance 5 / 10"**, matching 1+1+0+1+2 from the rows.
 - 952 tests pass (17 suites), lint at 0 errors.
-- Not yet committed
+- Committed as `49a22f5a6e586ddc522f116a18da747177cdf3c5`
 
 ## v1.4.342 — September 2026
 - **A Gear compendium — 105 items, the equipment that is neither armour nor a weapon.** The system shipped packs for armour, melee and ranged weapons and ammo, and nothing at all for the rope, lanterns, lock picks and spell books a party actually buys. New `_source/gear/` and a `gear` pack, sitting next to `armour` in the manifest.
