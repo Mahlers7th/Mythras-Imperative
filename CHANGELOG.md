@@ -19,7 +19,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - The constraint is gone, and the sheet's dropdown is now built from **`CONFIG.MYTHRAS.cultures`** — which already existed as the extension point but was contradicted by four hard-coded options in the template. An actor's stored culture is always offered even when it is absent from the registry, so an unknown value stays visible instead of snapping to whatever happens to be first.
 - **`calcActionPoints` and `poolAfterMaxChange` join `game.system.api`.** A module that replaces the Action Point rule must express itself as a delta on top of the derived value, because `apBonusHooks` is additive — and the only way to do that without a second, drifting copy of the INT+DEX ladder is to read this one. Destined v1.9.133 does exactly that for its flat-per-Power-Level rule.
 - 952 tests pass (17 suites), 11 new for `poolAfterMaxChange` — including the character-creation case and the mid-combat case it must refuse. Lint at 0 errors.
-- Not yet committed
+- Committed as `7b5f51267f5c170bde27a8ad6ca2a9fa4e5cfbe6`
 
 ## v1.4.340 — September 2026
 - **The Luck Point audit is COMPLETE.** The last two sites are wired: the **wound Endurance roll** and the module-facing **`requestSkillCheck`**. Every roll the book lets a Luck Point touch now offers one, at a seam where nothing has been committed.
