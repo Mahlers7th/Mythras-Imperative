@@ -1,0 +1,38 @@
+_id: zlR9L7Lh02lEqyq8
+name: 'Bezainted'
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 3
+  enc: 2
+  initiativePenalty: 2
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: 'Laminated armour. Suit of 7: ENC 14, 1,260 SP, Armour Penalty 3. AP and ENC are PER LOCATION; all seven are ticked by default — untick the ones this piece does not cover. <em>(Mythras Core p.59)</em>'
+  equipped: false
+  price:
+    amount: 180
+    denominationAbbr: 'SP'
+_key: '!items!zlR9L7Lh02lEqyq8'

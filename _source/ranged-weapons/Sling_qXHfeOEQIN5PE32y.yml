@@ -34,7 +34,8 @@ system:
   hp: 2
   currentHP: 2
   enc: 0.5
-  traits: []
+  traits:
+    - bludgeoning
   ammoType: shot
   description: A simple ranged weapon hurling stones or lead shot. Load 2 turns.
   equipped: false

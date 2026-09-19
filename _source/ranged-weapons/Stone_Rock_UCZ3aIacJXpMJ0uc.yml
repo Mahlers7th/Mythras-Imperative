@@ -36,6 +36,7 @@ system:
   enc: 0
   traits:
     - thrown
+    - bludgeoning
   description: An improvised thrown weapon. Damage modifier applies.
   equipped: false
   ammo: 1

@@ -1,0 +1,38 @@
+_id: Kj0DGPtC0GX6RtUP
+name: 'Mail Hauberk'
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 6
+  enc: 5
+  initiativePenalty: 5
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: 'Mail. Suit of 7: ENC 35, 6,300 SP, Armour Penalty 7. AP and ENC are PER LOCATION; all seven are ticked by default — untick the ones this piece does not cover. <em>(Mythras Core p.59)</em>'
+  equipped: false
+  price:
+    amount: 900
+    denominationAbbr: 'SP'
+_key: '!items!Kj0DGPtC0GX6RtUP'

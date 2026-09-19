@@ -1,0 +1,44 @@
+_id: UnFO6WD7Tg6DrlMn
+name: 'Garrotte'
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: '1d2'
+  size: S
+  reach: T
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 1
+  hp: 2
+  currentHP: 2
+  enc: 0
+  traits:
+    - two-handed
+  description: 'No combat effects. Stealth. <em>(Mythras Core p.64)</em>'
+  equipped: false
+  price:
+    amount: 15
+    denominationAbbr: 'SP'
+_key: '!items!UnFO6WD7Tg6DrlMn'

@@ -1,0 +1,44 @@
+_id: IWxv8WIYDVBxqVHk
+name: 'Jo Stick'
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: '1d4'
+  size: M
+  reach: M
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 3
+  hp: 4
+  currentHP: 4
+  enc: 1
+  traits:
+    - bludgeoning
+  description: 'Stun Location. Oriental. ENC and cost are per pair. <em>(Classic Fantasy p.80)</em>'
+  equipped: false
+  price:
+    amount: 10
+    denominationAbbr: 'SP'
+_key: '!items!IWxv8WIYDVBxqVHk'

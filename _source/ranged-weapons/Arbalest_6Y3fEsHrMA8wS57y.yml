@@ -1,0 +1,46 @@
+_id: 6Y3fEsHrMA8wS57y
+name: 'Arbalest'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '1d12'
+  size: M
+  force: E
+  reach: M
+  rangeClose: 90
+  rangeEffective: 180
+  rangeLong: 360
+  rangeExtreme: 0
+  load: 4
+  impaleSize: S
+  damageModApplies: false
+  ap: 4
+  hp: 10
+  currentHP: 10
+  enc: 3
+  traits:
+    - impaling
+    - sundering
+  description: 'Impale, Sunder. Damage Modifier does not apply. Range converted from 270/540/1,080 feet. <em>(Classic Fantasy p.83)</em>'
+  equipped: false
+  price:
+    amount: 500
+    denominationAbbr: 'SP'
+_key: '!items!6Y3fEsHrMA8wS57y'

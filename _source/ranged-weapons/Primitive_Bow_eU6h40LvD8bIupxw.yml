@@ -1,0 +1,45 @@
+_id: eU6h40LvD8bIupxw
+name: 'Primitive Bow'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '1d6-1'
+  size: M
+  force: L
+  reach: M
+  rangeClose: 10
+  rangeEffective: 50
+  rangeLong: 100
+  rangeExtreme: 0
+  load: 2
+  impaleSize: S
+  damageModApplies: true
+  ap: 3
+  hp: 3
+  currentHP: 3
+  enc: 1
+  traits:
+    - impaling
+  description: 'Impale. Stone. Range converted from 30/150/300 feet. <em>(Classic Fantasy p.83)</em>'
+  equipped: false
+  price:
+    amount: 50
+    denominationAbbr: 'SP'
+_key: '!items!eU6h40LvD8bIupxw'

@@ -36,6 +36,7 @@ system:
   enc: 2
   traits:
     - shield
+    - bludgeoning
   description: A round shield. 4 passive blocking locations.
   equipped: false
 _key: '!items!4cnPL87s4YxjqrVI'

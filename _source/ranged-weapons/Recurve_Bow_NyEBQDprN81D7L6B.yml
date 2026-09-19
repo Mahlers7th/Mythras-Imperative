@@ -1,0 +1,45 @@
+_id: NyEBQDprN81D7L6B
+name: 'Recurve Bow'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '1d8'
+  size: M
+  force: H
+  reach: M
+  rangeClose: 15
+  rangeEffective: 125
+  rangeLong: 250
+  rangeExtreme: 0
+  load: 2
+  impaleSize: S
+  damageModApplies: true
+  ap: 4
+  hp: 8
+  currentHP: 8
+  enc: 1
+  traits:
+    - impaling
+  description: 'Impale. Classic Fantasy p.83 lists this as the Composite/Recurve Bow. <em>(Mythras Core p.65)</em>'
+  equipped: false
+  price:
+    amount: 225
+    denominationAbbr: 'SP'
+_key: '!items!NyEBQDprN81D7L6B'

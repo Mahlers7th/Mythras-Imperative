@@ -1,0 +1,48 @@
+_id: 5qyGF93b7OHXyviA
+name: 'Bill'
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: '1d6+1'
+  size: L
+  reach: VL
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 2
+  hp: 8
+  currentHP: 8
+  enc: 2
+  traits:
+    - bleeding
+    - impaling
+    - sundering
+    - two-handed
+    - set-to-receive-charge
+  description: 'Bleed, Impale, Sunder. Set. <em>(Classic Fantasy p.82)</em>'
+  equipped: false
+  price:
+    amount: 50
+    denominationAbbr: 'SP'
+_key: '!items!5qyGF93b7OHXyviA'

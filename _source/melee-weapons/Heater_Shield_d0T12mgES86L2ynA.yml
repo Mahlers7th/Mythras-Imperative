@@ -36,6 +36,7 @@ system:
   enc: 2
   traits:
     - shield
+    - bludgeoning
   description: A medium shield. 3 passive blocking locations.
   equipped: false
 _key: '!items!d0T12mgES86L2ynA'

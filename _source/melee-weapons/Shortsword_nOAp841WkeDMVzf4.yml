@@ -34,7 +34,9 @@ system:
   hp: 8
   currentHP: 8
   enc: 1
-  traits: []
+  traits:
+    - bleeding
+    - impaling
   description: A versatile short blade, easy to draw and use in confined spaces.
   equipped: false
 _key: '!items!nOAp841WkeDMVzf4'

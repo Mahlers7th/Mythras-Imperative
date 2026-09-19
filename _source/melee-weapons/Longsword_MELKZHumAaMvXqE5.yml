@@ -36,6 +36,8 @@ system:
   enc: 2
   traits:
     - two-handed
+    - bleeding
+    - impaling
   description: A two-handed sword requiring both hands.
   equipped: false
 _key: '!items!MELKZHumAaMvXqE5'

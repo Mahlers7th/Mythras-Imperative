@@ -36,6 +36,7 @@ system:
   enc: 1
   traits:
     - entangling
+    - bludgeoning
   description: A long leather whip used to entangle and control opponents.
   equipped: false
 _key: '!items!4PSUa8Ml9JnHVxXp'

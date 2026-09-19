@@ -1,0 +1,45 @@
+_id: GPRFjGyy6FaZ8GJB
+name: 'Staff Sling'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '2d6'
+  size: M
+  force: E
+  reach: M
+  rangeClose: 5
+  rangeEffective: 25
+  rangeLong: 50
+  rangeExtreme: 0
+  load: 4
+  impaleSize: M
+  damageModApplies: false
+  ap: 3
+  hp: 6
+  currentHP: 6
+  enc: 2
+  traits:
+    - bludgeoning
+  description: 'Stun Location. Damage Modifier does not apply. <em>(Mythras Core p.65)</em>'
+  equipped: false
+  price:
+    amount: 20
+    denominationAbbr: 'SP'
+_key: '!items!GPRFjGyy6FaZ8GJB'

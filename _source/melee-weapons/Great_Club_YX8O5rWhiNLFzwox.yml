@@ -1,0 +1,45 @@
+_id: YX8O5rWhiNLFzwox
+name: 'Great Club'
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: '2d6'
+  size: H
+  reach: L
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 10
+  currentHP: 10
+  enc: 3
+  traits:
+    - bludgeoning
+    - two-handed
+  description: 'Bash, Stun Location. <em>(Mythras Core p.64)</em>'
+  equipped: false
+  price:
+    amount: 50
+    denominationAbbr: 'SP'
+_key: '!items!YX8O5rWhiNLFzwox'

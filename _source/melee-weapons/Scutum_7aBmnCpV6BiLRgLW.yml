@@ -36,6 +36,7 @@ system:
   enc: 3
   traits:
     - shield
+    - bludgeoning
   description: A large Roman-style shield. 5 passive blocking locations.
   equipped: false
 _key: '!items!7aBmnCpV6BiLRgLW'

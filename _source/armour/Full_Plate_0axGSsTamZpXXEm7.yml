@@ -1,0 +1,38 @@
+_id: 0axGSsTamZpXXEm7
+name: 'Full Plate'
+type: armour
+img: icons/svg/shield.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  ap: 8
+  enc: 7
+  initiativePenalty: 7
+  locations:
+    head: true
+    chest: true
+    abdomen: true
+    rightArm: true
+    leftArm: true
+    rightLeg: true
+    leftLeg: true
+  description: 'Heavy armour, the heaviest Classic Fantasy lists. Suit: ENC 42, 9,600 SP, Armour Penalty 10. AP and ENC are PER LOCATION; all seven are ticked by default — untick the ones this piece does not cover. <em>(Classic Fantasy p.75)</em>'
+  equipped: false
+  price:
+    amount: 1200
+    denominationAbbr: 'SP'
+_key: '!items!0axGSsTamZpXXEm7'

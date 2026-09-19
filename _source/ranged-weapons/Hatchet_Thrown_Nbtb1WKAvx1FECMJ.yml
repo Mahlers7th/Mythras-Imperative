@@ -1,0 +1,46 @@
+_id: Nbtb1WKAvx1FECMJ
+name: 'Hatchet (Thrown)'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '1d6'
+  size: M
+  force: S
+  reach: M
+  rangeClose: 10
+  rangeEffective: 20
+  rangeLong: 30
+  rangeExtreme: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 6
+  currentHP: 6
+  enc: 1
+  traits:
+    - thrown
+    - bleeding
+  description: 'Bleed. <em>(Mythras Core p.65)</em>'
+  equipped: false
+  price:
+    amount: 25
+    denominationAbbr: 'SP'
+_key: '!items!Nbtb1WKAvx1FECMJ'

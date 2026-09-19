@@ -34,7 +34,9 @@ system:
   hp: 10
   currentHP: 10
   enc: 2
-  traits: []
+  traits:
+    - bleeding
+    - impaling
   description: A reliable, balanced one-handed sword.
   equipped: false
 _key: '!items!6Rr4UQmry2xkDj0t'

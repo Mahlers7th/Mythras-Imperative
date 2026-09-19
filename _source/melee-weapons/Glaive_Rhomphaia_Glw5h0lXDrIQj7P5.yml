@@ -1,0 +1,46 @@
+_id: Glw5h0lXDrIQj7P5
+name: 'Glaive/Rhomphaia'
+type: weapon
+img: icons/svg/sword.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: melee
+  damage: '1d10+2'
+  size: L
+  reach: L
+  force: M
+  rangeClose: 0
+  rangeEffective: 0
+  rangeLong: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 10
+  currentHP: 10
+  enc: 2
+  traits:
+    - bleeding
+    - sundering
+    - two-handed
+  description: 'Bleed, Sunder. <em>(Mythras Core p.64)</em>'
+  equipped: false
+  price:
+    amount: 250
+    denominationAbbr: 'SP'
+_key: '!items!Glw5h0lXDrIQj7P5'

@@ -1,0 +1,46 @@
+_id: 9vXuu97wYz0w2hOf
+name: 'Stone Shortspear (Thrown)'
+type: weapon
+img: icons/svg/target.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  category: ranged
+  damage: '1d8-1'
+  size: M
+  force: M
+  reach: M
+  rangeClose: 10
+  rangeEffective: 15
+  rangeLong: 30
+  rangeExtreme: 0
+  load: 0
+  impaleSize: M
+  damageModApplies: true
+  ap: 4
+  hp: 5
+  currentHP: 5
+  enc: 2
+  traits:
+    - thrown
+    - impaling
+  description: 'Impale. Range converted from 30/45/90 feet. <em>(Classic Fantasy p.83)</em>'
+  equipped: false
+  price:
+    amount: 10
+    denominationAbbr: 'SP'
+_key: '!items!9vXuu97wYz0w2hOf'
