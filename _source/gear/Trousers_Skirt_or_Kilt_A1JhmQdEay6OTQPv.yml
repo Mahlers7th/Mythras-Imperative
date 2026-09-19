@@ -1,0 +1,28 @@
+_id: A1JhmQdEay6OTQPv
+name: 'Trousers, Skirt or Kilt'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'Cheap 12 SP, reasonable 25 SP, superior 60 SP; the price recorded here is reasonable quality. The source gives no ENC for clothing. <em>(Mythras Core p.60)</em>'
+  price:
+    amount: 25
+    denominationAbbr: 'SP'
+_key: '!items!A1JhmQdEay6OTQPv'

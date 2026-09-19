@@ -1,0 +1,28 @@
+_id: a3zW5eFKu9hZ7PCP
+name: 'Spade, Hoe or Pitchfork'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Tools required to perform general labour. Can be used as a makeshift short spear in combat at one grade of difficulty; for the spade and hoe, replace Impale with Bleed and Stun Location. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 25
+    denominationAbbr: 'SP'
+_key: '!items!a3zW5eFKu9hZ7PCP'

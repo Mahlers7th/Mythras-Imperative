@@ -1,0 +1,28 @@
+_id: Ldmh9lMVFtVQNcVF
+name: 'Scythe'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 2
+  quantity: 1
+  description: 'Harvesting tool. If used as a weapon treat as a bill, with the skill one grade more difficult. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 30
+    denominationAbbr: 'SP'
+_key: '!items!Ldmh9lMVFtVQNcVF'

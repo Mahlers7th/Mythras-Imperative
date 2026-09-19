@@ -1,0 +1,28 @@
+_id: SM6zpVFoHnQlXATo
+name: 'Pickaxe'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Used to chip through rock. If used as a weapon, treat as a club one grade more difficult, 1d6 damage; may impale. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 35
+    denominationAbbr: 'SP'
+_key: '!items!SM6zpVFoHnQlXATo'

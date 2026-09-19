@@ -1,0 +1,28 @@
+_id: 7LCslD3auNDSBg4C
+name: 'Quills and Ink'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'A quill and enough ink to fill approximately 20 pages with detailed notes. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 30
+    denominationAbbr: 'SP'
+_key: '!items!7LCslD3auNDSBg4C'

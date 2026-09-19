@@ -1,0 +1,28 @@
+_id: GYh2kacr4tM5EAD4
+name: 'Fish Hooks (20)'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'Allows a standard Survival roll to catch fish. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 1
+    denominationAbbr: 'SP'
+_key: '!items!GYh2kacr4tM5EAD4'

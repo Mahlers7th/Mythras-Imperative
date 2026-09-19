@@ -1,0 +1,28 @@
+_id: LjXORwvYtmxMo78B
+name: 'Scribing Kit'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Specially prepared quills, inks, and ingredients for scribing spell books and magic scrolls. Cost is per rank of the spell for scrolls, and per page for spell books. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 100
+    denominationAbbr: 'SP'
+_key: '!items!LjXORwvYtmxMo78B'

@@ -1,0 +1,28 @@
+_id: h6sKrO1FnR7WXtmY
+name: 'Lodestone'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'A naturally magnetised stone, used for rough direction-finding. <em>(Mythras Core p.60-62)</em>'
+  price:
+    amount: 5
+    denominationAbbr: 'SP'
+_key: '!items!h6sKrO1FnR7WXtmY'

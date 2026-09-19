@@ -1,0 +1,28 @@
+_id: 1gXy7vKbufcLSShd
+name: 'Ladder, Rope, 3 Metres'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 4
+  quantity: 1
+  description: 'Climbing rolls are one grade easier. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 2
+    denominationAbbr: 'SP'
+_key: '!items!1gXy7vKbufcLSShd'

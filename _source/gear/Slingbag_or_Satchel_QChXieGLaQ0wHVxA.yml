@@ -1,0 +1,28 @@
+_id: QChXieGLaQ0wHVxA
+name: 'Slingbag or Satchel'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Holds up to 15 ENC. Thanks to the shoulder strap, may be discarded with a Free Action. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 3
+    denominationAbbr: 'SP'
+_key: '!items!QChXieGLaQ0wHVxA'

@@ -1,0 +1,28 @@
+_id: iQoJsyTHN0OX2VN3
+name: 'General Coat or Cloak'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'Cheap 20 SP, reasonable 45 SP, superior 90 SP; the price recorded here is reasonable quality. The source gives no ENC for clothing. <em>(Mythras Core p.60)</em>'
+  price:
+    amount: 45
+    denominationAbbr: 'SP'
+_key: '!items!iQoJsyTHN0OX2VN3'

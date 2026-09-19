@@ -1,0 +1,28 @@
+_id: 1H79mCmaaZiWQTAH
+name: 'Saddlebag'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 2
+  quantity: 1
+  description: 'Holds up to 2 × 20 ENC. <em>(Mythras Core p.60-62)</em>'
+  price:
+    amount: 20
+    denominationAbbr: 'SP'
+_key: '!items!1H79mCmaaZiWQTAH'

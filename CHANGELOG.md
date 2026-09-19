@@ -10,6 +10,18 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.342 — September 2026
+- **A Gear compendium — 105 items, the equipment that is neither armour nor a weapon.** The system shipped packs for armour, melee and ranged weapons and ammo, and nothing at all for the rope, lanterns, lock picks and spell books a party actually buys. New `_source/gear/` and a `gear` pack, sitting next to `armour` in the manifest.
+- **Sourced from three books, with the precedence order this project already uses, and every entry cites its page.**
+  - **Classic Fantasy pp.76-78** is the primary source for 82 of them. Its Tools Table duplicates Mythras Core's *and* adds Classic Fantasy items, and — the reason it wins — it carries a **Description/Game Effects** column that Core does not. That is where "a crowbar makes Brawn rolls to force doors one grade easier" and "a torch is a club that does an extra 1d4 fire damage, with a 60% chance to go out if thrown" come from.
+  - **Mythras Core pp.60-62** supplies the 11 items Classic Fantasy dropped — almost all tack and harness (saddles, bridle, goad, driver's whip, horseshoes), plus a lodestone and 2m of chain — and the clothing and provisions Classic Fantasy explicitly defers back to Core for.
+  - **The Unearthed Companion has no equipment table at all.** Its Step 9 says to buy "from the equipment listed in Classic Fantasy". Recorded because a negative result is worth as much as a positive one here: there is nothing in UC to miss. Its one contribution is the ENC for trail rations (Starting Equipment Table, p.15), which Core's Food Table omits.
+- **Where the books disagree, Classic Fantasy wins and Core's value goes in the description** rather than being silently dropped. Three cases: the lockbox (CF: 2 ENC, 5 SP, holds 10 ENC — Core: 1-4 ENC, 75-250 SP) and the capacities of the large and small chests.
+- **Nothing is invented.** Clothing carries ENC 0 because none of the three books gives clothing an ENC and it is worn rather than carried — the entry says so. The quality-tiered prices (cheap/reasonable/superior) are spelled out in each garment's description with the reasonable price stored.
+- **Ids are exactly 16 alphanumeric characters**, derived from the item name so regeneration is stable. Foundry builds a document with `id: null` and `uuid: null` from anything else — it looks fine in the compendium and silently does nothing when dragged, which is how four Destined entries stayed broken until v1.9.131.
+- Verified by compiling the pack and extracting it again: **105 documents in, 105 out**, every id still valid, no field lost in the round trip.
+- Not yet committed
+
 ## v1.4.341 — September 2026
 - **Found by building a character.** Making a Destined hero from scratch, by the book, surfaced two system-level faults that only show up during creation — the one moment when every derived number moves at once.
 - **⚠️ Pools do not follow their maxima, so every new character starts stale.** Action Points, Luck, Magic and Power Points store a spendable `value` against a **derived** `max`; hit-location `current` does the same against a derived `hp`. An actor is created carrying the schema-default 10s, the pools seed against *those* maxima, and the instant real characteristics are typed in, every one of them is stranded. A freshly built Paragon read **2/3 Action Points, 2/3 Luck, 10/20 Power Points** and **Head 4/9** — on a hero who had never spent a thing or taken a scratch. It stays that way until somebody notices, which is the same silence that hid Nex's breakage for five days.

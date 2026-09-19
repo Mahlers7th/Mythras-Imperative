@@ -1,0 +1,28 @@
+_id: elSIm8joxCeiJGw3
+name: 'Falconer''s Kit'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Includes a thick leather glove and a hood for the bird. A Craft (Falconer) roll is one grade more difficult without one. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 30
+    denominationAbbr: 'SP'
+_key: '!items!elSIm8joxCeiJGw3'

@@ -1,0 +1,28 @@
+_id: GiUNJx9vCvj2n2sf
+name: 'Musical Instrument, Huge'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'Piano or equivalent. Good quality ×2 cost, excellent ×3. Classic Fantasy lists its ENC as "NA" — it is not a carried item. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 280
+    denominationAbbr: 'SP'
+_key: '!items!GiUNJx9vCvj2n2sf'

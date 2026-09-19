@@ -1,0 +1,28 @@
+_id: mpfl4SJiPG0dyPOJ
+name: 'Parchment or Paper Sheet'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 0
+  quantity: 1
+  description: 'A large sheet of parchment or paper, suitable for everything from creating a work of art to mapping a dungeon. Double the cost for vellum. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 5
+    denominationAbbr: 'CP'
+_key: '!items!mpfl4SJiPG0dyPOJ'

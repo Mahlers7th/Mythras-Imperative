@@ -1,0 +1,28 @@
+_id: QDPRNeQxg8BaazLB
+name: 'Lantern, Hooded'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Burns for 2 hours on one flask of oil. Casts a 1.5 metre (5 foot) wide beam 10 metres (30 feet) long. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 12
+    denominationAbbr: 'SP'
+_key: '!items!QDPRNeQxg8BaazLB'

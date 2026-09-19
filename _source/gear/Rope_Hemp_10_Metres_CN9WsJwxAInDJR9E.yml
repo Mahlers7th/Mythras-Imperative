@@ -1,0 +1,28 @@
+_id: CN9WsJwxAInDJR9E
+name: 'Rope, Hemp, 10 Metres'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 2
+  quantity: 1
+  description: 'Holds a maximum of 20 SIZ / 60 ENC. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 10
+    denominationAbbr: 'SP'
+_key: '!items!CN9WsJwxAInDJR9E'

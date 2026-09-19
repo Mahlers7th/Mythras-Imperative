@@ -1,0 +1,28 @@
+_id: 6IXo64LwzCD0NB1i
+name: 'Saw, Hand'
+type: gear
+img: icons/svg/item-bag.svg
+effects: []
+folder: null
+flags: {}
+sort: 0
+ownership:
+  default: 0
+_stats:
+  coreVersion: '14.360'
+  systemId: null
+  systemVersion: null
+  createdTime: null
+  modifiedTime: null
+  lastModifiedBy: null
+  compendiumSource: null
+  duplicateSource: null
+  exportSource: null
+system:
+  enc: 1
+  quantity: 1
+  description: 'Saws through wood at a rate of 1d4 Hit Points per round. Equivalent to a short sword at one grade of difficulty if used in combat, but becomes useless as a saw thereafter. <em>(Classic Fantasy p.76-78)</em>'
+  price:
+    amount: 1
+    denominationAbbr: 'SP'
+_key: '!items!6IXo64LwzCD0NB1i'
