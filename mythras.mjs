@@ -22,6 +22,7 @@ import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js'
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
+import { poolAfterMaxChange, calcActionPoints } from './module/utils/char-math.js';
 import { offerResistLuck } from './module/combat/effects/resist-luck.js';
 import {
   resolveEntangleBreakFree,
@@ -641,6 +642,14 @@ Hooks.once('ready', () => {
     // it can be bound to a hotbar macro, and so a module that owns its own
     // session lifecycle can drive it instead of the settings button.
     replenishLuckPoints,
+    // calcActionPoints / poolAfterMaxChange (v1.4.341+): the INT+DEX Action
+    // Point ladder and the "a full pool follows its new maximum" rule, both
+    // pure. Exposed because a module that replaces the AP rule (Destined's
+    // flat count per Power Level) has to express itself as a DELTA on top of
+    // the derived value — apBonusHooks is additive — and the only way to do
+    // that without a second, drifting copy of the ladder is to read this one.
+    calcActionPoints,
+    poolAfterMaxChange,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -956,7 +965,21 @@ export function syncHitLocationHP(actor) {
     const key    = locationNameToKey(loc.system.label ?? loc.name ?? '');
     const newMax = hpByKey[key] ?? null;
     if (newMax === null || loc.system.hp === newMax) continue;
-    updates.push({ _id: loc.id, 'system.hp': newMax });
+
+    // `system.hp` is STORED, not derived, so the value still on the item is
+    // the old maximum — everything poolAfterMaxChange needs is already here,
+    // no snapshot required. An undamaged location follows its new maximum; a
+    // wounded one keeps its wound (and is only clamped if the max shrank past
+    // it). Without this, raising CON or SIZ leaves every location reading like
+    // a fresh injury: 4/9 on a hero who has never been hit.
+    const update = { _id: loc.id, 'system.hp': newMax };
+    const nextCurrent = poolAfterMaxChange({
+      storedValue: loc.system.current ?? 0,
+      oldMax:      loc.system.hp ?? 0,
+      newMax
+    });
+    if (nextCurrent !== null) update['system.current'] = nextCurrent;
+    updates.push(update);
   }
 
   if (updates.length === 0) return Promise.resolve();
@@ -1183,12 +1206,67 @@ export async function requestSkillCheck(actor, {
 }
 
 // ---------------------------------------------------------------------------
-// ACTOR UPDATE — sync hit location item HP when CON, SIZ, heroAdvantages, or
-// a destined-module flag changes
+// ACTOR PRE-UPDATE — capture the derived maxima BEFORE they move
+//
+// Every pool max on this sheet is derived at read time, so by the time
+// `updateActor` fires the maxima have already changed and there is no way to
+// ask "was this pool full a moment ago?". The answer has to be taken here and
+// carried across on `options`, which is the one channel Foundry passes intact
+// from pre-update to update.
+//
+// Only the keys that can move a maximum are watched, so a routine write (HP,
+// status, a spent Action Point) costs nothing.
 // ---------------------------------------------------------------------------
-Hooks.on('updateActor', async (actor, changed, _options, _userId) => {
+const POOL_KEYS = ['actionPoints', 'luckPoints', 'magicPoints', 'powerPoints'];
+
+Hooks.on('preUpdateActor', (actor, changed, options, _userId) => {
+  if (!['character', 'npc'].includes(actor.type)) return;
+
+  const touchesChars      = foundry.utils.getProperty(changed, 'system.characteristics') !== undefined;
+  const touchesAdvantages = foundry.utils.getProperty(changed, 'system.heroAdvantages') !== undefined;
+  const touchesHeroLevel  = foundry.utils.getProperty(changed, 'system.heroLevel') !== undefined;
+  const touchesModuleFlag = foundry.utils.getProperty(changed, 'flags.destined-module') !== undefined;
+  if (!touchesChars && !touchesAdvantages && !touchesHeroLevel && !touchesModuleFlag) return;
+
+  const attrs = actor.system?.attributes ?? {};
+  const before = {};
+  for (const key of POOL_KEYS) {
+    const pool = attrs[key];
+    if (pool && Number.isFinite(pool.max)) before[key] = pool.max;
+  }
+  // Hit locations need no snapshot: their maximum is a STORED field, so
+  // syncHitLocationHP still sees the old value when it computes the new one.
+  options.mythrasPoolsBefore = { pools: before };
+});
+
+// ---------------------------------------------------------------------------
+// ACTOR UPDATE — sync hit location item HP when CON, SIZ, heroAdvantages, or
+// a destined-module flag changes, then let full pools follow their new maxima
+// ---------------------------------------------------------------------------
+Hooks.on('updateActor', async (actor, changed, options, _userId) => {
   if (!game.user.isGM) return;
   if (!['character', 'npc'].includes(actor.type)) return;
+
+  // ── Full pools follow their new maxima ────────────────────────────────────
+  // Only fires when preUpdateActor stashed a snapshot, i.e. when something that
+  // can move a maximum actually changed. poolAfterMaxChange owns the rule: a
+  // pool that was full stays full, a partially spent one is never refilled.
+  const snapshot = options?.mythrasPoolsBefore;
+  if (snapshot) {
+    const attrs = actor.system?.attributes ?? {};
+    const poolUpdates = {};
+    for (const key of POOL_KEYS) {
+      const pool = attrs[key];
+      const oldMax = snapshot.pools?.[key];
+      if (!pool || oldMax === undefined) continue;
+      const next = poolAfterMaxChange({ storedValue: pool.value, oldMax, newMax: pool.max });
+      if (next !== null) poolUpdates[`system.attributes.${key}.value`] = next;
+    }
+    if (Object.keys(poolUpdates).length) {
+      await actor.update(poolUpdates, { mythrasPoolSync: true });
+      console.log(`Mythras Imperative | Pools followed their new maxima for ${actor.name}:`, poolUpdates);
+    }
+  }
 
   // ── Fatigue change — apply mechanical penalties ───────────────────────────
   // When fatigue changes, we write the penalised actionPoints.max back to the

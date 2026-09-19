@@ -156,9 +156,26 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const standardSkillsCol1 = _enrichedStandard.slice(0, _stdMid);
     const standardSkillsCol2 = _enrichedStandard.slice(_stdMid);
 
+    // Culture dropdown, built from the registry rather than hard-coded in the
+    // template, so a setting module can replace the list (Destined does). The
+    // actor's own stored culture is always included even when it is not in the
+    // registry, so an unknown value stays visible instead of silently showing
+    // whatever happens to be first.
+    const cultureRegistry = CONFIG.MYTHRAS?.cultures ?? {};
+    const cultures = Object.entries(cultureRegistry).map(([id, c]) => ({
+      id,
+      label:    game.i18n.localize(c?.label ?? id),
+      selected: system.identity?.culture === id
+    }));
+    const currentCulture = system.identity?.culture;
+    if (currentCulture && !cultureRegistry[currentCulture]) {
+      cultures.push({ id: currentCulture, label: currentCulture, selected: true });
+    }
+
     return {
       actor,
       system,
+      cultures,
       activeTab: this._activeTab,
       standardSkillsCol1,
       standardSkillsCol2,

@@ -2,7 +2,7 @@
   "id": "mythras-imperative",
   "title": "Mythras Imperative",
   "description": "A professional implementation of the Mythras Imperative rules for Foundry VTT v14.",
-  "version": "1.4.340",
+  "version": "1.4.341",
   "compatibility": {
     "minimum": "14",
     "verified": "14",
@@ -10,20 +10,24 @@
   },
   "authors": [
     {
-      "name": "Christopher Herrell"
+      "name": "Christopher Herrell",
+      "flags": {}
     }
   ],
   "esmodules": [
     "mythras.mjs"
   ],
   "styles": [
-    "styles/mythras.css"
+    {
+      "src": "styles/mythras.css"
+    }
   ],
   "languages": [
     {
       "lang": "en",
       "name": "English",
-      "path": "lang/en.json"
+      "path": "lang/en.json",
+      "flags": {}
     }
   ],
   "packs": [
@@ -33,7 +37,12 @@
       "path": "packs/standard-skills",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "professional-skills",
@@ -41,7 +50,12 @@
       "path": "packs/professional-skills",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "melee-weapons",
@@ -49,7 +63,12 @@
       "path": "packs/melee-weapons",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "ranged-weapons",
@@ -57,7 +76,12 @@
       "path": "packs/ranged-weapons",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "armour",
@@ -65,7 +89,12 @@
       "path": "packs/armour",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "traits",
@@ -73,7 +102,12 @@
       "path": "packs/traits",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "spells",
@@ -81,7 +115,12 @@
       "path": "packs/spells",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "ammo",
@@ -89,7 +128,12 @@
       "path": "packs/ammo",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "vehicle-traits",
@@ -97,14 +141,24 @@
       "path": "packs/vehicle-traits",
       "type": "Item",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "vehicle-weapons",
       "label": "Vehicle Weapons",
       "path": "packs/vehicle-weapons",
       "type": "Item",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "macros",
@@ -112,7 +166,12 @@
       "path": "packs/macros",
       "type": "Macro",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     },
     {
       "name": "creatures",
@@ -120,11 +179,17 @@
       "path": "packs/creatures",
       "type": "Actor",
       "packageType": "system",
-      "system": "mythras-imperative"
+      "system": "mythras-imperative",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "flags": {}
     }
   ],
   "socket": true,
   "url": "https://github.com/Mahlers7th/Mythras-Imperative",
   "manifest": "https://github.com/Mahlers7th/Mythras-Imperative/releases/latest/download/system.json",
-  "download": "https://github.com/Mahlers7th/Mythras-Imperative/releases/latest/download/mythras-imperative.zip"
+  "download": "https://github.com/Mahlers7th/Mythras-Imperative/releases/download/v1.4.341/mythras-imperative.zip",
+  "flags": {}
 }

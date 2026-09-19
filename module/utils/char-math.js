@@ -166,3 +166,46 @@ export function calcHitLocationHP(con, siz, hpBonus = 0) {
     leg:     leg     + hpBonus
   };
 }
+
+// ---------------------------------------------------------------------------
+// Pools that track a moving maximum
+//
+// Action Points, Luck, Magic and Power Points all store a spendable `value`
+// while their `max` is DERIVED — from characteristics, hero advantages and
+// module hooks. Hit-location `current` works the same way against a derived
+// `hp`. So whenever a characteristic moves, every one of those maxima moves
+// with it while the stored values sit still.
+//
+// That is invisible in play and brutal at character creation: an actor is
+// created with the schema-default 10s, the pools seed against THOSE maxima,
+// and the moment real characteristics are typed in, every pool is stale. The
+// sheet then shows 2/3 Action Points and 10/20 Power Points on a hero who has
+// never spent anything — and it stays that way until somebody notices.
+// ---------------------------------------------------------------------------
+
+/**
+ * Decide a pool's stored value after its maximum has moved.
+ *
+ * The rule is deliberately narrow: **a pool that was full stays full.**
+ * Anything partially spent is left exactly where it is, so this can never
+ * refill a hero mid-fight — which is why it is safe to run on every update
+ * rather than only at creation.
+ *
+ * @param {object} opts
+ * @param {number} opts.storedValue - the pool's persisted `value`
+ * @param {number} opts.oldMax      - its maximum BEFORE the update
+ * @param {number} opts.newMax      - its maximum AFTER the update
+ * @returns {number|null} the value to write, or null to leave it alone
+ */
+export function poolAfterMaxChange({ storedValue, oldMax, newMax } = {}) {
+  if (![storedValue, oldMax, newMax].every(n => Number.isFinite(n))) return null;
+
+  // Was at (or somehow above) its old ceiling — follow the ceiling.
+  if (storedValue >= oldMax) return storedValue === newMax ? null : newMax;
+
+  // Partially spent. Only intervene if the new ceiling is now BELOW it, which
+  // would otherwise leave an impossible value on the sheet.
+  if (storedValue > newMax) return newMax;
+
+  return null;
+}

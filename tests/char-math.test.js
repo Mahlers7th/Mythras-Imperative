@@ -14,6 +14,7 @@ import {
   calcInitiativeBonus,
   calcHitLocationHP,
   dmBaseIndex,
+  poolAfterMaxChange,
   DM_TABLE
 } from '../module/utils/char-math.js';
 
@@ -286,5 +287,74 @@ describe('DM_TABLE', () => {
   });
   test('last entry is +2d12 (maximum)', () => {
     expect(DM_TABLE[14]).toBe('+2d12');
+  });
+});
+
+// =============================================================================
+// poolAfterMaxChange
+//
+// The rule in one line: a pool that was FULL follows its new maximum; one that
+// was partially spent is never refilled. The creation case is the first test —
+// an actor made with the schema-default 10s, then given real characteristics.
+// =============================================================================
+
+describe('poolAfterMaxChange', () => {
+  test('a full pool follows its maximum upward — the character-creation case', () => {
+    // Power Points seeded at 10/10 on a default actor, POW then set to 18 at
+    // Paragon (POW+2 = 20). Before the fix this stayed 10/20 forever.
+    expect(poolAfterMaxChange({ storedValue: 10, oldMax: 10, newMax: 20 })).toBe(20);
+  });
+
+  test('a full pool follows its maximum downward', () => {
+    expect(poolAfterMaxChange({ storedValue: 3, oldMax: 3, newMax: 2 })).toBe(2);
+  });
+
+  test('a partially spent pool is left alone when the max rises', () => {
+    // Mid-combat: 1 of 3 Action Points left, a power raises the max to 4.
+    // Refilling here would hand back spent points.
+    expect(poolAfterMaxChange({ storedValue: 1, oldMax: 3, newMax: 4 })).toBeNull();
+  });
+
+  test('a partially spent pool is left alone when the max falls but stays above it', () => {
+    expect(poolAfterMaxChange({ storedValue: 1, oldMax: 4, newMax: 3 })).toBeNull();
+  });
+
+  test('a partially spent pool is clamped when the max falls below it', () => {
+    expect(poolAfterMaxChange({ storedValue: 3, oldMax: 5, newMax: 2 })).toBe(2);
+  });
+
+  test('an unchanged maximum writes nothing', () => {
+    expect(poolAfterMaxChange({ storedValue: 3, oldMax: 3, newMax: 3 })).toBeNull();
+    expect(poolAfterMaxChange({ storedValue: 1, oldMax: 3, newMax: 3 })).toBeNull();
+  });
+
+  test('a value above its old maximum is treated as full and follows', () => {
+    expect(poolAfterMaxChange({ storedValue: 5, oldMax: 3, newMax: 4 })).toBe(4);
+  });
+
+  test('an empty pool is never refilled by a rising maximum', () => {
+    // All Action Points spent is a valid in-combat state, not a stale pool.
+    expect(poolAfterMaxChange({ storedValue: 0, oldMax: 3, newMax: 4 })).toBeNull();
+  });
+
+  test('an empty pool whose max was already zero follows — nothing was spent', () => {
+    expect(poolAfterMaxChange({ storedValue: 0, oldMax: 0, newMax: 20 })).toBe(20);
+  });
+
+  test('non-numeric input writes nothing rather than throwing', () => {
+    expect(poolAfterMaxChange({ storedValue: undefined, oldMax: 3, newMax: 4 })).toBeNull();
+    expect(poolAfterMaxChange({ storedValue: 1, oldMax: null, newMax: 4 })).toBeNull();
+    expect(poolAfterMaxChange({ storedValue: 1, oldMax: 3, newMax: NaN })).toBeNull();
+    expect(poolAfterMaxChange()).toBeNull();
+  });
+
+  test('hit locations use the same rule — undamaged follows, wounded keeps its wound', () => {
+    // Head 9/9 -> max 11 after Durability + Paragon bonus HP.
+    expect(poolAfterMaxChange({ storedValue: 9, oldMax: 9, newMax: 11 })).toBe(11);
+    // Left Leg 4/9 (5 points down) stays 4 — the wound is not healed by a
+    // characteristic change.
+    expect(poolAfterMaxChange({ storedValue: 4, oldMax: 9, newMax: 11 })).toBeNull();
+    // A negative current (Serious/Major wound) is likewise untouched.
+    expect(poolAfterMaxChange({ storedValue: -5, oldMax: 9, newMax: 11 })).toBeNull();
   });
 });

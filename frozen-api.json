@@ -18,6 +18,8 @@
     "woundLevel",
     "woundState",
     "getTraitsByCategory",
-    "replenishLuckPoints"
+    "replenishLuckPoints",
+    "calcActionPoints",
+    "poolAfterMaxChange"
   ]
 }

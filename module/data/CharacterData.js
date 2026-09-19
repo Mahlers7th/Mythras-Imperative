@@ -18,7 +18,14 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
       // --- Identity --------------------------------------------------------
       identity: new fields.SchemaField({
         playerName:  new fields.StringField({ initial: '' }),
-        culture:     new fields.StringField({ initial: 'civilised', choices: ['barbarian','civilised','nomadic','primitive'] }),
+        // NOT constrained to the four core cultures. A DataModel's `choices`
+        // are fixed when the schema is defined — before any module has loaded —
+        // so a setting module that registers its own cultures (Destined's
+        // Urban/Rural/Archaic/Advanced) could never store one: the write was
+        // DISCARDED SILENTLY, with no error, and the field snapped back to
+        // 'civilised'. The sheet's dropdown is built from CONFIG.MYTHRAS.cultures,
+        // which IS the extension point; this field just has to hold what it offers.
+        culture:     new fields.StringField({ initial: 'civilised' }),
         career:      new fields.StringField({ initial: '' }),
         age:         new fields.NumberField({ initial: 25, integer: true, min: 0 }),
         species:     new fields.StringField({ initial: 'Human' }),

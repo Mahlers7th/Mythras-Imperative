@@ -51,12 +51,9 @@
           {{/unless}}
           <label>Culture</label>
           <select name="system.identity.culture">
-            {{#select system.identity.culture}}
-              <option value="barbarian">Barbarian</option>
-              <option value="civilised">Civilised</option>
-              <option value="nomadic">Nomadic</option>
-              <option value="primitive">Primitive</option>
-            {{/select}}
+            {{#each cultures}}
+              <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+            {{/each}}
           </select>
           <label>Career</label>
           <input type="text" name="system.identity.career" value="{{system.identity.career}}" placeholder="Career"/>
