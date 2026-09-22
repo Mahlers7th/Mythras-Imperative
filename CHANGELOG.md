@@ -25,7 +25,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **GM creates a vehicle Player2 owns:** 8 system components, each once.
   - Every world actor, the message count and the core permissions matched the pre-test snapshot afterwards.
 - **Same shape, left alone:** the `createItem`/`deleteItem` hooks also run on every client. Redistribution rewrites identical ranges, which Foundry drops as a no-op, and the weapon-from-style cleanup is idempotent. At worst they add console noise on a client that cannot edit the actor. They do not corrupt anything.
-- Not yet committed
+- Committed as `3861b4ff2f28fecc007c06711605523fe15a206b`
 
 ## v1.4.345 — September 2026
 - **⚠️ The Choose Location and Marksman pickers opened on the GM's screen, not the attacker's player's.** Reported from the first Destined session (2026-09-20). Since v1.4.333 a player's attack resolves on the GM's client, and so does a player's click on the card's hit-location button (`CARD_ACTIONS.rollLocation`). Both pickers opened wherever that code ran. The Special Effect chooser, Luck offers and resistance dialogs were routed to their owners in v1.4.333/337; these two were missed, because they sit behind a card button rather than inside the exchange.
