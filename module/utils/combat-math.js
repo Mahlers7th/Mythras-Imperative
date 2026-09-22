@@ -349,9 +349,11 @@ export function getImpaleGrade(weaponSize, defenderSIZ) {
     const row = table.find(r => siz >= r.min && siz <= r.max);
     return row?.[size] ?? 'none';
   }
-  // SIZ > 50: each +10 beyond 50 shifts column easier
+  // SIZ > 50: "Each +10 — follow table progression", so 51-60 is the next band
+  // and a partial band counts (rounded up, v1.4.348 — was rounded down, which
+  // left SIZ 51-59 on the 41-50 row).
   const sizeOrder  = ['S', 'M', 'L', 'H', 'E'];
-  const extraBands = Math.floor((siz - 50) / 10);
+  const extraBands = Math.ceil((siz - 50) / 10);
   const baseIdx    = sizeOrder.indexOf(size);
   const shifted    = sizeOrder[Math.max(0, baseIdx - extraBands)];
   return table[4][shifted] ?? 'none';

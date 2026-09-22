@@ -36,6 +36,7 @@ import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckProm
 import { offerResistLuck } from './effects/resist-luck.js';
 import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
+import { roundUp } from '../utils/rounding.js';
 import {
   waitForCard,
   runSEDialog,
@@ -4293,7 +4294,7 @@ export class CombatEngine {
           // A hook reduced (or raised) damage. Later hooks see the updated value
           // and may reduce it further, so reductions compose rather than the
           // first one winning. Floored at 0; never negative.
-          damage = Math.max(0, Math.floor(result));
+          damage = Math.max(0, roundUp(result));
         }
       }
     }

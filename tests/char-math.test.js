@@ -216,8 +216,16 @@ describe('calcInitiativeBonus', () => {
   test('DEX13 INT11 → +12', () => {
     expect(calcInitiativeBonus(13, 11)).toBe(12);
   });
-  test('odd total floors correctly: DEX11 INT10 → +10', () => {
-    expect(calcInitiativeBonus(11, 10)).toBe(10);
+  // Mythras always rounds up (Imperative p.3). Until v1.4.348 this test
+  // asserted the opposite — 'odd total floors correctly' — and so did the code.
+  test('an odd total rounds UP: DEX11 INT10 → +11', () => {
+    expect(calcInitiativeBonus(11, 10)).toBe(11);
+  });
+  test('every odd DEX+INT rounds up, every even one is exact', () => {
+    for (let dex = 3; dex <= 21; dex++) for (let int = 3; int <= 21; int++) {
+      const sum = dex + int;
+      expect({ dex, int, bonus: calcInitiativeBonus(dex, int) }).toEqual({ dex, int, bonus: sum % 2 ? (sum + 1) / 2 : sum / 2 });
+    }
   });
 });
 

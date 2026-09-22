@@ -6,6 +6,7 @@
  *   shop      — priced inventory, Buy button, trade-in via drag
  *   container — treasure chest / loot pile, optional lock
  */
+import { roundUp } from '../utils/rounding.js';
 
 const { ActorSheetV2 }               = foundry.applications.sheets;
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -258,7 +259,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           label: 'Buy',
           callback: async html => {
             const adjFactor    = 1 + (parseFloat(html.find('#mi-buy-adjust').val()) || 0) / 100;
-            const finalBase    = Math.round(basePriceUnits * adjFactor);
+            const finalBase    = roundUp(basePriceUnits * adjFactor);
             const payWithAbbr  = html.find('#mi-buy-paywith').val();
             const payDenomItem = payWithAbbr ? (this._findDenomination(payWithAbbr) ?? denomItem) : denomItem;
             if (this._calcWealth(buyerActor) < finalBase) {
@@ -274,7 +275,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       render: html => {
         const updateFinal = () => {
           const adjFactor   = 1 + (parseFloat(html.find('#mi-buy-adjust').val()) || 0) / 100;
-          const finalBase   = Math.round(basePriceUnits * adjFactor);
+          const finalBase   = roundUp(basePriceUnits * adjFactor);
           const payWithAbbr = html.find('#mi-buy-paywith').val();
           const payDenom    = payWithAbbr ? (this._findDenomination(payWithAbbr) ?? denomItem) : denomItem;
           const bv          = payDenom.system.baseValue ?? 1;
@@ -306,7 +307,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       return;
     }
     const fraction  = this.document.system.tradeInFraction ?? 0.5;
-    const offerBase = Math.round(amt * denomItem.system.baseValue * fraction);
+    const offerBase = roundUp(amt * denomItem.system.baseValue * fraction);
     const adjustOptions = this._buildAdjustOptions();
 
     new Dialog({
@@ -342,7 +343,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
           label: 'Accept',
           callback: async html => {
             const adjFactor = 1 + (parseFloat(html.find('#mi-tradein-adjust').val()) || 0) / 100;
-            await this._executeTradeIn(item, Math.round(offerBase * adjFactor), denomItem);
+            await this._executeTradeIn(item, roundUp(offerBase * adjFactor), denomItem);
           }
         },
         decline: { label: 'Decline' }
@@ -352,7 +353,7 @@ export class MerchantSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
         html.find('#mi-tradein-adjust')[0]?.addEventListener('change', ev => {
           const adjFactor = 1 + (parseFloat(ev.target.value) || 0) / 100;
           html.find('#mi-tradein-final')[0].textContent =
-            this._baseToDisplay(Math.round(offerBase * adjFactor), denomItem);
+            this._baseToDisplay(roundUp(offerBase * adjFactor), denomItem);
         });
       }
     }, { classes: ['dialog', 'mi-dialog'] }).render(true);

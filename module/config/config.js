@@ -108,9 +108,11 @@ export const MYTHRAS = {
   //   damageHooks COMPOSE: each hook receives the damage as already reduced
   //   by every earlier hook in the array, so two independent reductions
   //   (e.g. a resistance power and a shield) both apply rather than only the
-  //   first one taking effect. The result is floored to a non-negative
-  //   integer (Math.max(0, Math.floor(result))) before being handed to the
-  //   next hook — hit location HP arithmetic assumes integers.
+  //   first one taking effect. The result is ROUNDED UP to a non-negative
+  //   integer (Math.max(0, roundUp(result)), v1.4.348 — Mythras always rounds
+  //   up; it was floored before) before being handed to the next hook — hit
+  //   location HP arithmetic assumes integers. A hook that halves damage may
+  //   return damage / 2 and get the book's rounding for free.
   //
   //   Any other return (undefined, null, true, a string, NaN) is ignored;
   //   the hook declines and damage is unchanged for the next hook. NaN is

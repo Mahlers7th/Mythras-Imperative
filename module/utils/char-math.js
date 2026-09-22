@@ -129,7 +129,12 @@ export function calcActionPoints(intVal, dex) {
  * @returns {number}
  */
 export function calcInitiativeBonus(dex, intVal) {
-  return Math.floor((dex + intVal) / 2);
+  // The average of DEX and INT, ROUNDED UP — Mythras always rounds up. Destined's
+  // own worked example says so outright ("Taking the average of his DEX and INT
+  // and rounding up, his Initiative Bonus is 15"). Until v1.4.348 this and three
+  // inline copies (character, NPC, creature) rounded down, so every odd DEX+INT
+  // was one point short.
+  return Math.ceil(((Number(dex) || 0) + (Number(intVal) || 0)) / 2);
 }
 
 // ---------------------------------------------------------------------------

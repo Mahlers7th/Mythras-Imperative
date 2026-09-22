@@ -37,8 +37,8 @@ describe('evalSkillFormula — behaviour preserved from the three copies it repl
     expect(evalSkillFormula('Str+Dex', CHARS)).toBe(26);
   });
 
-  test('floors a fractional result', () => {
-    expect(evalSkillFormula('INT/2', CHARS)).toBe(7);   // 15/2 = 7.5 -> 7
+  test('rounds a fractional result UP — Mythras always rounds up (v1.4.348)', () => {
+    expect(evalSkillFormula('INT/2', CHARS)).toBe(8);   // 15/2 = 7.5 -> 8
   });
 
   test('supports parentheses and mixed arithmetic', () => {

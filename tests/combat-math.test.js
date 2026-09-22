@@ -569,6 +569,15 @@ describe('getImpaleGrade', () => {
     // row[4]: E='formidable', +10 beyond 50 → 1 step easier → H='hard'
     expect(getImpaleGrade('E', 60)).toBe('hard');
   });
+  test('SIZ 51-60 is the NEXT band — "each +10, follow table progression" (v1.4.348)', () => {
+    // Enormous: 41-50 Formidable, so 51-60 must read Hard. Until v1.4.348 the
+    // extension rounded down and SIZ 51-59 stayed on the 41-50 row.
+    expect(getImpaleGrade('E', 50)).toBe('formidable');
+    expect(getImpaleGrade('E', 51)).toBe('hard');
+    expect(getImpaleGrade('E', 59)).toBe('hard');
+    expect(getImpaleGrade('E', 61)).toBe('none');
+    expect(getImpaleGrade('H', 51)).toBe('none');
+  });
   test('defaults to M size when size omitted', () => {
     expect(getImpaleGrade(null, 13)).toBe('formidable');
   });

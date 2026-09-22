@@ -7,7 +7,7 @@
 
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { applyCharacteristicDrain, deriveSkillTotals } from './ActorData.js';
-import { calcHitLocationHP } from '../utils/char-math.js';
+import { calcHitLocationHP, calcInitiativeBonus } from '../utils/char-math.js';
 
 const { fields } = foundry.data;
 
@@ -254,17 +254,18 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
       attr.run    = 0;
       attr.sprint = 0;
     } else if (moveMode === 'halved') {
-      attr.walk   = Math.floor(baseMove / 2);
-      attr.run    = Math.floor((baseMove * 3) / 2);
-      attr.sprint = Math.floor((baseMove * 5) / 2);
+      // Halved, rounded up (v1.4.348 — was rounded down).
+      attr.walk   = Math.ceil(baseMove / 2);
+      attr.run    = Math.ceil((baseMove * 3) / 2);
+      attr.sprint = Math.ceil((baseMove * 5) / 2);
     } else {
       attr.walk   = baseMove;
       attr.run    = baseMove * 3;
       attr.sprint = baseMove * 5;
     }
 
-    // Initiative Bonus: (DEX + INT) / 2, round down
-    attr.initiativeBonus = Math.floor((dex + int) / 2);
+    // Initiative Bonus: the average of DEX and INT, rounded up (char-math.js).
+    attr.initiativeBonus = calcInitiativeBonus(dex, int);
     // Module initiativeOffsetHooks (e.g. Destined Enhanced Reactions +, Bulky −,
     // Growth −) add a signed integer. Read-time, idempotent.
     attr.initiativeBonus += sumHookContributions(CONFIG.MYTHRAS?.initiativeOffsetHooks, [this.parent], { errorLabel: 'initiativeOffsetHook' }).total;

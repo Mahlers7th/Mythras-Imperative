@@ -19,6 +19,7 @@
  * Pure and Foundry-free, matching char-math.js/combat-math.js/roll-math.js —
  * the hook sum is computed by the caller (which needs CONFIG) and passed in.
  */
+import { roundUp } from './rounding.js';
 
 /**
  * Item types whose percentage is derived from a characteristic formula.
@@ -67,8 +68,9 @@ export function charsFrom(characteristics) {
  *  - The result is only evaluated if what remains is arithmetic and nothing
  *    else — the regex is the guard that stops a malformed or malicious formula
  *    reaching `Function`.
- *  - `Math.floor` matches the rulebook: a characteristic-derived base is a
- *    whole percentage.
+ *  - Rounded UP (`roundUp`, v1.4.348): Mythras always rounds up. No shipped
+ *    formula divides, but a GM can type one that does ("INT+POW/2"), and this
+ *    used to floor it.
  *  - Anything unparseable returns 0 rather than throwing, so one bad formula
  *    cannot break derivation for a whole actor.
  *
@@ -84,7 +86,7 @@ export function evalSkillFormula(formula, chars) {
   }
   try {
     if (/^[\d\s+\-*/().]+$/.test(f)) {
-      return Math.floor(Function('"use strict";return(' + f + ')')());
+      return roundUp(Function('"use strict";return(' + f + ')')());
     }
   } catch (e) { /* unparseable formula → 0, same as the copies this replaces */ }
   return 0;

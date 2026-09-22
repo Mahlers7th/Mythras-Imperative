@@ -8,6 +8,7 @@
 
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { SKILL_ITEM_TYPES, charsFrom, computeSkillTotal } from '../utils/skill-math.js';
+import { calcInitiativeBonus } from '../utils/char-math.js';
 
 const { fields } = foundry.data;
 
@@ -185,7 +186,7 @@ export class NPCData extends foundry.abstract.TypeDataModel {
     const pow = c.pow.value;
 
     const attr = this.attributes;
-    attr.initiativeBonus = Math.floor((dex + int) / 2);
+    attr.initiativeBonus = calcInitiativeBonus(dex, int);
     attr.magicPoints.max = pow;
     attr.damageModifier = this._calcDamageModifier(str + siz);
 
@@ -299,7 +300,7 @@ export class CreatureData extends foundry.abstract.TypeDataModel {
     const pow = c.pow.value;
 
     const attr = this.attributes;
-    attr.initiativeBonus = Math.floor((dex + int) / 2);
+    attr.initiativeBonus = calcInitiativeBonus(dex, int);
     attr.magicPoints.max = pow;
     attr.damageModifier = this._calcDamageModifier(str + siz);
 
