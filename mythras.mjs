@@ -2277,6 +2277,11 @@ function _registerCombatRequestHandlers() {
     const { SpecialEffectDialog } = await import('./module/combat/SpecialEffectDialog.js');
     return { chosen: (await SpecialEffectDialog.show(live)) ?? [] };
   });
+
+  // A Choose Location or Marksman pick, shown to the attacker's player. Plain
+  // data in and out — see CombatEngine._askLocationChoice.
+  CombatSocket.registerRequestHandler('locationChoice', async (request) =>
+    ({ picked: await CombatEngine._showLocationChoiceDialog(request) }));
 }
 
 Hooks.on('renderChatMessageHTML', _onRenderChatMessage);
@@ -2350,11 +2355,12 @@ async function _onSemiAutoRollLocation(ev, message) {
   let d20      = null;
 
   if (chooseLocation) {
-    // Choose Location SE — show picker instead of rolling
+    // Choose Location SE — show picker instead of rolling. The attacker's
+    // decision, so it opens on their player's screen (v1.4.345).
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-    const attackerName = message.flags?.['mythras-imperative']
-      ? (game.actors.get(message.flags['mythras-imperative'].attackerId)?.name ?? '') : '';
-    const picked = await CombatEngine._showLocationPicker(defender, attackerName);
+    const flags    = message.flags?.['mythras-imperative'] ?? {};
+    const attacker = flags.attackerId ? _resolveActor(flags.attackerId) : null;
+    const picked   = await CombatEngine._showLocationPicker(defender, attacker?.name ?? '', null, attacker);
     locId    = picked.id;
     locLabel = picked.label;
   } else {
@@ -2442,7 +2448,7 @@ async function _onSemiAutoRollLocation(ev, message) {
 
   if ((useMarksman || useRangedMarksman) && locLabel && !chooseLocation) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-    const attackerName = game.actors.get(outcomeFlags.attackerId)?.name ?? '';
+    const attacker = outcomeFlags.attackerId ? _resolveActor(outcomeFlags.attackerId) : null;
     await new Promise(resolve => {
       const targetId = locMsg?.id ?? null;
       if (!targetId) { resolve(); return; }
@@ -2452,7 +2458,8 @@ async function _onSemiAutoRollLocation(ev, message) {
       // Safety fallback — if hook never fires (e.g. GM hidden roll), resolve anyway
       setTimeout(resolve, 1500);
     });
-    const shifted = await CombatEngine._resolveMarksman(defender, locId, locLabel, attackerName);
+    // The shooter's decision, so the picker opens on their player's screen.
+    const shifted = await CombatEngine._resolveMarksman(defender, locId, locLabel, attacker?.name ?? '', attacker);
     locId    = shifted.id;
     locLabel = shifted.label;
   }

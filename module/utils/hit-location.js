@@ -61,3 +61,30 @@ export function hitLocationForRoll(locations, d20) {
   return sorted.find(l => d20 >= (l.system?.rangeMin ?? 1) && d20 <= (l.system?.rangeMax ?? 20))
     ?? sorted[sorted.length - 1];
 }
+
+/**
+ * Accept a hit location the attacker's player picked, or report that they
+ * picked none.
+ *
+ * Added v1.4.345, when the Choose Location and Marksman pickers moved to the
+ * attacker's player's own client. The options are built where the engine runs
+ * (usually the GM's client) and the answer comes back over the socket, so it
+ * is only accepted if it names one of the options that was actually offered —
+ * otherwise a stale or garbled reply would become a location the defender
+ * does not have, which silently skips armour and the wound.
+ *
+ * A location is identified by id AND name, because a creature with no
+ * hit-location items offers name-only options (`id: null`).
+ *
+ * @param {Array<{id: string|null, name: string}>} options  what the picker showed
+ * @param {{id?: string|null, label?: string}|null} reply   what the player chose
+ * @returns {{id: string|null, label: string}|null}
+ *   the chosen option, or null if the player closed the picker, kept the
+ *   rolled location, never answered, or answered with something not offered
+ */
+export function resolveLocationChoice(options, reply) {
+  if (!reply) return null;
+  const hit = (options ?? []).find(o =>
+    o && (o.id ?? null) === (reply.id ?? null) && o.name === reply.label);
+  return hit ? { id: hit.id ?? null, label: hit.name } : null;
+}

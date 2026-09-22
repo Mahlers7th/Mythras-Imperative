@@ -34,7 +34,7 @@ import {
 import { shiftGrade, applyOverHundredPenalty } from '../utils/roll-math.js';
 import { canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckPrompt } from '../rolls/luck-point.js';
 import { offerResistLuck } from './effects/resist-luck.js';
-import { locationNameToKey } from '../utils/hit-location.js';
+import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import {
   waitForCard,
@@ -2401,7 +2401,7 @@ export class CombatEngine {
 
     // Hit location — Choose Location SE replaces the roll with a picker
     if (ctx.chosenSpecialEffects.includes('chooseLocation')) {
-      const picked = await CombatEngine._showLocationPicker(defender, attacker.name, ctx.chatMessageId);
+      const picked = await CombatEngine._showLocationPicker(defender, attacker.name, ctx.chatMessageId, attacker);
       ctx.hitLocationId    = picked.id;
       ctx.hitLocationLabel = picked.label;
     } else {
@@ -2411,7 +2411,7 @@ export class CombatEngine {
       ctx.hitLocationRoll  = locResult.roll ?? null;
       // Marksman SE — shift the rolled location one step to an adjoining area
       if (ctx.chosenSpecialEffects.includes('marksman')) {
-        const shifted = await CombatEngine._resolveMarksman(defender, ctx.hitLocationId, ctx.hitLocationLabel, attacker.name);
+        const shifted = await CombatEngine._resolveMarksman(defender, ctx.hitLocationId, ctx.hitLocationLabel, attacker.name, attacker);
         ctx.hitLocationId    = shifted.id;
         ctx.hitLocationLabel = shifted.label;
       }
@@ -2419,7 +2419,7 @@ export class CombatEngine {
       // Rules p.34: "shift a random Hit Location roll to an adjoining body location"
       // Does not stack with the Marksman SE — only fires if SE was not already chosen.
       else if (ctx.isRanged && ctx.attackerTraits?.includes('rangedMarksman')) {
-        const shifted = await CombatEngine._resolveMarksman(defender, ctx.hitLocationId, ctx.hitLocationLabel, attacker.name);
+        const shifted = await CombatEngine._resolveMarksman(defender, ctx.hitLocationId, ctx.hitLocationLabel, attacker.name, attacker);
         ctx.hitLocationId    = shifted.id;
         ctx.hitLocationLabel = shifted.label;
       }
@@ -3080,66 +3080,35 @@ export class CombatEngine {
   // -------------------------------------------------------------------------
   // _showLocationPicker — Choose Location SE dialog
   //
-  // Presents all of the defender's hit-location items as a radio list.
+  // Offers all of the defender's hit-location items to the attacker's player.
   // Resolves with { id, label } matching _rollHitLocation's return shape
-  // so all downstream code (damage, wound consequences) is unaffected.
+  // so all downstream code (damage, wound consequences) is unaffected; a
+  // closed or unanswered picker falls back to a rolled location.
   // Called by Full Auto when chooseLocation is in chosenSpecialEffects,
   // and by the Semi-Auto Roll Hit Location handler.
+  //
+  // `chooser` is the attacking actor, whose player sees the picker (see
+  // _askLocationChoice). Omit it to open the picker on this client.
   // -------------------------------------------------------------------------
 
-  static async _showLocationPicker(defender, attackerName = '', lastCardId = null) {
+  static async _showLocationPicker(defender, attackerName = '', lastCardId = null, chooser = null) {
     await CombatEngine._waitForCard(lastCardId);
-    return new Promise(resolve => {
-      const locations = Array.from(defender.items)
-        .filter(i => i.type === 'hit-location')
-        .sort((a, b) => (a.system.rangeMin ?? 0) - (b.system.rangeMin ?? 0));
+    const locations = Array.from(defender.items)
+      .filter(i => i.type === 'hit-location')
+      .sort((a, b) => (a.system.rangeMin ?? 0) - (b.system.rangeMin ?? 0));
 
-      if (locations.length === 0) {
-        // No hit-location items — fall back to rolled result
-        resolve(CombatEngine._rollHitLocation(defender));
-        return;
-      }
+    // No hit-location items — fall back to rolled result
+    if (locations.length === 0) return CombatEngine._rollHitLocation(defender);
 
-      const radios = locations.map((loc, idx) => `
-        <label class="mi-loc-picker-option">
-          <input type="radio" name="mi-loc" value="${loc.id}" data-label="${loc.name}"
-            ${idx === 0 ? 'checked' : ''}>
-          <span class="mi-loc-picker-name">${loc.name}</span>
-          <span class="mi-loc-picker-range">${loc.system.rangeMin ?? ''}–${loc.system.rangeMax ?? ''}</span>
-        </label>`).join('');
-
-      const content = `
-        <div class="mi-se-roll-dialog">
-          <div class="mi-se-roll-header">
-            <span class="mi-se-roll-title">Choose Location</span>
-            <span class="mi-se-roll-subtitle">${attackerName || 'Attacker'} → ${defender.name}</span>
-          </div>
-          <div class="mi-se-roll-body">
-            <p class="mi-loc-picker-header">Select the location to strike:</p>
-            <div class="mi-loc-picker">${radios}</div>
-          </div>
-        </div>`;
-
-      new Dialog({
-        title: 'Choose Location',
-        content,
-        buttons: {
-          confirm: {
-            label: 'Confirm',
-            callback: html => {
-              const checked = html[0].querySelector('input[name="mi-loc"]:checked');
-              if (checked) {
-                resolve({ id: checked.value, label: checked.dataset.label });
-              } else {
-                resolve(CombatEngine._rollHitLocation(defender));
-              }
-            }
-          }
-        },
-        default: 'confirm',
-        close: () => resolve(CombatEngine._rollHitLocation(defender))
-      }, { classes: ['dialog', 'mi-dialog'] }).render(true);
+    const picked = await CombatEngine._askLocationChoice(chooser, {
+      kind:         'choose',
+      attackerName,
+      defenderName: defender.name,
+      options:      locations.map(l => ({
+        id: l.id, name: l.name, rangeMin: l.system.rangeMin, rangeMax: l.system.rangeMax,
+      })),
     });
+    return picked ?? CombatEngine._rollHitLocation(defender);
   }
 
 
@@ -3160,10 +3129,14 @@ export class CombatEngine {
   //
   // Called AFTER the hit location is rolled but BEFORE damage is applied.
   // Returns { id, label } — same shape as _rollHitLocation so downstream
-  // code is unaffected. Original location returned unchanged on any failure.
+  // code is unaffected. Original location returned unchanged on any failure,
+  // and when the shooter keeps it.
+  //
+  // `chooser` is the attacking actor, whose player sees the picker (see
+  // _askLocationChoice). Omit it to open the picker on this client.
   // -------------------------------------------------------------------------
 
-  static async _resolveMarksman(defender, rolledId, rolledLabel, attackerName = '') {
+  static async _resolveMarksman(defender, rolledId, rolledLabel, attackerName = '', chooser = null) {
     const locations = Array.from(defender.items)
       .filter(i => i.type === 'hit-location')
       .sort((a, b) => (a.system.rangeMin ?? 0) - (b.system.rangeMin ?? 0));
@@ -3209,7 +3182,7 @@ export class CombatEngine {
         return { id: rolledId, label: rolledLabel };
       }
 
-      return CombatEngine._showMarksmanPicker(defender, rolledItem.name, adjacent, attackerName);
+      return CombatEngine._showMarksmanPicker(defender, { id: rolledItem.id, label: rolledItem.name }, adjacent, attackerName, chooser);
     }
 
     // ── Path B: no hit-location items — name map only ──────────────────────
@@ -3236,52 +3209,105 @@ export class CombatEngine {
       return { id: rolledId, label: rolledLabel };
     }
 
-    return CombatEngine._showMarksmanPicker(defender, rolledLabel, adjacent, attackerName);
+    return CombatEngine._showMarksmanPicker(defender, { id: rolledId, label: rolledLabel }, adjacent, attackerName, chooser);
   }
 
-  static _showMarksmanPicker(defender, rolledLabel, adjacentLocs, attackerName = '') {
+  // Keeping the rolled location returns `rolled` whole, id included. Before
+  // v1.4.345 "Keep" and closing the picker returned `id: null`, and a location
+  // with no id gets no armour and no wound — the Roll Damage and Apply Damage
+  // handlers both look the location item up by id.
+  static async _showMarksmanPicker(defender, rolled, adjacentLocs, attackerName = '', chooser = null) {
+    const picked = await CombatEngine._askLocationChoice(chooser, {
+      kind:         'marksman',
+      attackerName,
+      defenderName: defender.name,
+      rolledLabel:  rolled.label,
+      options:      adjacentLocs,
+    });
+    return picked ?? rolled;
+  }
+
+  // -------------------------------------------------------------------------
+  // _askLocationChoice — show a hit-location picker to the attacker's player
+  //
+  // Choose Location and Marksman are the attacker's decisions, but since
+  // v1.4.333 a player's attack resolves on the GM's client, so opening the
+  // picker wherever the engine ran put both of them on the GM's screen (found
+  // at the table, 2026-09-20). Same shape as _chooseSpecialEffects: the
+  // options are built here, where the defender's items are readable, and only
+  // plain data crosses the socket. _findDefenderUserId, not
+  // _findUserIdForActor — a GM owns every actor, so the latter returns the GM.
+  //
+  // Resolves the picked { id, label }, or null if the player closed the
+  // picker, kept the rolled location, or never answered — each caller
+  // supplies its own fallback.
+  // -------------------------------------------------------------------------
+
+  static async _askLocationChoice(chooser, request) {
+    const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
+    const targetUserId = chooser ? _findDefenderUserId(chooser) : null;
+
+    let reply;
+    if (_shouldRunLocally(targetUserId)) {
+      reply = await CombatEngine._showLocationChoiceDialog(request);
+    } else {
+      ui.notifications.info(game.i18n.format('MYTHRAS.LocationChoiceWaiting', { name: chooser.name }));
+      reply = (await CombatSocket.request('locationChoice', request, targetUserId))?.picked ?? null;
+    }
+    return resolveLocationChoice(request.options, reply);
+  }
+
+  // The picker itself, over plain data so it can run on any client — the
+  // 'locationChoice' request handler in mythras.mjs calls it on the player's.
+  // Resolves { id, label }, or null for Keep / close.
+  static _showLocationChoiceDialog({ kind, attackerName = '', defenderName = '', rolledLabel = '', options = [] }) {
+    const marksman = kind === 'marksman';
     return new Promise(resolve => {
-      const buttons = adjacentLocs.map((loc, idx) => `
+      const radios = options.map((loc, idx) => `
         <label class="mi-loc-picker-option">
-          <input type="radio" name="mi-loc" value="${loc.id}" data-label="${loc.name}"
+          <input type="radio" name="mi-loc" value="${loc.id ?? ''}" data-label="${loc.name}"
             ${idx === 0 ? 'checked' : ''}>
           <span class="mi-loc-picker-name">${loc.name}</span>
+          ${marksman ? '' : `<span class="mi-loc-picker-range">${loc.rangeMin ?? ''}–${loc.rangeMax ?? ''}</span>`}
         </label>`).join('');
+
+      const prompt = marksman
+        ? `Rolled: <strong>${rolledLabel}</strong> — shift to an adjoining location:`
+        : 'Select the location to strike:';
 
       const content = `
         <div class="mi-se-roll-dialog">
           <div class="mi-se-roll-header">
-            <span class="mi-se-roll-title">Marksman</span>
-            <span class="mi-se-roll-subtitle">${attackerName || 'Attacker'} → ${defender.name}</span>
+            <span class="mi-se-roll-title">${marksman ? 'Marksman' : 'Choose Location'}</span>
+            <span class="mi-se-roll-subtitle">${attackerName || 'Attacker'} → ${defenderName}</span>
           </div>
           <div class="mi-se-roll-body">
-            <p class="mi-loc-picker-header">Rolled: <strong>${rolledLabel}</strong> — shift to an adjoining location:</p>
-            <div class="mi-loc-picker">${buttons}</div>
+            <p class="mi-loc-picker-header">${prompt}</p>
+            <div class="mi-loc-picker">${radios}</div>
           </div>
         </div>`;
 
-      new Dialog({
-        title: 'Marksman — Shift Location',
-        content,
-        buttons: {
-          confirm: {
-            label: 'Confirm',
-            callback: html => {
-              const checked = html[0].querySelector('input[name="mi-loc"]:checked');
-              if (checked) {
-                resolve({ id: checked.value, label: checked.dataset.label });
-              } else {
-                resolve({ id: adjacentLocs[0].id, label: adjacentLocs[0].name });
-              }
-            }
-          },
-          keep: {
-            label: `Keep ${rolledLabel}`,
-            callback: () => resolve({ id: null, label: rolledLabel })
+      const buttons = {
+        confirm: {
+          label: 'Confirm',
+          callback: html => {
+            const checked = html[0].querySelector('input[name="mi-loc"]:checked');
+            resolve(checked ? { id: checked.value || null, label: checked.dataset.label } : null);
           }
-        },
+        }
+      };
+      if (marksman) {
+        buttons.keep = { label: `Keep ${rolledLabel}`, callback: () => resolve(null) };
+      }
+
+      // Every callback resolves synchronously, so the unguarded close is safe:
+      // the first resolve wins.
+      new Dialog({
+        title: marksman ? 'Marksman — Shift Location' : 'Choose Location',
+        content,
+        buttons,
         default: 'confirm',
-        close: () => resolve({ id: null, label: rolledLabel })
+        close: () => resolve(null)
       }, { classes: ['dialog', 'mi-dialog'] }).render(true);
     });
   }

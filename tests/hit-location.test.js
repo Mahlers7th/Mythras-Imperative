@@ -9,7 +9,7 @@
  * fall-through, which is easy to mistake for a bug and is deliberate.
  */
 
-import { hitLocationForRoll, locationNameToKey } from '../module/utils/hit-location.js';
+import { hitLocationForRoll, locationNameToKey, resolveLocationChoice } from '../module/utils/hit-location.js';
 
 /** The standard humanoid table (Mythras p.75). */
 const HUMANOID = [
@@ -102,5 +102,45 @@ describe('locationNameToKey (regression guard)', () => {
     expect(locationNameToKey('Right Leg')).toBe('rightLeg');
     expect(locationNameToKey('Head')).toBe('head');
     expect(locationNameToKey('Abdomen')).toBe('abdomen');
+  });
+});
+
+describe('resolveLocationChoice', () => {
+  const OFFERED = [
+    { id: 'ch', name: 'Chest' },
+    { id: 'hd', name: 'Head' },
+  ];
+
+  test('accepts an option that was offered, by id and name', () => {
+    expect(resolveLocationChoice(OFFERED, { id: 'hd', label: 'Head' }))
+      .toEqual({ id: 'hd', label: 'Head' });
+  });
+
+  test('no reply means no choice — closed, kept, or timed out', () => {
+    expect(resolveLocationChoice(OFFERED, null)).toBeNull();
+    expect(resolveLocationChoice(OFFERED, undefined)).toBeNull();
+  });
+
+  test('refuses a location that was not offered', () => {
+    expect(resolveLocationChoice(OFFERED, { id: 'rl', label: 'Right Leg' })).toBeNull();
+  });
+
+  test('refuses an id paired with the wrong name', () => {
+    expect(resolveLocationChoice(OFFERED, { id: 'hd', label: 'Chest' })).toBeNull();
+  });
+
+  test('a creature with no hit-location items offers name-only options', () => {
+    const nameOnly = [{ id: null, name: 'Chest' }, { id: null, name: 'Head' }];
+    expect(resolveLocationChoice(nameOnly, { id: null, label: 'Head' }))
+      .toEqual({ id: null, label: 'Head' });
+    // A reply with no id at all is the same as id: null.
+    expect(resolveLocationChoice(nameOnly, { label: 'Chest' }))
+      .toEqual({ id: null, label: 'Chest' });
+  });
+
+  test('tolerates missing or malformed options', () => {
+    expect(resolveLocationChoice(null, { id: 'hd', label: 'Head' })).toBeNull();
+    expect(resolveLocationChoice([null, { id: 'hd', name: 'Head' }], { id: 'hd', label: 'Head' }))
+      .toEqual({ id: 'hd', label: 'Head' });
   });
 });

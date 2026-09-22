@@ -202,5 +202,6 @@
   "MYTHRAS.ExchangeNotResolved": "The GM’s client did not finish resolving that attack. Check the GM’s console, or try again.",
   "MYTHRAS.NoGMForExchange": "No GM is connected, so this attack is resolving on your client and cannot change characters you do not own.",
   "MYTHRAS.CardActionFailed": "The GM’s client could not complete that. Check the GM’s console, or try again.",
-  "MYTHRAS.SEChoiceWaiting": "Waiting for {name}’s player to choose Special Effects…"
+  "MYTHRAS.SEChoiceWaiting": "Waiting for {name}’s player to choose Special Effects…",
+  "MYTHRAS.LocationChoiceWaiting": "Waiting for {name}’s player to choose a hit location…"
 }
