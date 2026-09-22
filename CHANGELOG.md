@@ -10,6 +10,20 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.349 — September 2026
+- **A player could not use a power on someone else's character.** A player's client may only write to actors that player owns, so anything a module power does *to another character* failed at the write when a player pressed the button: sheltering an ally under a Force Field, Human Shield, Shared Invisibility, Fatiguing Blast's Sustained Effect. It always worked for the GM, who owns everything, which is how it survived testing. The system has run its own writes on the GM's client since v1.4.333; this lets a module do the same.
+  - **New: `game.system.api.registerGMHandler(name, handler)` and `requestGM(name, data, { timeoutMs })`.** A module registers a *named* action on every client, and `requestGM` runs it on the active GM's client and returns the result. Names must be namespaced (`"destined-module.applyEffect"`), which keeps them clear of the system's own actions; an un-namespaced name throws. It runs locally when the caller is the GM or no GM is connected. It resolves `null`, never rejects, if the handler threw, isn't registered, or the GM doesn't answer. It is built on the existing `CombatSocket` request transport, so the module needs no socket of its own; that would have meant a manifest change and a server restart on Molten.
+  - **Named actions, not "update any document":** the module decides what can be asked for, and each handler validates its own input.
+- **`triggerOpposedSE` now runs on the GM's client when a player calls it.** Destined's Grappling Expertise Trip and Disarm buttons call it from the player's sheet, and the resolver writes the result (prone, a dropped weapon) onto the defender, which a player can't do. The context crosses whole via `context-codec.js`, and the resistance roll still goes to the resisting actor's owner. The signature is unchanged; see `frozen-api-updated.md`.
+- `frozen-api.json` and `frozen-api-updated.md` list the two new members (21 and 22).
+- 977 tests pass. Lint at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off, with Destined v1.9.135), 14 checks, **no permission error on the player**. Player2, acting on characters they do not own:
+  - raised a Force Field from their sheet and sheltered an ally: the ally's chest armour went **0 → 7 AP**;
+  - tripped an NPC through `triggerOpposedSE`: the resistance roll opened **on the GM**, the NPC's owner, and the NPC went **prone**;
+  - set the ally's Fatigue through `requestGM`: the ally became **Winded**; an invalid level was refused, and an unregistered action resolved `null`.
+  - The GM doing the same thing locally still works.
+- Not yet committed
+
 ## v1.4.348 — September 2026
 - **⚠️ Initiative rounded down. Mythras always rounds up.** Imperative p.3 (Core p.5 is identical): *"Whenever a division result creates a fraction, always round up to the whole number."* Destined p.6 says the same, and its worked example is explicit: *"Taking the average of his DEX and INT and rounding up, his Initiative Bonus is 15."* Every character, NPC and creature with an odd DEX+INT had an Initiative **one point short**. Four copies computed it (character, NPC, creature, and the unused pure helper), all `Math.floor`. The character copy's comment said *"round down"* outright. All four now use **`calcInitiativeBonus`**, rounded up. In the local world: **Mimic 12 → 13, Nocturne 19 → 20, Odessa 8 → 9**; Nex's DEX+INT is even, so unchanged.
 - **A rounding audit of the whole system and Destined followed, at Chris's request** ("make sure it's rounding properly everywhere"). All three books were read for exceptions. Core and Imperative have **none**. Destined has exactly two, both vehicle rules that print *"rounded down"* (carrier capacity, Weaponized hard points), and neither is in code. Also fixed in the system:

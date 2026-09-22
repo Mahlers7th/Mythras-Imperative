@@ -20,6 +20,8 @@
     "getTraitsByCategory",
     "replenishLuckPoints",
     "calcActionPoints",
-    "poolAfterMaxChange"
+    "poolAfterMaxChange",
+    "registerGMHandler",
+    "requestGM"
   ]
 }

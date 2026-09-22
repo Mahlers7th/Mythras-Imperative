@@ -87,7 +87,78 @@ export async function triggerOpposedSE(seId, ctx) {
     console.warn(`Mythras Imperative | triggerOpposedSE: no resolver registered for "${seId}".`);
     return;
   }
+  // A PLAYER's call runs on the GM's client (v1.4.349). The resolver writes
+  // its result onto the defender — Trip's prone, Disarm's dropped weapon —
+  // and a player cannot write to an actor they do not own, so Destined's
+  // Grappling Trip/Disarm buttons died at that write whenever a player pressed
+  // them. Same fix as a player's attack (v1.4.333): run where the writes are
+  // allowed; the resistance roll inside still routes to the resisting actor's
+  // owner from there. The context crosses whole via context-codec.
+  const gmId = activeGMUserId();
+  if (!game.user.isGM && gmId) {
+    const { encodeContext } = await import('./module/combat/context-codec.js');
+    const result = await CombatSocket.request(
+      'triggerOpposedSE', { seId, ctx: encodeContext(ctx) }, gmId, { timeoutMs: 30 * 60 * 1000 });
+    if (!result?.ok) ui.notifications.warn(game.i18n.localize('MYTHRAS.CardActionFailed'));
+    return;
+  }
   await resolver(ctx);
+}
+
+// ---------------------------------------------------------------------------
+// registerGMHandler / requestGM — named actions a MODULE runs on the GM's
+// client (v1.4.349).
+//
+// A player's client may only write to documents that player owns. Anything a
+// power does TO someone else — shelter an ally under a Force Field, heal
+// another hero, drain an enemy — therefore fails at the write when a player
+// presses the button (it always worked for the GM, who owns everything, which
+// is how it survived testing). The system has routed its own writes through
+// the GM since v1.4.333 (CombatSocket.request); these two expose the same
+// transport so a module does not need a socket of its own, which would mean
+// a manifest change and a server restart.
+//
+// Named actions, not "update any document": the module decides what can be
+// asked for, and each handler validates its own input. Names must be
+// namespaced — "<module-id>.<action>" — which also keeps them clear of the
+// system's own un-dotted actions ('resolveExchange', 'cardAction', …).
+//
+// Register on EVERY client (the GM's is the one that runs it; any client may
+// become the GM's). A handler receives the plain data object and returns a
+// JSON-safe result. Pass documents as UUIDs and resolve them with
+// fromUuidSync — an unlinked token's actor shares its base actor's id.
+// ---------------------------------------------------------------------------
+const GM_ACTION_NAME = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_.-]+$/;
+
+export function registerGMHandler(name, handler) {
+  if (typeof name !== 'string' || !GM_ACTION_NAME.test(name)) {
+    throw new Error(`Mythras Imperative | registerGMHandler: "${name}" must be namespaced, e.g. "my-module.doThing".`);
+  }
+  if (typeof handler !== 'function') {
+    throw new Error(`Mythras Imperative | registerGMHandler: the handler for "${name}" is not a function.`);
+  }
+  CombatSocket.registerRequestHandler(name, handler);
+}
+
+/**
+ * Run a registered action on the active GM's client and return its result.
+ * Runs locally when you are that GM, or when no GM is connected (the write
+ * then succeeds or fails exactly as it would have without this).
+ *
+ * @param {string} name     a name registered with registerGMHandler
+ * @param {object} [data]   JSON-safe payload
+ * @param {object} [opts]
+ * @param {number} [opts.timeoutMs]  default 60 s
+ * @returns {Promise<*|null>}  the handler's result; null if it threw, was not
+ *   registered, or the GM's client did not answer in time
+ */
+export async function requestGM(name, data = {}, { timeoutMs = 60 * 1000 } = {}) {
+  try {
+    return (await CombatSocket.request(name, data, activeGMUserId(), { timeoutMs })) ?? null;
+  } catch (err) {
+    console.error(`Mythras Imperative | requestGM("${name}") failed:`, err);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -655,6 +726,11 @@ Hooks.once('ready', () => {
     // that without a second, drifting copy of the ladder is to read this one.
     calcActionPoints,
     poolAfterMaxChange,
+    // registerGMHandler / requestGM (v1.4.349+): named module actions run on
+    // the GM's client, so a player's power can write to someone else's actor.
+    // See their doc block above.
+    registerGMHandler,
+    requestGM,
   });
 
   // ── Settings migration ────────────────────────────────────────────────────
@@ -2357,6 +2433,19 @@ function _registerCombatRequestHandlers() {
     if (!live?.attacker || !live?.defender) return null;
     const { SpecialEffectDialog } = await import('./module/combat/SpecialEffectDialog.js');
     return { chosen: (await SpecialEffectDialog.show(live)) ?? [] };
+  });
+
+  // A player's triggerOpposedSE (Destined's Grappling Trip/Disarm), resolved
+  // with GM permissions — see triggerOpposedSE.
+  CombatSocket.registerRequestHandler('triggerOpposedSE', async ({ seId, ctx }) => {
+    if (!game.user.isGM) return null;
+    const resolver = SE_RESOLVERS[seId];
+    if (!resolver) return null;
+    const { decodeContext } = await import('./module/combat/context-codec.js');
+    const live = decodeContext(ctx);
+    if (!live?.attacker || !live?.defender) return null;
+    await resolver(live);
+    return { ok: true };
   });
 
   // A Choose Location or Marksman pick, shown to the attacker's player. Plain
