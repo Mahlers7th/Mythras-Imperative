@@ -22,7 +22,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **Checked and already right:** difficulty grades, the critical range (`ceil(skill/10)`), parry, ward, Long Range and Impale-yank halving, Bodkin, Bash knockback, the Stun roll, and the Action Point ladder, which is a band lookup equivalent to `ceil(INT+DEX / 12)`. Also right, but not obviously: **vehicle Engine/Fuel "Maximum Speed is halved"**. `floor(index / 2)` on the 0-based speed step equals `ceil(rating / 2)` on the book's 1-based rating (Ponderous 1 … Fleet 9) for all nine ratings. **Correctly left alone:** Full Auto's rounds per target (*"spare rounds are lost"*), random picks, hit-location range layout, making change in currency, and display percentages.
 - 977 tests pass (18 suites). New: `rounding.test.js`, every DEX+INT from 6 to 42, and the Impale SIZ 51 boundary. Lint at 0 errors.
 - **Live-verified** (Playwright, Foundry 14.367), 8 checks with the Destined half (module v1.9.134), no console errors: DEX 11 + INT 10 gives Initiative **11** on a character, an NPC and a creature. Exhausted with Movement 7 gives **4/11/18**. Every world actor matched the pre-test snapshot afterwards.
-- Not yet committed
+- Committed as `8a6ce78e9413e992093e50e95db8dd7e276794c9`
 
 ## v1.4.347 — September 2026
 - **⚠️ The hit-point table was wrong: every character's Chest was one point short, so it always equalled the Abdomen.** Noticed at the table on 2026-09-20, on a hero with Destined's Durability. The book's Hit Points per Location Table (Imperative p.8; Mythras Core and Destined p.19 print the same) against what the system computed:
