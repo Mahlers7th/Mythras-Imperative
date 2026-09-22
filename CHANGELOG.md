@@ -22,7 +22,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - tripped an NPC through `triggerOpposedSE`: the resistance roll opened **on the GM**, the NPC's owner, and the NPC went **prone**;
   - set the ally's Fatigue through `requestGM`: the ally became **Winded**; an invalid level was refused, and an unregistered action resolved `null`.
   - The GM doing the same thing locally still works.
-- Not yet committed
+- Committed as `379539a920f91a7e98be1f79c0457cc8903da64d`
 
 ## v1.4.348 — September 2026
 - **⚠️ Initiative rounded down. Mythras always rounds up.** Imperative p.3 (Core p.5 is identical): *"Whenever a division result creates a fraction, always round up to the whole number."* Destined p.6 says the same, and its worked example is explicit: *"Taking the average of his DEX and INT and rounding up, his Initiative Bonus is 15."* Every character, NPC and creature with an odd DEX+INT had an Initiative **one point short**. Four copies computed it (character, NPC, creature, and the unused pure helper), all `Math.floor`. The character copy's comment said *"round down"* outright. All four now use **`calcInitiativeBonus`**, rounded up. In the local world: **Mimic 12 → 13, Nocturne 19 → 20, Odessa 8 → 9**; Nex's DEX+INT is even, so unchanged.
