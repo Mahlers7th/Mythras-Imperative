@@ -28,7 +28,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Fresh actors built from scratch match the book: CON 10 SIZ 10 → 4/6/5/3/4. **Shadowstalker → 7/9/8/6/7**, the book's own example. Durability STR 12 CON 18 SIZ 13 Paragon → 11/13/12/10/11. **Raising only STR to 18 resyncs to 12/14/13/11/12.** Enhanced Body with **only POW raised** moves 7/9/8/6/7 → 8/10/9/7/8. CON+SIZ 13 gives Arms 2, not 3.
   - The migration re-run on throwaway actors carrying the old table: an unhurt Chest 10/10 → 11/11, a **wounded Chest 4/10 → 4/11**, a **hand-set Head 15 untouched**, and **no real actor changed by the second run**.
 - **Found while checking, Destined module, not changed here:** Shrinking's *Growing Pains* Limit writes its damage to the derived `system.hitLocations` object, which nothing reads for HP, so it never lands on the hit-location items. Glass Jaw (Durability's Limit) is still unautomated, as the module's own notes say. A hero with **both** Enhanced Body and Durability gets both HP deltas added, where the matching damage bonus takes the larger of the two.
-- Not yet committed
+- Committed as `a320f6fa4f56e38467e2e7ae6131e588a7390105`
 
 ## v1.4.346 — September 2026
 - **⚠️ A new actor could be seeded twice: every skill and every hit location doubled.** Found while live-testing v1.4.345. The system's `createActor` hook (`mythras.mjs`) seeds standard skills and hit locations on characters, hit locations on NPCs and creatures, and system components on vehicles. `createActor` fires on **every** connected client, and the hook had no check of who created the actor, so every client ran it.
