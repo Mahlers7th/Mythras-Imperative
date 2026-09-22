@@ -730,7 +730,16 @@ const VEHICLE_SIZE_STEPS = {
   small: 1, medium: 2, large: 3, huge: 4, enormous: 5, colossal: 6
 };
 
-Hooks.on('createActor', async (actor, _options, _userId) => {
+Hooks.on('createActor', async (actor, _options, userId) => {
+  // Seed on the creating client only (v1.4.346). createActor fires on every
+  // connected client, and each ran this seeding: an actor created while
+  // another client that could edit it was connected got every skill and hit
+  // location twice (46 skills and 14 locations, live), and the doubled
+  // locations were then redistributed across the d20 table. A client that
+  // could not edit it logged a permission error instead. The creator can
+  // always write to what it just created.
+  if (userId !== game.user.id) return;
+
   // --- Vehicle: seed system components as hit-location items --------------
   if (actor.type === 'vehicle') {
     const hasComponents = actor.items.some(i => i.type === 'hit-location');

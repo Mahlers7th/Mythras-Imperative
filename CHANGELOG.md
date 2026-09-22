@@ -10,6 +10,23 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.346 — September 2026
+- **⚠️ A new actor could be seeded twice: every skill and every hit location doubled.** Found while live-testing v1.4.345. The system's `createActor` hook (`mythras.mjs`) seeds standard skills and hit locations on characters, hit locations on NPCs and creatures, and system components on vehicles. `createActor` fires on **every** connected client, and the hook had no check of who created the actor, so every client ran it.
+  - **Any client that could edit the new actor seeded it too.** A PC created by the GM while its owning player was connected came out with **46 skills and 14 hit locations**. The same happens when a player creates their own character while the GM is connected, because a GM can edit everything.
+  - **It also broke the hit-location table.** Each new hit-location item triggers `redistributeHitLocationRanges`, which spreads d20 1-20 across however many locations exist. With 14 locations, each covered one or two numbers, not the standard 1-3 / 4-6 / … / 19-20.
+  - A client that could *not* edit the actor, such as a player watching the GM make an NPC, logged two permission errors instead.
+- **Fixed by seeding only on the creating client:** `if (userId !== game.user.id) return;`, the same guard Destined's own `createActor` hook has always had. The creator can always write to what it just created: a GM can edit anything, and Foundry makes a player the owner of an actor they create.
+- **Existing actors are not touched.** A read-only scan of the local world found no actor with duplicated skills or hit locations. A character created on another server while two clients were connected should be checked by hand.
+- 958 tests pass, unchanged: this is a one-line guard in a Foundry hook, covered live. Lint at 0 errors.
+- **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367), 15 checks, **no console errors on either client**:
+  - **GM creates a PC Player2 owns, Player2 connected** (the case that produced 46/14 an hour earlier): 24 skills, 7 hit locations, each once, and the standard d20 table, identical on both clients.
+  - **GM creates a character only the GM owns:** seeded once, and Player2 no longer logs the two permission errors.
+  - **Player2 creates their own character** (Actor creation granted to the Player role for the test, then restored): Player2 owns it, and it is seeded once with the standard table.
+  - **GM creates a vehicle Player2 owns:** 8 system components, each once.
+  - Every world actor, the message count and the core permissions matched the pre-test snapshot afterwards.
+- **Same shape, left alone:** the `createItem`/`deleteItem` hooks also run on every client. Redistribution rewrites identical ranges, which Foundry drops as a no-op, and the weapon-from-style cleanup is idempotent. At worst they add console noise on a client that cannot edit the actor. They do not corrupt anything.
+- Not yet committed
+
 ## v1.4.345 — September 2026
 - **⚠️ The Choose Location and Marksman pickers opened on the GM's screen, not the attacker's player's.** Reported from the first Destined session (2026-09-20). Since v1.4.333 a player's attack resolves on the GM's client, and so does a player's click on the card's hit-location button (`CARD_ACTIONS.rollLocation`). Both pickers opened wherever that code ran. The Special Effect chooser, Luck offers and resistance dialogs were routed to their owners in v1.4.333/337; these two were missed, because they sit behind a card button rather than inside the exchange.
   - **Both now go to the attacker's player** through `CombatEngine._askLocationChoice`, the same shape as `_chooseSpecialEffects`. The options are built where the engine runs, where the defender's items are readable, and only plain data crosses the socket (`'locationChoice'` request, handled by `_showLocationChoiceDialog`). Routed with `_findDefenderUserId`, so a GM-owned NPC's picker still opens on the GM's screen. The GM sees *"Waiting for {name}'s player to choose a hit location…"*.
@@ -19,7 +36,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 - **Fallbacks:** a Choose Location picker that is closed or goes unanswered for five minutes rolls the location; for Marksman it keeps the rolled one.
 - 958 tests pass (17 suites), including 6 new for `resolveLocationChoice`. Lint at 0 errors.
 - **Live-verified with TWO REAL CLIENTS** (Playwright, Foundry 14.367, GM Mode off), 25 checks. **A real player attack**: Player2 took Choose Location from their own Special Effects dialog, clicked the card's button on their own chat log, and the picker opened on Player2 and **not** on the GM. Head was stamped with its item id, and Roll Damage produced *"Damage — Head"*. **Marksman**: the picker went to Player2 when the player clicked and when the GM clicked, offered Chest's four neighbours, and shifted Chest to Head. **Keep stamped Chest with its id.** **Control**: an NPC attacker's picker opened on the GM. Full Auto's call shape routed to Player2. Every world actor, the message count and the scene's tokens matched the pre-test snapshot afterwards.
-- **Found while testing, not fixed here:** the system's `createActor` hook (`mythras.mjs`) seeds skills and hit locations on **every** connected client, with no check of who created the actor. A character created while another client that can edit it is connected is seeded twice. Live, a PC created by the GM while its owning player was connected got **46 skills and 14 hit locations**. A client that cannot edit the actor logs a permission error instead.
+- **Found while testing, not fixed here (fixed in v1.4.346):** the system's `createActor` hook (`mythras.mjs`) seeds skills and hit locations on **every** connected client, with no check of who created the actor. A character created while another client that can edit it is connected is seeded twice. Live, a PC created by the GM while its owning player was connected got **46 skills and 14 hit locations**. A client that cannot edit the actor logs a permission error instead.
 - Committed as `9ec4025d00b624c67716bb23cb80ed0d3a6eec17`
 
 ## v1.4.344 — September 2026
