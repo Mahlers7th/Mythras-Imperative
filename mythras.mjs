@@ -22,7 +22,7 @@ import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js'
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
-import { poolAfterMaxChange, calcActionPoints } from './module/utils/char-math.js';
+import { poolAfterMaxChange, calcActionPoints, calcHitLocationHP, legacyHitLocationHP, migratedLocationMax } from './module/utils/char-math.js';
 import { offerResistLuck } from './module/combat/effects/resist-luck.js';
 import {
   resolveEntangleBreakFree,
@@ -351,6 +351,11 @@ Hooks.once('setup', () => {
 
   // Settings registered here so all Foundry APIs are fully available
 
+  // The last one-time hit-point table migration applied to this world (hidden).
+  game.settings.register('mythras-imperative', 'hpTableVersion', {
+    scope: 'world', config: false, type: Number, default: 0,
+  });
+
   // Automation level — three modes
   game.settings.register('mythras-imperative', 'automationLevel', {
     name:    'Combat Automation Level',
@@ -663,6 +668,9 @@ Hooks.once('ready', () => {
       ui.notifications.info('Mythras Imperative: Combat automation level reset to Manual (settings updated).');
     }
   }
+
+  _migrateHitLocationTable().catch(err =>
+    console.error('Mythras Imperative | hit-point table migration failed:', err));
 });
 
 // ---------------------------------------------------------------------------
@@ -928,26 +936,19 @@ function _scheduleRedistribute(actor) {
 // game.system.api so modules can force a resync after a flag change they
 // know we didn't see (e.g. a batched update).
 // ---------------------------------------------------------------------------
-export function syncHitLocationHP(actor) {
-  const con    = actor.system.characteristics.con.value;
-  const siz    = actor.system.characteristics.siz.value;
-  const conSiz = con + siz;
-
-  let head, chest, abdomen, arm, leg;
-  if      (conSiz <= 5)  { head=1; chest=2;  abdomen=2;  arm=1; leg=1; }
-  else if (conSiz <= 10) { head=2; chest=3;  abdomen=3;  arm=2; leg=2; }
-  else if (conSiz <= 15) { head=3; chest=4;  abdomen=4;  arm=3; leg=3; }
-  else if (conSiz <= 20) { head=4; chest=5;  abdomen=5;  arm=3; leg=4; }
-  else if (conSiz <= 25) { head=5; chest=6;  abdomen=6;  arm=4; leg=5; }
-  else if (conSiz <= 30) { head=6; chest=7;  abdomen=7;  arm=5; leg=6; }
-  else if (conSiz <= 35) { head=7; chest=8;  abdomen=8;  arm=6; leg=7; }
-  else if (conSiz <= 40) { head=8; chest=9;  abdomen=9;  arm=7; leg=8; }
-  else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
+/**
+ * Each location's maximum HP, keyed by canonical location key: the CON+SIZ
+ * table (`table`, calcHitLocationHP unless the migration asks for the old one)
+ * plus the Hero Level bonus plus the hitPointBonusHooks sum.
+ */
+function _hitLocationMaxima(actor, table = calcHitLocationHP) {
+  const con = actor.system.characteristics.con.value;
+  const siz = actor.system.characteristics.siz.value;
 
   // Hero Level HP bonus
   const advantages = actor.system.heroAdvantages ?? [];
   const hpBonus = advantages.includes('hitPoints2') ? 2 : advantages.includes('hitPoints') ? 1 : 0;
-  if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
+  const { head, chest, abdomen, arm, leg } = table(con, siz, hpBonus);
 
   const baseByKey = {
     head, chest, abdomen,
@@ -963,6 +964,12 @@ export function syncHitLocationHP(actor) {
   for (const [key, base] of Object.entries(baseByKey)) {
     hpByKey[key] = base + sumHookContributions(hpHooks, [actor, key], { errorLabel: 'hitPointBonusHook' }).total;
   }
+  return hpByKey;
+}
+
+export function syncHitLocationHP(actor) {
+  const conSiz  = actor.system.characteristics.con.value + actor.system.characteristics.siz.value;
+  const hpByKey = _hitLocationMaxima(actor);
 
   const locationItems = Array.from(actor.items).filter(i => i.type === 'hit-location');
   if (locationItems.length === 0) return Promise.resolve();
@@ -995,6 +1002,65 @@ export function syncHitLocationHP(actor) {
   return actor.updateEmbeddedDocuments('Item', updates).then(() => {
     console.log(`Mythras Imperative | Synced hit location HP for ${actor.name} (CON+SIZ=${conSiz})`);
   });
+}
+
+// ---------------------------------------------------------------------------
+// HIT-POINT TABLE MIGRATION (v1.4.347) — once per world, on the first active GM.
+//
+// Until v1.4.347 the CON+SIZ table was wrong (Chest one short in every band,
+// Arms one high at 6-15). syncHitLocationHP only rewrites a maximum when CON,
+// SIZ, a hero advantage or a Destined flag changes, so fixing the table alone
+// would leave every existing character wrong until one of those moved.
+//
+// A location is corrected only if its stored maximum still reads exactly what
+// the old table gave it (migratedLocationMax). A GM's hand-set value — a book
+// stat block, a boss with extra HP — does not match and is left alone. Base
+// actors go first, then unlinked tokens: a token that has never had that
+// location changed inherits the corrected base value and is skipped, and one
+// whose copy has (it was wounded) is corrected in place.
+// ---------------------------------------------------------------------------
+const HP_TABLE_VERSION = 1;
+
+async function _migrateHitLocationTable() {
+  if (!game.user.isGM || activeGMUserId() !== game.user.id) return;
+  if ((game.settings.get('mythras-imperative', 'hpTableVersion') ?? 0) >= HP_TABLE_VERSION) return;
+
+  const tokenActors = game.scenes.contents.flatMap(s =>
+    s.tokens.contents.filter(t => !t.actorLink && t.actor).map(t => t.actor));
+  const actors = [...game.actors.contents, ...tokenActors]
+    .filter(a => ['character', 'npc'].includes(a.type));
+
+  const corrected = [];
+  for (const actor of actors) {
+    try {
+      const oldByKey = _hitLocationMaxima(actor, legacyHitLocationHP);
+      const newByKey = _hitLocationMaxima(actor);
+      const updates = [];
+      for (const loc of actor.items.filter(i => i.type === 'hit-location')) {
+        const key = locationNameToKey(loc.system.label ?? loc.name ?? '');
+        const change = migratedLocationMax({
+          storedMax: loc.system.hp, storedCurrent: loc.system.current,
+          oldMax: oldByKey[key], newMax: newByKey[key],
+        });
+        if (!change) continue;
+        const update = { _id: loc.id, 'system.hp': change.hp };
+        if (change.current !== undefined) update['system.current'] = change.current;
+        updates.push(update);
+      }
+      if (updates.length) {
+        await actor.updateEmbeddedDocuments('Item', updates);
+        corrected.push(actor.isToken ? `${actor.name} (token)` : actor.name);
+      }
+    } catch (err) {
+      console.error(`Mythras Imperative | hit-point table migration failed for ${actor.name}:`, err);
+    }
+  }
+
+  await game.settings.set('mythras-imperative', 'hpTableVersion', HP_TABLE_VERSION);
+  if (corrected.length) {
+    console.log('Mythras Imperative | Hit points corrected to the book table:', corrected);
+    ui.notifications.info(game.i18n.format('MYTHRAS.HpTableMigrated', { count: corrected.length }));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1249,8 +1315,9 @@ Hooks.on('preUpdateActor', (actor, changed, options, _userId) => {
 });
 
 // ---------------------------------------------------------------------------
-// ACTOR UPDATE — sync hit location item HP when CON, SIZ, heroAdvantages, or
-// a destined-module flag changes, then let full pools follow their new maxima
+// ACTOR UPDATE — sync hit location item HP when a characteristic,
+// heroAdvantages, or a destined-module flag changes, then let full pools
+// follow their new maxima
 // ---------------------------------------------------------------------------
 Hooks.on('updateActor', async (actor, changed, options, _userId) => {
   if (!game.user.isGM) return;
@@ -1332,17 +1399,22 @@ Hooks.on('updateActor', async (actor, changed, options, _userId) => {
     ui.notifications.info(parts.join(' '));
   }
 
-  // ── CON/SIZ/heroAdvantages change OR any flags.destined-module change ────
+  // ── Any characteristic, heroAdvantages, or any flags.destined-module change ─
   // The destined-module namespace is where hitPointBonusHooks-driving powers
   // (Enhanced Body, Durability, Power-Level HP, etc.) store their state, so a
-  // flag write there must re-run the sync even when CON/SIZ/heroAdvantages
-  // didn't move.
-  const changedCon        = foundry.utils.getProperty(changed, 'system.characteristics.con.value');
-  const changedSiz        = foundry.utils.getProperty(changed, 'system.characteristics.siz.value');
+  // flag write there must re-run the sync even when nothing else moved.
+  //
+  // ANY characteristic, not just CON and SIZ (v1.4.347): a hitPointBonusHook
+  // may read whatever it likes, and the system cannot know which. Destined's
+  // Durability looks the table up with STR+CON+SIZ and Enhanced Body with
+  // CON+SIZ+½POW, so raising STR or POW left those heroes' hit points stale
+  // until something else happened to trigger a sync. The sync writes only the
+  // locations whose maximum actually changed, so the wider trigger is free.
+  const changedChars      = foundry.utils.getProperty(changed, 'system.characteristics');
   const changedAdvantages = foundry.utils.getProperty(changed, 'system.heroAdvantages');
   const changedDestined   = foundry.utils.getProperty(changed, 'flags.destined-module');
-  if (changedCon === undefined && changedSiz === undefined &&
-      changedAdvantages === undefined && changedDestined === undefined) return;
+  if (changedChars === undefined && changedAdvantages === undefined &&
+      changedDestined === undefined) return;
 
   await syncHitLocationHP(actor);
 });

@@ -13,6 +13,8 @@ import {
   calcActionPoints,
   calcInitiativeBonus,
   calcHitLocationHP,
+  legacyHitLocationHP,
+  migratedLocationMax,
   dmBaseIndex,
   poolAfterMaxChange,
   DM_TABLE
@@ -220,28 +222,62 @@ describe('calcInitiativeBonus', () => {
 });
 
 // =============================================================================
-// calcHitLocationHP
+// calcHitLocationHP — Imperative p.8, Hit Points per Location Table
 // =============================================================================
 
 describe('calcHitLocationHP', () => {
-  test('CON+SIZ=10 → head2 chest3 abdomen3 arm2 leg2', () => {
-    const hp = calcHitLocationHP(5, 5);
-    expect(hp).toEqual({ head: 2, chest: 3, abdomen: 3, arm: 2, leg: 2 });
+  // The book's table, transcribed column by column: [head, chest, abdomen, arm, leg].
+  // v1.4.347: the previous tests asserted the system's own wrong table (Chest
+  // equal to Abdomen in every band, Arms one high at 6-15), which is how it
+  // survived — they checked the code against itself, not against the book.
+  const BOOK = {
+    '1-5':   [1, 3, 2, 1, 1],
+    '6-10':  [2, 4, 3, 1, 2],
+    '11-15': [3, 5, 4, 2, 3],
+    '16-20': [4, 6, 5, 3, 4],
+    '21-25': [5, 7, 6, 4, 5],
+    '26-30': [6, 8, 7, 5, 6],
+    '31-35': [7, 9, 8, 6, 7],
+    '36-40': [8, 10, 9, 7, 8],
+  };
+  const asRow = (hp) => [hp.head, hp.chest, hp.abdomen, hp.arm, hp.leg];
+
+  test('every CON+SIZ from 1 to 40 matches the book, at both ends of each band', () => {
+    for (const [range, row] of Object.entries(BOOK)) {
+      const [lo, hi] = range.split('-').map(Number);
+      for (const conSiz of [lo, hi]) {
+        expect({ conSiz, hp: asRow(calcHitLocationHP(conSiz, 0)) }).toEqual({ conSiz, hp: row });
+      }
+    }
   });
 
-  test('CON+SIZ=20 (average human CON10 SIZ10) → head4 chest5 abdomen5 arm3 leg4', () => {
-    const hp = calcHitLocationHP(10, 10);
-    expect(hp).toEqual({ head: 4, chest: 5, abdomen: 5, arm: 3, leg: 4 });
+  test('the Chest is always one more than the Abdomen — the bug seen at the table', () => {
+    for (let conSiz = 1; conSiz <= 60; conSiz++) {
+      const hp = calcHitLocationHP(conSiz, 0);
+      expect({ conSiz, diff: hp.chest - hp.abdomen }).toEqual({ conSiz, diff: 1 });
+    }
   });
 
-  test('CON+SIZ=25 → head5 chest6 abdomen6 arm4 leg5', () => {
-    const hp = calcHitLocationHP(13, 12);
-    expect(hp).toEqual({ head: 5, chest: 6, abdomen: 6, arm: 4, leg: 5 });
+  test('"+5: +1" — each further 5 points adds 1 to every location', () => {
+    expect(asRow(calcHitLocationHP(41, 0))).toEqual([9, 11, 10, 8, 9]);
+    expect(asRow(calcHitLocationHP(45, 0))).toEqual([9, 11, 10, 8, 9]);
+    expect(asRow(calcHitLocationHP(46, 0))).toEqual([10, 12, 11, 9, 10]);
+    expect(asRow(calcHitLocationHP(50, 0))).toEqual([10, 12, 11, 9, 10]);
+    expect(asRow(calcHitLocationHP(51, 0))).toEqual([11, 13, 12, 10, 11]);
   });
 
-  test('CON+SIZ > 40 → head9 chest10 abdomen10 arm8 leg9', () => {
-    const hp = calcHitLocationHP(25, 20);
-    expect(hp).toEqual({ head: 9, chest: 10, abdomen: 10, arm: 8, leg: 9 });
+  test('Destined p.19 worked example: Shadowstalker, CON 15 SIZ 11, Epic +1', () => {
+    // "Hit Points are 7 for his Legs, 8 for his Abdomen, 9 for his Chest,
+    //  6 for his Arms, and 7 for his Head."
+    expect(calcHitLocationHP(15, 11, 1)).toEqual({ head: 7, chest: 9, abdomen: 8, arm: 6, leg: 7 });
+  });
+
+  test('average human CON 10 SIZ 10 → head4 chest6 abdomen5 arm3 leg4', () => {
+    expect(calcHitLocationHP(10, 10)).toEqual({ head: 4, chest: 6, abdomen: 5, arm: 3, leg: 4 });
+  });
+
+  test('CON and SIZ are summed — the split does not matter', () => {
+    expect(calcHitLocationHP(13, 12)).toEqual(calcHitLocationHP(5, 20));
   });
 
   test('hero advantage +1 HP adds to every location', () => {
@@ -260,14 +296,89 @@ describe('calcHitLocationHP', () => {
     expect(para.chest).toBe(base.chest + 2);
   });
 
-  test('boundary: CON+SIZ exactly 5 → head1', () => {
-    const hp = calcHitLocationHP(3, 2);
-    expect(hp.head).toBe(1);
+  test('a zero or missing characteristic still yields the first band, never 0', () => {
+    expect(asRow(calcHitLocationHP(0, 0))).toEqual([1, 3, 2, 1, 1]);
+    expect(asRow(calcHitLocationHP(undefined, null))).toEqual([1, 3, 2, 1, 1]);
+  });
+});
+
+// =============================================================================
+// Destined's Durability / Enhanced Body delta, as the module computes it
+// =============================================================================
+
+describe('a re-looked-up sum added as a per-location delta', () => {
+  // Destined adds `ceil(new/5) - ceil(old/5)` to every location through
+  // hitPointBonusHooks. That is only right if it equals looking the table up
+  // with the new sum — check it for every hero-possible CON+SIZ (min 3+8 = 11).
+  test('delta on top of CON+SIZ equals the table looked up with the larger sum', () => {
+    for (let conSiz = 11; conSiz <= 60; conSiz++) {
+      for (let extra = 0; extra <= 30; extra++) {
+        const delta = Math.ceil((conSiz + extra) / 5) - Math.ceil(conSiz / 5);
+        const viaDelta = calcHitLocationHP(conSiz, 0, delta);
+        expect({ conSiz, extra, hp: viaDelta }).toEqual({ conSiz, extra, hp: calcHitLocationHP(conSiz + extra, 0) });
+      }
+    }
   });
 
-  test('boundary: CON+SIZ exactly 40 → head8', () => {
-    const hp = calcHitLocationHP(20, 20);
-    expect(hp.head).toBe(8);
+  test('Durability (STR+CON+SIZ): STR 12 CON 18 SIZ 13, Paragon +2', () => {
+    // 43 → band 9: Head 9, Chest 11, Abdomen 10, Arms 8, Legs 9; +2 Paragon.
+    const delta = Math.ceil(43 / 5) - Math.ceil(31 / 5);
+    expect(delta).toBe(2);
+    expect(calcHitLocationHP(18, 13, delta + 2)).toEqual({ head: 11, chest: 13, abdomen: 12, arm: 10, leg: 11 });
+  });
+});
+
+// =============================================================================
+// v1.4.347 migration
+// =============================================================================
+
+describe('legacyHitLocationHP (the pre-v1.4.347 table, frozen for the migration)', () => {
+  test('reproduces the old wrong values, so the migration can recognise them', () => {
+    expect(legacyHitLocationHP(10, 10)).toEqual({ head: 4, chest: 5, abdomen: 5, arm: 3, leg: 4 });
+    expect(legacyHitLocationHP(5, 5)).toEqual({ head: 2, chest: 3, abdomen: 3, arm: 2, leg: 2 });
+    expect(legacyHitLocationHP(25, 20)).toEqual({ head: 9, chest: 10, abdomen: 10, arm: 8, leg: 9 });
+    expect(legacyHitLocationHP(10, 10, 2).chest).toBe(7);
+  });
+
+  test('differs from the book only where the bug was: Chest always, Arms at 6-15, anything past 45', () => {
+    for (let conSiz = 1; conSiz <= 45; conSiz++) {
+      const oldHp = legacyHitLocationHP(conSiz, 0);
+      const newHp = calcHitLocationHP(conSiz, 0);
+      expect({ conSiz, head: oldHp.head, abdomen: oldHp.abdomen, leg: oldHp.leg })
+        .toEqual({ conSiz, head: newHp.head, abdomen: newHp.abdomen, leg: newHp.leg });
+      expect({ conSiz, chest: newHp.chest - oldHp.chest }).toEqual({ conSiz, chest: 1 });
+      expect({ conSiz, arm: oldHp.arm - newHp.arm }).toEqual({ conSiz, arm: conSiz >= 6 && conSiz <= 15 ? 1 : 0 });
+    }
+  });
+});
+
+describe('migratedLocationMax', () => {
+  test('an unhurt chest the old table wrote moves up and stays full', () => {
+    expect(migratedLocationMax({ storedMax: 12, storedCurrent: 12, oldMax: 12, newMax: 13 }))
+      .toEqual({ hp: 13, current: 13 });
+  });
+
+  test('a wounded chest gets the new maximum and keeps its wound', () => {
+    expect(migratedLocationMax({ storedMax: 12, storedCurrent: 5, oldMax: 12, newMax: 13 }))
+      .toEqual({ hp: 13 });
+  });
+
+  test('an arm the old table set one high comes down, and a full arm stays full', () => {
+    expect(migratedLocationMax({ storedMax: 3, storedCurrent: 3, oldMax: 3, newMax: 2 }))
+      .toEqual({ hp: 2, current: 2 });
+  });
+
+  test('a hand-set maximum (not what the old table gave) is left alone', () => {
+    expect(migratedLocationMax({ storedMax: 15, storedCurrent: 15, oldMax: 12, newMax: 13 })).toBeNull();
+  });
+
+  test('a location that was already right is left alone', () => {
+    expect(migratedLocationMax({ storedMax: 7, storedCurrent: 7, oldMax: 7, newMax: 7 })).toBeNull();
+  });
+
+  test('missing numbers — an unrecognised location key — change nothing', () => {
+    expect(migratedLocationMax({ storedMax: 7, storedCurrent: 7, oldMax: undefined, newMax: undefined })).toBeNull();
+    expect(migratedLocationMax()).toBeNull();
   });
 });
 

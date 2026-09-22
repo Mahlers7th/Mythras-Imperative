@@ -203,5 +203,6 @@
   "MYTHRAS.NoGMForExchange": "No GM is connected, so this attack is resolving on your client and cannot change characters you do not own.",
   "MYTHRAS.CardActionFailed": "The GM’s client could not complete that. Check the GM’s console, or try again.",
   "MYTHRAS.SEChoiceWaiting": "Waiting for {name}’s player to choose Special Effects…",
-  "MYTHRAS.LocationChoiceWaiting": "Waiting for {name}’s player to choose a hit location…"
+  "MYTHRAS.LocationChoiceWaiting": "Waiting for {name}’s player to choose a hit location…",
+  "MYTHRAS.HpTableMigrated": "Mythras Imperative: hit points corrected to the book’s table on {count} actor(s) — the Chest was one point short. The console lists who changed."
 }

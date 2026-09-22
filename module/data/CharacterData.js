@@ -7,6 +7,7 @@
 
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { applyCharacteristicDrain, deriveSkillTotals } from './ActorData.js';
+import { calcHitLocationHP } from '../utils/char-math.js';
 
 const { fields } = foundry.data;
 
@@ -427,24 +428,12 @@ export class CharacterData extends foundry.abstract.TypeDataModel {
   }
 
   _calcHitLocationHP(con, siz) {
-    // HP per location derived from (CON + SIZ) lookup table
-    const conSiz = con + siz;
-    let head, chest, abdomen, arm, leg;
-
-    if (conSiz <= 5)       { head=1; chest=2; abdomen=2; arm=1; leg=1; }
-    else if (conSiz <= 10) { head=2; chest=3; abdomen=3; arm=2; leg=2; }
-    else if (conSiz <= 15) { head=3; chest=4; abdomen=4; arm=3; leg=3; }
-    else if (conSiz <= 20) { head=4; chest=5; abdomen=5; arm=3; leg=4; }
-    else if (conSiz <= 25) { head=5; chest=6; abdomen=6; arm=4; leg=5; }
-    else if (conSiz <= 30) { head=6; chest=7; abdomen=7; arm=5; leg=6; }
-    else if (conSiz <= 35) { head=7; chest=8; abdomen=8; arm=6; leg=7; }
-    else if (conSiz <= 40) { head=8; chest=9; abdomen=9; arm=7; leg=8; }
-    else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
-
-    // Hero Level HP bonus
+    // HP per location from the CON+SIZ table — char-math.js owns it, so this
+    // copy and the writer in mythras.mjs cannot drift apart again (v1.4.347).
+    // Hero Level HP bonus included.
     const adv = this.heroAdvantages ?? [];
     const hpBonus = adv.includes('hitPoints2') ? 2 : adv.includes('hitPoints') ? 1 : 0;
-    if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
+    const { head, chest, abdomen, arm, leg } = calcHitLocationHP(con, siz, hpBonus);
 
     // hitPointBonusHooks are NOT consumed here. hit-location items are the
     // sole HP-max authority — mythras.mjs syncHitLocationHP() is the one

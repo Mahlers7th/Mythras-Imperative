@@ -17,6 +17,9 @@
 // mirrored) so the item-label -> camelCase-key derivation itself is under
 // test, not just the hook-application contract downstream of it.
 import { locationNameToKey } from '../module/utils/hit-location.js';
+// calcHitLocationHP is pure and fully tested in char-math.test.js — imported
+// for real so the hit-point mirror below cannot hold its own copy of the table.
+import { calcHitLocationHP } from '../module/utils/char-math.js';
 // weaponBaseMax is likewise pure and already fully tested in
 // combat-math.test.js — imported for real rather than mirrored, so the
 // _getEffectiveArmourAt tests below exercise the actual piercing-reduction
@@ -240,20 +243,11 @@ function applyHitPointBonusHooks(hooks, baseHP, actor, locationId) {
  * that feeds them.
  */
 function computeHitLocationHP(con, siz, heroAdvantages = [], hooks = [], actor = {}) {
-  const conSiz = con + siz;
-  let head, chest, abdomen, arm, leg;
-  if      (conSiz <= 5)  { head=1; chest=2;  abdomen=2;  arm=1; leg=1; }
-  else if (conSiz <= 10) { head=2; chest=3;  abdomen=3;  arm=2; leg=2; }
-  else if (conSiz <= 15) { head=3; chest=4;  abdomen=4;  arm=3; leg=3; }
-  else if (conSiz <= 20) { head=4; chest=5;  abdomen=5;  arm=3; leg=4; }
-  else if (conSiz <= 25) { head=5; chest=6;  abdomen=6;  arm=4; leg=5; }
-  else if (conSiz <= 30) { head=6; chest=7;  abdomen=7;  arm=5; leg=6; }
-  else if (conSiz <= 35) { head=7; chest=8;  abdomen=8;  arm=6; leg=7; }
-  else if (conSiz <= 40) { head=8; chest=9;  abdomen=9;  arm=7; leg=8; }
-  else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
-
+  // The table itself is imported for real (v1.4.347). This mirror used to carry
+  // its own copy — the same wrong one as the three in the code, so every test
+  // here agreed with the bug.
   const hpBonus = heroAdvantages.includes('hitPoints2') ? 2 : heroAdvantages.includes('hitPoints') ? 1 : 0;
-  if (hpBonus) { head += hpBonus; chest += hpBonus; abdomen += hpBonus; arm += hpBonus; leg += hpBonus; }
+  const { head, chest, abdomen, arm, leg } = calcHitLocationHP(con, siz, hpBonus);
 
   const baseByKey = {
     head, chest, abdomen,
@@ -1932,12 +1926,12 @@ describe('syncHitLocationHP — CON+SIZ table -> hero bonus -> hitPointBonusHook
   test('CON+SIZ table with no hero bonus and no hooks', () => {
     // con 10 + siz 10 = 20 -> the <=20 band
     const hp = computeHitLocationHP(10, 10, [], []);
-    expect(hp).toEqual({ head: 4, chest: 5, abdomen: 5, rightArm: 3, leftArm: 3, rightLeg: 4, leftLeg: 4 });
+    expect(hp).toEqual({ head: 4, chest: 6, abdomen: 5, rightArm: 3, leftArm: 3, rightLeg: 4, leftLeg: 4 });
   });
 
   test('hero level hitPoints bonus (+1) applies to every location', () => {
     const hp = computeHitLocationHP(10, 10, ['hitPoints'], []);
-    expect(hp).toEqual({ head: 5, chest: 6, abdomen: 6, rightArm: 4, leftArm: 4, rightLeg: 5, leftLeg: 5 });
+    expect(hp).toEqual({ head: 5, chest: 7, abdomen: 6, rightArm: 4, leftArm: 4, rightLeg: 5, leftLeg: 5 });
   });
 
   test('hero level hitPoints2 bonus (+2) is used instead of hitPoints (+1), not stacked', () => {
@@ -1948,7 +1942,7 @@ describe('syncHitLocationHP — CON+SIZ table -> hero bonus -> hitPointBonusHook
   test('folding a stub hitPointBonusHooks hook adds a flat delta to every location', () => {
     const stubHook = () => 2; // e.g. Destined Enhanced Body flat +2 everywhere
     const hp = computeHitLocationHP(10, 10, [], [stubHook]);
-    expect(hp).toEqual({ head: 6, chest: 7, abdomen: 7, rightArm: 5, leftArm: 5, rightLeg: 6, leftLeg: 6 });
+    expect(hp).toEqual({ head: 6, chest: 8, abdomen: 7, rightArm: 5, leftArm: 5, rightLeg: 6, leftLeg: 6 });
   });
 
   test('a hook can distinguish sides via the camelCase key even though the base table shares one value per pair', () => {

@@ -133,11 +133,39 @@ export function calcInitiativeBonus(dex, intVal) {
 }
 
 // ---------------------------------------------------------------------------
-// Hit Location HP  (rules p.32)
+// Hit Location HP  (Imperative p.8, "Hit Points per Location Table")
 // ---------------------------------------------------------------------------
 
 /**
  * Derive base HP values for each hit location from CON+SIZ.
+ *
+ * THE hit-point table — `syncHitLocationHP` (the writer) and
+ * `CharacterData#_calcHitLocationHP` (the derived copy) both call this. Until
+ * v1.4.347 each of the three carried its own copy of a table that was wrong in
+ * the same way: the Chest was one point short in every band (so it always
+ * equalled the Abdomen), the Arms were one point high at CON+SIZ 6-15, and
+ * nothing grew past 45.
+ *
+ * The book, in 5-point bands of CON+SIZ (band n covers 5n-4 to 5n):
+ *
+ *            1-5  6-10  11-15  16-20  21-25  26-30  31-35  36-40  +5
+ *   Head      1    2     3      4      5      6      7      8     +1
+ *   Chest     3    4     5      6      7      8      9     10     +1
+ *   Abdomen   2    3     4      5      6      7      8      9     +1
+ *   Each Arm  1    1     2      3      4      5      6      7     +1
+ *   Each Leg  1    2     3      4      5      6      7      8     +1
+ *
+ * i.e. Head = Leg = n, Chest = n+2, Abdomen = n+1, Arm = n-1 (never below 1),
+ * with "+1 per further 5 points" meaning the bands simply keep counting. Mythras
+ * Core and Destined (p.19) print the same table — Destined's has a misprint,
+ * Chest 9 in the 16-20 column, where its own sequence and both other books give 6.
+ * Destined's worked example (Shadowstalker, CON+SIZ 26, Epic +1) gives Legs 7,
+ * Abdomen 8, Chest 9, Arms 6, Head 7, which this reproduces.
+ *
+ * Destined's Durability and Enhanced Body re-look the table up with a larger
+ * sum (STR+CON+SIZ, CON+SIZ+½POW) and add the difference through
+ * `hitPointBonusHooks` as `ceil(new/5) - ceil(old/5)` — exact, because every
+ * row rises by one per band from 11 upward, and a hero's CON+SIZ is at least 11.
  *
  * @param {number} con
  * @param {number} siz
@@ -145,7 +173,35 @@ export function calcInitiativeBonus(dex, intVal) {
  * @returns {{ head: number, chest: number, abdomen: number, arm: number, leg: number }}
  */
 export function calcHitLocationHP(con, siz, hpBonus = 0) {
-  const conSiz = con + siz;
+  const n = Math.max(1, Math.ceil(((Number(con) || 0) + (Number(siz) || 0)) / 5));
+  const head    = n;
+  const chest   = n + 2;
+  const abdomen = n + 1;
+  const arm     = Math.max(1, n - 1);
+  const leg     = n;
+
+  return {
+    head:    head    + hpBonus,
+    chest:   chest   + hpBonus,
+    abdomen: abdomen + hpBonus,
+    arm:     arm     + hpBonus,
+    leg:     leg     + hpBonus
+  };
+}
+
+/**
+ * The WRONG table this system shipped until v1.4.347, frozen.
+ *
+ * Kept only so the one-time migration can recognise a maximum the old writer
+ * produced — see `migratedLocationMax`. Never compute hit points with it.
+ *
+ * @param {number} con
+ * @param {number} siz
+ * @param {number} [hpBonus=0]
+ * @returns {{ head: number, chest: number, abdomen: number, arm: number, leg: number }}
+ */
+export function legacyHitLocationHP(con, siz, hpBonus = 0) {
+  const conSiz = (Number(con) || 0) + (Number(siz) || 0);
   let head, chest, abdomen, arm, leg;
 
   if      (conSiz <= 5)  { head=1; chest=2;  abdomen=2;  arm=1; leg=1; }
@@ -159,12 +215,35 @@ export function calcHitLocationHP(con, siz, hpBonus = 0) {
   else                   { head=9; chest=10; abdomen=10; arm=8; leg=9; }
 
   return {
-    head:    head    + hpBonus,
-    chest:   chest   + hpBonus,
-    abdomen: abdomen + hpBonus,
-    arm:     arm     + hpBonus,
-    leg:     leg     + hpBonus
+    head: head + hpBonus, chest: chest + hpBonus, abdomen: abdomen + hpBonus,
+    arm: arm + hpBonus, leg: leg + hpBonus,
   };
+}
+
+/**
+ * Decide whether one hit location's stored maximum should move to the
+ * corrected table (v1.4.347 migration).
+ *
+ * Only a maximum that still reads EXACTLY what the old table (plus the same
+ * bonuses) produced is moved. Anything else was set some other way — a GM
+ * typing a book stat block onto an NPC, a boss given extra HP by hand — and is
+ * left alone. The current value follows `poolAfterMaxChange`: an unhurt
+ * location stays full, a wounded one keeps its wound.
+ *
+ * @param {object} p
+ * @param {number} p.storedMax      the location's `system.hp` as stored
+ * @param {number} p.storedCurrent  the location's `system.current` as stored
+ * @param {number} p.oldMax         what the old table + bonuses gives
+ * @param {number} p.newMax         what the corrected table + bonuses gives
+ * @returns {{hp: number, current?: number}|null}  the update, or null to leave it
+ */
+export function migratedLocationMax({ storedMax, storedCurrent, oldMax, newMax } = {}) {
+  if (![storedMax, oldMax, newMax].every(Number.isFinite)) return null;
+  if (storedMax !== oldMax || oldMax === newMax) return null;
+  const update = { hp: newMax };
+  const current = poolAfterMaxChange({ storedValue: storedCurrent ?? 0, oldMax, newMax });
+  if (current !== null) update.current = current;
+  return update;
 }
 
 // ---------------------------------------------------------------------------

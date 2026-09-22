@@ -57,7 +57,7 @@ Modules extend the system via `CONFIG.MYTHRAS.*` arrays (see `extension-point-ap
 - **Frozen API** (`frozen-api-updated.md`): the `game.system.api` surface and CombatEngine signatures that downstream modules (Destined) call directly. Do not change a frozen signature without updating the doc and the runtime.
 
 ### HP data model (recently locked — important)
-`hit-location` **items** are canonical for HP: `system.hp` (max), `system.current`, `system.wound`. The whole combat engine reads max from the item. The derived `CharacterData.hitLocations` object is **not** an HP-max authority. A single writer recomputes `system.hp` (CON+SIZ table → hero-level bonus → `hitPointBonusHooks` sum) and must fire on CON/SIZ/heroAdvantages changes **and** any `flags.destined-module` change.
+`hit-location` **items** are canonical for HP: `system.hp` (max), `system.current`, `system.wound`. The whole combat engine reads max from the item. The derived `CharacterData.hitLocations` object is **not** an HP-max authority. A single writer recomputes `system.hp` (CON+SIZ table → hero-level bonus → `hitPointBonusHooks` sum) and must fire on **any characteristic** change, heroAdvantages changes **and** any `flags.destined-module` change — not just CON/SIZ, because a hook may read anything (Durability reads STR, Enhanced Body POW; v1.4.347). **The table is `calcHitLocationHP` (`char-math.js`) and nowhere else**: until v1.4.347 four copies (writer, `CharacterData`, `char-math`, the test mirror) all had the Chest one short, and every test passed because each checked the code against its own copy. Test a rules table against the book's printed numbers, never against a transcription in the code.
 
 ## Repo layout
 
