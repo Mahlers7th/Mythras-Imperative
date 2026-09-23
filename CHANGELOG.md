@@ -18,7 +18,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - `module/utils/roll-events.js`, with 4 tests. It reads `globalThis.CONFIG`, not a bare `CONFIG`: an undeclared global throws a `ReferenceError` rather than reading as undefined, and this must never be the thing that breaks a roll — caught by its own test.
 - 981 tests pass (19 suites). Lint at 0 errors, which caught two real faults the tests could not: a missing import at the outcome card, and `actor` not being in scope at the dialog-route roll site.
 - **Live-verified with TWO REAL CLIENTS** as part of Destined v1.9.137's Bolster test, 19 checks: a bolstered Perception roll opened at **Easy** and the boon was gone afterwards, while an unrelated Athletics roll left it untouched.
-- Not yet committed
+- Committed as `6c2a56cb7e0e189c335835629f471417ac971b20`
 
 ## v1.4.349 — September 2026
 - **A player could not use a power on someone else's character.** A player's client may only write to actors that player owns, so anything a module power does *to another character* failed at the write when a player pressed the button: sheltering an ally under a Force Field, Human Shield, Shared Invisibility, Fatiguing Blast's Sustained Effect. It always worked for the GM, who owns everything, which is how it survived testing. The system has run its own writes on the GM's client since v1.4.333; this lets a module do the same.
