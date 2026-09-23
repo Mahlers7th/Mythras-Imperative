@@ -24,7 +24,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **`requestSkillCheck(Endurance, Hard)`, Endurance 20, a roll of 17:** with a CON Bolster it **succeeds**, so it was rolled at Standard, and the boon is spent. Without one it **fails** at Hard 14, as before.
   - The full v1.9.137 Bolster run, 19 checks, still passes; its only changed expectation is that the dialog now opens at the task's own difficulty.
 - **Deliberately unchanged:** the hero-advantage "one grade easier" on sheet rolls still moves the dialog's default rather than the final grade. It is the same class of issue, but it is a system feature Chris has not ruled on.
-- Not yet committed
+- Committed as `d4fac4ea810d0ebff7e540fa7f36e7be2e2cb7b0`
 
 ## v1.4.350 — September 2026
 - **New hook family: `rollResolvedHooks` — "this actor's roll has happened".** The counterpart to `conditionGradeHooks`, which is asked *before* a roll how much easier or harder it should be. A one-shot effect on someone's **next** roll needs both halves, and only the first existed. Destined's Bolster ("the affected character's next Skill Roll using the specified characteristic is one difficulty grade easier") grants its grade through `conditionGradeHooks` and spends it here; without this a granted boon either never expires, or is eaten by a dialog the player cancelled.
