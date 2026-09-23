@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Requested checks now apply it too.** `requestSkillCheck` had never looked at hero advantages, so an Endurance resist against Ongoing Damage ignored "Endurance rolls are one Grade easier".
 - 992 tests pass (19 suites), 3 new for `heroAdvantageShift`. Lint at 0 errors.
 - **Live-verified** (Playwright, Foundry 14.367, with Destined v1.9.138): with the Endurance advantage, the sheet dialog opens at **Standard**; set to **Hard**, it previews Endurance **20** and rolls at **Standard / 20**. No console errors, every world actor unchanged.
-- Not yet committed
+- Committed as `41265b23034810296df2ca987319d7ba6170f1e9`
 
 ## v1.4.351 — September 2026
 - **⚠️ A Bolster only ever helped a task at Standard difficulty.** Found by reviewing Destined's Bolster (v1.9.137) fresh the day after it shipped. A module's grade shift was folded into the condition *floor*, and on the sheet roll and the attack dialog the floor then lost to any harder chosen difficulty. A GM calling for a **Hard** Perception check got a plain Hard roll from a Bolstered hero, and the boon was spent anyway. Chris's ruling (2026-09-23): *"If the shot has a difficulty of HARD, it should be STANDARD when Bolster is used on the character."*
