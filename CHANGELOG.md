@@ -10,6 +10,15 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.352 — September 2026
+- **⚠️ A hero advantage's "one Grade easier" was lost on any roll harder than Standard.** Endurance, Stealth and Willpower advantages ("rolls are one Grade easier") only moved the sheet dialog's *default*, from Standard to Easy. A GM calling for a **Hard** Endurance roll got a plain Hard roll. It is the same defect v1.4.351 fixed for Bolster, and it gets the same fix: Chris's ruling (2026-09-23) is that the easier grade applies to the difficulty the roll is actually made at, so **Hard becomes Standard**.
+  - The advantage is now a **shift on the final grade**, joined to the module shift in `composeRollGrade`. The sheet dialog opens at the task's real difficulty, and its live target shows the shifted grade.
+  - It lives in one place, `heroAdvantageShift(advantages, skillName)` in `char-math.js`, which is pure and tested. The character sheet's own copy of the list is gone. `MythrasRoll` reads the actor's advantages itself, so a caller cannot forget it and cannot double it up; the `gradeEasier` option is still honoured.
+  - **Requested checks now apply it too.** `requestSkillCheck` had never looked at hero advantages, so an Endurance resist against Ongoing Damage ignored "Endurance rolls are one Grade easier".
+- 992 tests pass (19 suites), 3 new for `heroAdvantageShift`. Lint at 0 errors.
+- **Live-verified** (Playwright, Foundry 14.367, with Destined v1.9.138): with the Endurance advantage, the sheet dialog opens at **Standard**; set to **Hard**, it previews Endurance **20** and rolls at **Standard / 20**. No console errors, every world actor unchanged.
+- Not yet committed
+
 ## v1.4.351 — September 2026
 - **⚠️ A Bolster only ever helped a task at Standard difficulty.** Found by reviewing Destined's Bolster (v1.9.137) fresh the day after it shipped. A module's grade shift was folded into the condition *floor*, and on the sheet roll and the attack dialog the floor then lost to any harder chosen difficulty. A GM calling for a **Hard** Perception check got a plain Hard roll from a Bolstered hero, and the boon was spent anyway. Chris's ruling (2026-09-23): *"If the shot has a difficulty of HARD, it should be STANDARD when Bolster is used on the character."*
   - **One rule now decides a roll's final grade:** the harder of (chosen difficulty, condition floor), **then** the module shift. It is `composeRollGrade(chosen, floor, shift)`, pure and tested, with `getConditionFloor` and `getConditionShift` split out of `getConditionGrade`, which returns exactly what it always did. Conditions still behave as floors: Hard while Exhausted is Formidable. A Bolster on top of that makes it Hard.

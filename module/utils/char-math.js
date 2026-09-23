@@ -293,3 +293,32 @@ export function poolAfterMaxChange({ storedValue, oldMax, newMax } = {}) {
 
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Hero advantages that make a skill easier (Larger-Than-Life Heroics)
+// ---------------------------------------------------------------------------
+
+/**
+ * The grade shift a hero advantage gives a roll of `skillName`: −1 (one grade
+ * easier) or 0. Imperative's Larger-Than-Life Heroics: "Endurance rolls are
+ * one Grade easier", and the same for Stealth and Willpower.
+ *
+ * One definition (v1.4.352). It used to live inline on the character sheet and
+ * only moved the roll dialog's STARTING difficulty, so a Hard Endurance roll
+ * stayed Hard — and a requested check (the Endurance and Willpower resists
+ * powers ask for, where it matters most) never applied it at all. It is now a
+ * shift on the final grade, composed exactly like a module's
+ * (composeRollGrade): a Hard Endurance roll is Standard.
+ *
+ * @param {string[]} advantages  actor.system.heroAdvantages
+ * @param {string} skillName
+ * @returns {number} −1 or 0
+ */
+export function heroAdvantageShift(advantages, skillName) {
+  const has = new Set(advantages ?? []);
+  const name = String(skillName ?? '').trim().toLowerCase();
+  if (has.has('enduranceEasier') && name === 'endurance') return -1;
+  if (has.has('stealthEasier')   && name === 'stealth')   return -1;
+  if (has.has('willpowerEasier') && name === 'willpower') return -1;
+  return 0;
+}

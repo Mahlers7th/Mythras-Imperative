@@ -10,6 +10,7 @@ import { applyDifficulty as applyDifficultyShared, determineOutcome as determine
 import { swapDigits as swapDigitsShared } from './luck-point.js';
 import { fireRollResolved } from '../utils/roll-events.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
+import { heroAdvantageShift } from '../utils/char-math.js';
 
 export class MythrasRoll {
 
@@ -41,12 +42,18 @@ export class MythrasRoll {
     // separately — floor against the chosen difficulty, then the shift on the
     // result (composeRollGrade). A Bolstered Hard roll is Standard.
     const floorGrade   = CombatEngine._getConditionFloorOnly(actor, { kind: 'sheet', item });
-    const gradeShift   = CombatEngine._getConditionShift(actor, { kind: 'sheet', item });
+    // A hero advantage ("Endurance rolls are one Grade easier") is the same
+    // kind of thing as a module shift, so it joins it (v1.4.352). `gradeEasier`
+    // is still honoured if a caller passes it, but the actor's own advantages
+    // are read directly, so the two can never disagree or double up.
+    const heroEasier   = gradeEasier || heroAdvantageShift(actor?.system?.heroAdvantages, item?.name) < 0;
+    const gradeShift   = CombatEngine._getConditionShift(actor, { kind: 'sheet', item }) + (heroEasier ? -1 : 0);
     const gradeOrder   = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
     const floorIdx     = gradeOrder.indexOf(floorGrade);
 
-    // Hero advantage: grade one step easier — shift floor index down by 1 (but never below 0)
-    const effectiveFloorIdx = gradeEasier ? Math.max(0, floorIdx - 1) : floorIdx;
+    // The dialog opens at the task's own floor; any easier grade (hero
+    // advantage, a module) moves the FINAL grade, shown in the target below.
+    const effectiveFloorIdx = floorIdx;
     const defaultDiff  = gradeOrder[effectiveFloorIdx];
     const condNotesStr = CombatEngine._buildConditionNotes(actor, { kind: 'sheet', item });
 
@@ -79,7 +86,7 @@ export class MythrasRoll {
       return `<option value="${p.id}" data-augment="${augment}">${name} (+${augment}%)</option>`;
     }).join('');
 
-    const gradeEasierNote = gradeEasier
+    const gradeEasierNote = heroEasier
       ? `<div class="mi-dialog-hero-note"><i class="fas fa-star"></i> Hero advantage — difficulty one grade easier</div>`
       : '';
 
@@ -123,7 +130,7 @@ export class MythrasRoll {
               const difficulty = html.find('#mi-difficulty').val();
               const passionId  = html.find('#mi-passion').val() || '';
               const passion    = eligiblePassions.find(p => p.id === passionId) ?? null;
-              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, passion });
+              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, passion, gradeEasier: heroEasier });
               resolve(true);
             }
           },
@@ -168,17 +175,18 @@ export class MythrasRoll {
   // Execute Roll
   // -------------------------------------------------------------------------
 
-  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null }) {
+  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null, gradeEasier = false }) {
     // The grade actually rolled at: the harder of the chosen difficulty and
     // the condition floor, then any module shift (v1.4.351, composeRollGrade).
     // Same context as the dialog, so the target shown and the target rolled
     // against cannot diverge — the v1.4.309 class of bug.
     if (actor) {
       const { CombatEngine: CE } = await import('../combat/CombatEngine.js');
+      const heroEasier = gradeEasier || heroAdvantageShift(actor.system?.heroAdvantages, item?.name) < 0;
       difficulty = composeRollGrade(
         difficulty,
         CE._getConditionFloorOnly(actor, { kind: 'sheet', item }),
-        CE._getConditionShift(actor, { kind: 'sheet', item }),
+        CE._getConditionShift(actor, { kind: 'sheet', item }) + (heroEasier ? -1 : 0),
       );
     }
 

@@ -477,3 +477,25 @@ describe('poolAfterMaxChange', () => {
     expect(poolAfterMaxChange({ storedValue: -5, oldMax: 9, newMax: 11 })).toBeNull();
   });
 });
+
+// =============================================================================
+// heroAdvantageShift (v1.4.352)
+// =============================================================================
+import { heroAdvantageShift } from '../module/utils/char-math.js';
+
+describe('heroAdvantageShift', () => {
+  test('each advantage makes its own skill one grade easier', () => {
+    expect(heroAdvantageShift(['enduranceEasier'], 'Endurance')).toBe(-1);
+    expect(heroAdvantageShift(['stealthEasier'], 'Stealth')).toBe(-1);
+    expect(heroAdvantageShift(['willpowerEasier'], 'Willpower')).toBe(-1);
+  });
+  test('and nothing else', () => {
+    expect(heroAdvantageShift(['enduranceEasier'], 'Willpower')).toBe(0);
+    expect(heroAdvantageShift([], 'Endurance')).toBe(0);
+    expect(heroAdvantageShift(null, 'Endurance')).toBe(0);
+    expect(heroAdvantageShift(['enduranceEasier'], null)).toBe(0);
+  });
+  test('never more than one grade, however many advantages are held', () => {
+    expect(heroAdvantageShift(['enduranceEasier', 'stealthEasier', 'willpowerEasier'], 'endurance')).toBe(-1);
+  });
+});

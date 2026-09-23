@@ -841,19 +841,13 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     const { MythrasRoll } = await import('../rolls/MythrasRoll.js');
 
-    // Hero advantage: grade-easier skills
-    const advantages  = this.document.system.heroAdvantages ?? [];
-    const skillName   = item.name.toLowerCase();
-    const gradeEasier = (advantages.includes('enduranceEasier')  && skillName === 'endurance')  ||
-                        (advantages.includes('stealthEasier')    && skillName === 'stealth')    ||
-                        (advantages.includes('willpowerEasier')  && skillName === 'willpower');
-
+    // Hero advantages ("Endurance rolls are one Grade easier") are read by
+    // MythrasRoll itself from the actor (heroAdvantageShift, v1.4.352).
     await MythrasRoll.rollDialog({
       actor:    this.document,
       item,
       skillTotal,
       passions: Array.from(this.document.items).filter(i => i.type === 'passion'),
-      gradeEasier
     });
   }
 

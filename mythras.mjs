@@ -22,7 +22,7 @@ import { CombatStyleSheet }           from './module/sheets/CombatStyleSheet.js'
 import { AmmoSheet }                  from './module/sheets/AmmoSheet.js';
 import { CombatEngine }               from './module/combat/CombatEngine.js';
 import { determineOutcome, shiftGrade, GRADE_ORDER, applyDifficulty, DIFFICULTY_GRADES } from './module/utils/roll-math.js';
-import { poolAfterMaxChange, calcActionPoints, calcHitLocationHP, legacyHitLocationHP, migratedLocationMax } from './module/utils/char-math.js';
+import { poolAfterMaxChange, calcActionPoints, calcHitLocationHP, legacyHitLocationHP, migratedLocationMax, heroAdvantageShift } from './module/utils/char-math.js';
 import { offerResistLuck } from './module/combat/effects/resist-luck.js';
 import {
   resolveEntangleBreakFree,
@@ -1271,7 +1271,9 @@ export async function requestSkillCheck(actor, {
     // exactly as it was. `target` is what is actually rolled against.
     const gradeCtx = { kind: 'requestedCheck', item };
     const total    = applyGradeToSkill(rawTotal, getConditionFloor(actor, 'resist', gradeCtx));
-    const grade    = composeRollGrade(difficulty ?? 'standard', 'standard', getConditionShift(actor, 'resist', gradeCtx));
+    // A hero advantage on this skill is one grade easier too (v1.4.352).
+    const shift    = getConditionShift(actor, 'resist', gradeCtx) + heroAdvantageShift(actor.system?.heroAdvantages, name);
+    const grade    = composeRollGrade(difficulty ?? 'standard', 'standard', shift);
     const target   = applyDifficulty(total, grade);
     skillOptions.push({ name, rawTotal, total, grade, target, item });
   }
