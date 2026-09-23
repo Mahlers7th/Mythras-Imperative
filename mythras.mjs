@@ -40,6 +40,7 @@ import {
 import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
 import { CombatSocket, _findDefenderUserId, activeGMUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey, hitLocationForRoll } from './module/utils/hit-location.js';
+import { fireRollResolved } from './module/utils/roll-events.js';
 import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync, mitigatedDamageForSerious } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
@@ -1261,7 +1262,7 @@ export async function requestSkillCheck(actor, {
     const item = Array.from(actor.items).find(i => i.type === 'skill' && i.name === name);
     if (!item) continue;
     const rawTotal = item.system.total ?? 0;
-    skillOptions.push({ name, rawTotal, total: applyFatigueToSkillSE(rawTotal, actor) });
+    skillOptions.push({ name, rawTotal, total: applyFatigueToSkillSE(rawTotal, actor), item });
   }
   if (skillOptions.length === 0) return noSkillResult;
 
@@ -1310,6 +1311,9 @@ export async function requestSkillCheck(actor, {
     seType: 'skillCheck',
     title, prompt, difficulty, allowGMOverride,
     defenderName: actor.name,
+    // For rollResolvedHooks on the dialog route (v1.4.350) — a uuid, since
+    // this payload may cross the socket to the player's own client.
+    actorUuid: actor.uuid,
     skillOptions,
     lastCardId
   };
@@ -1347,6 +1351,7 @@ export async function requestSkillCheck(actor, {
   // previously matched neither reading - see fumble-basis-design.md.
   const grade     = determineOutcome(roll.total, target);
   const succeeds  = grade === 'critical' || grade === 'success';
+  fireRollResolved({ actor, item: best.item ?? null, kind: 'requestedCheck', result: roll.total, target, grade });
   // Automated modes roll with no dialog, but the offer still applies: the
   // caller has not acted on the result yet, and a player watching their
   // character's check fail should be able to spend on it.

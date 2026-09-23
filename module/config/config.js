@@ -394,6 +394,36 @@ export const MYTHRAS = {
   attackResolvedHooks: [],
 
   // -----------------------------------------------------------------------
+  // rollResolvedHooks (v1.4.350) — "this actor's roll has happened".
+  //
+  //   The counterpart to conditionGradeHooks: that family is asked, BEFORE a
+  //   roll, how much easier or harder it should be; this one says, AFTER it,
+  //   that the roll took place. A one-shot effect on someone's NEXT roll
+  //   needs both — Destined's Bolster grants its Difficulty Grade through
+  //   conditionGradeHooks and uses it up here.
+  //
+  //   Fired ONCE per roll, from the five sites that ask for a condition
+  //   grade, with the same 'kind' vocabulary: 'sheet', 'attack', 'defence'
+  //   and 'requestedCheck' (both of requestSkillCheck's routes). A Special
+  //   Effect's own resistance roll does NOT fire it — Bleed, Trip, Grip and
+  //   the rest resolve through their own branches of runSEDialog.
+  //   'attack'/'defence' fire from the outcome
+  //   card, after any Luck re-roll has settled, so an exchange fires each at
+  //   most once. Spell rolls do not fire it — the same gap this vocabulary's
+  //   'spellcast' kind has in conditionGradeHooks.
+  //
+  //   Receives one object: { actor, item, kind, result, target, grade }.
+  //   `item` is the skill/style/passion where the site has one, null where it
+  //   does not. Fire-and-forget and void-returning like attackResolvedHooks:
+  //   the return value is ignored, a throw is logged and stepped over, and
+  //   nothing is awaited — do not do slow work in one. See
+  //   module/utils/roll-events.js.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each is called once per resolved roll; receives one context object; return value ignored */
+  rollResolvedHooks: [],
+
+  // -----------------------------------------------------------------------
   // ROUND BOUNDARY HOOKS / TURN STARTED HOOKS
   //   roundBoundaryHook : (actor, combat) => void | Promise<void>
   //   turnStartedHook   : (actor, combat) => void | Promise<void>

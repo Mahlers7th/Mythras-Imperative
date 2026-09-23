@@ -37,6 +37,7 @@ import { offerResistLuck } from './effects/resist-luck.js';
 import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { roundUp } from '../utils/rounding.js';
+import { fireRollResolved } from '../utils/roll-events.js';
 import {
   waitForCard,
   runSEDialog,
@@ -2095,6 +2096,17 @@ export class CombatEngine {
 
   static async _postOutcomeCard(ctx) {
     const { attacker, defender, weapon } = ctx;
+
+    // Both rolls of this exchange have settled by now, including any Luck
+    // re-roll, so this is the once-per-exchange point to say they happened
+    // (v1.4.350, module/utils/roll-events.js). The defender only rolled if
+    // they actually defended.
+    fireRollResolved({ actor: attacker, item: ctx.attackerStyle ?? null, kind: 'attack',
+      result: ctx.attackResult, target: ctx.attackerSkillTotal, grade: ctx.attackOutcome });
+    if (ctx.defenceResult != null && ctx.defenceType && ctx.defenceType !== 'none') {
+      fireRollResolved({ actor: defender, item: ctx.defenceStyle ?? null, kind: 'defence',
+        result: ctx.defenceResult, target: ctx.defenderSkillTotal, grade: ctx.defenceOutcome });
+    }
 
     const outcomeLabel = {
       critical: game.i18n.localize('MYTHRAS.OutcomeCritical'),

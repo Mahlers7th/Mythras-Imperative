@@ -292,6 +292,18 @@ Signature is now `conditionGradeHook(actor, role, context)`. From `grade-shift-c
 - **A throwing hook is caught and logged; it cannot abort attack resolution.** Do not use this hook to modify the attack in progress — by the time it fires, the outcome is already determined and (usually) already posted to chat. `rollHooks.preRoll` is the seam for that.
 - **Motivating use case**: a module boost that is paid for once and consumes/expires on the very next resolved attack, hit or miss (e.g. a planned Destined Blast Armor Piercing boost) — needs a reliable "the shot happened" signal to clear its own per-shot flag, regardless of outcome.
 
+### `MYTHRAS.rollResolvedHooks[]`
+
+- **Type**: `Function[]`, each `(context) => void`. Return value ignored. Added v1.4.350.
+- **Context**: `{ actor, item, kind, result, target, grade }`. `item` is the skill, combat style or passion rolled, `null` where the site has none. `kind` uses `conditionGradeHooks`' own vocabulary.
+- **The counterpart to `conditionGradeHooks`.** That family is asked, *before* a roll, how much easier or harder it should be; this one says, *after* it, that the roll happened. A one-shot effect on someone's **next** roll needs both: Destined's Bolster grants its Difficulty Grade through `conditionGradeHooks` and spends it here. Without this there is no way to know a granted shift was used, and a boon either never expires or is consumed by a dialog the player cancelled.
+- **Called from**, once per roll:
+  - `MythrasRoll.rollDialog` — `kind: 'sheet'`, the common case. Fired where the outcome is first determined, **not** after a Luck re-roll: a re-roll is the same roll resolving differently, not a second one.
+  - `CombatEngine._postOutcomeCard` — `kind: 'attack'`, and `kind: 'defence'` only when the defender actually rolled (`defenceType` other than `none`). Fired there because by then both rolls, including any Luck re-roll, have settled, so an exchange fires each at most once.
+  - `requestSkillCheck` — `kind: 'requestedCheck'`, from both of its routes (the automated one in `mythras.mjs`, and the dialog one in `runSEDialog`'s generic `skillCheck` branch, which carries the roller as `data.actorUuid`).
+- **Does NOT fire** for a Special Effect's own resistance roll (Bleed, Trip, Grip and the rest resolve through their own `runSEDialog` branches), for spell rolls, or for Full Auto's consolidated card, which skips `_postOutcomeCard`. Those are the same gaps `conditionGradeHooks` has, and are listed rather than guessed past.
+- **Fire-and-forget**: a throwing hook is caught and logged, nothing is awaited, and the return value is ignored. Do not do slow work in one — a roll's resolution is not waiting for you.
+
 ### `MYTHRAS.roundBoundaryHooks[]` / `MYTHRAS.turnStartedHooks[]`
 
 Not part of the seam-design session — found via a re-verification pass over `cfi-mechanics-survey.md`'s row 17 ("Maintaining a spell"), whose own "no duration-boundary lifecycle event exists in the system for any purpose" claim turned out wrong: `_onUpdateCombat` (`mythras.mjs:1236`, registered `:1587` — the system's *only* `Hooks.on('updateCombat', ...)` registration, confirmed by grep) is exactly such a dispatcher, already carrying fifteen built-in consumers across two real boundaries. This family exposes that existing dispatcher; it does not create it — the same "extension point already built, not yet exposed" shape as `weaponForceHooks`/`weaponDamageHooks`, not an extraction.

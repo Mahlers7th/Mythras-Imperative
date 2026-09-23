@@ -8,6 +8,7 @@
 
 import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared } from '../utils/roll-math.js';
 import { swapDigits as swapDigitsShared } from './luck-point.js';
+import { fireRollResolved } from '../utils/roll-events.js';
 
 export class MythrasRoll {
 
@@ -218,6 +219,11 @@ export class MythrasRoll {
     // fumble basis: right about excluding the augment, wrong about excluding
     // the difficulty grade. See fumble-basis-design.md.
     const outcome = MythrasRoll.determineOutcome(result, target, critBasis, critBasis);
+
+    // A sheet roll has happened — see module/utils/roll-events.js. Fired here
+    // rather than after a Luck re-roll below: a re-roll is the same roll
+    // resolving differently, not a second one.
+    fireRollResolved({ actor, item, kind: 'sheet', result, target, grade: outcome });
 
     // Mark fumble on item for experience tracking
     if (outcome === 'fumble' && !item.system.fumbledLastSession) {

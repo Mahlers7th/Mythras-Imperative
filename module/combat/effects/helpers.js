@@ -13,6 +13,7 @@ import { resolveOpposedRoll, quadrupedTripTotal } from '../../utils/combat-math.
 import { applyOverHundredPenalty } from '../../utils/roll-math.js';
 import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
 import { getConditionGrade, applyGradeToSkill } from '../../utils/condition-grade.js';
+import { fireRollResolved } from '../../utils/roll-events.js';
 
 const NS = 'mythras-imperative';
 
@@ -1154,6 +1155,14 @@ export async function runSEDialog(data) {
             // pass. Two arguments express that — rawSkill defaults to target.
             const grade    = determineOutcome(roll.total, target);
             const succeeds = grade === 'critical' || grade === 'success';
+            // requestSkillCheck's dialog route — the automated route fires
+            // the same kind from mythras.mjs. `actorUuid` is absent on any
+            // other caller of this generic branch, and then nothing fires.
+            const rollActor = data.actorUuid ? fromUuidSync(data.actorUuid) : null;
+            if (rollActor) {
+              fireRollResolved({ actor: rollActor, kind: 'requestedCheck', result: roll.total, target, grade,
+                item: Array.from(rollActor.items).find(i => i.type === 'skill' && i.name === sk.name) ?? null });
+            }
             resolve({
               chosenSkillName: sk.name, chosenSkillTotal: sk.total,
               chosenSkillRaw: sk.rawTotal ?? sk.total,
