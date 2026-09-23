@@ -20,6 +20,7 @@
  */
 
 import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
+import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 
 export class AttackerDialog {
@@ -79,7 +80,10 @@ export class AttackerDialog {
     // penalties (Serious → Hard, Major → Formidable). Delegated to the
     // shared CombatEngine helper so all paths stay consistent.
     const { CombatEngine } = await import('./CombatEngine.js');
-    const floorGrade        = CombatEngine._getConditionFloorGrade(attacker);
+    // v1.4.351: the floor alone sets the default and the easiest option; a
+    // module's shift (Destined's Bolster) moves the FINAL grade instead, per
+    // style, in the preview and at confirm (composeRollGrade).
+    const floorGrade        = CombatEngine._getConditionFloorOnly(attacker);
     const defaultDifficulty = floorGrade;
     const conditionNotesStr = CombatEngine._buildConditionNotes(attacker);
     const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
@@ -533,10 +537,11 @@ export class AttackerDialog {
               if (chargeChk?.checked && !hasBeastBackLancer) chosenDiff = _harderDifficulty(chosenDiff);
             }
 
-            // Apply combined floor (fatigue + prone) — take worst
-            const chosenIdx  = gradeOrder.indexOf(chosenDiff);
-            const worstIdx   = Math.max(chosenIdx, floorIdx);
-            const worstGrade = gradeOrder[worstIdx] ?? chosenDiff;
+            // The harder of the chosen difficulty and the condition floor,
+            // then this style's module shift — what confirm will use.
+            const styleShift = CombatEngine._getConditionShift(attacker, {
+              item: style, style, weapon: attacker.items.get(wId) ?? null });
+            const worstGrade = composeRollGrade(chosenDiff, floorGrade, styleShift);
             const target = _applyDifficulty(skillTotal, worstGrade);
             const display = worstGrade === 'hopeless' ? '—' : `${target}%`;
             targetDisplay.textContent = display;
@@ -814,11 +819,10 @@ function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, al
   // Take worst of: GM-chosen difficulty, charge floor, condition floor (fatigue + prone)
   // CombatEngine is registered on CONFIG.MYTHRAS.CombatEngine during init — safe to call sync here.
   const CE = CONFIG.MYTHRAS?.CombatEngine;
-  const conditionFloor = CE ? CE._getConditionFloorGrade(attacker) : 'standard';
-  const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
-  const diffIdx    = gradeOrder.indexOf(effectiveDifficulty);
-  const condIdx    = gradeOrder.indexOf(conditionFloor);
-  const worstGrade = gradeOrder[Math.max(diffIdx, condIdx)];
+  const conditionFloor = CE ? CE._getConditionFloorOnly(attacker) : 'standard';
+  const gradeShift     = CE ? CE._getConditionShift(attacker, {
+    item: chosenStyle ?? null, style: chosenStyle ?? null, weapon: chosenWeapon ?? null }) : 0;
+  const worstGrade = composeRollGrade(effectiveDifficulty, conditionFloor, gradeShift);
 
   const effectiveSkill = _applyDifficulty(rawSkillTotal, worstGrade);
 

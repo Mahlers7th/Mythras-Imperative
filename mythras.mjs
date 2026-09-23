@@ -37,7 +37,8 @@ import {
 // runSEDialog + this helpers.js applyFatigueToSkill (NOT the same-named,
 // narrower re-export at line ~40 below -- see requestSkillCheck's own
 // comment for why the distinction matters).
-import { runSEDialog, applyFatigueToSkill as applyFatigueToSkillSE } from './module/combat/effects/helpers.js';
+import { runSEDialog } from './module/combat/effects/helpers.js';
+import { getConditionFloor, getConditionShift, composeRollGrade, applyGradeToSkill } from './module/utils/condition-grade.js';
 import { CombatSocket, _findDefenderUserId, activeGMUserId } from './module/combat/CombatSocket.js';
 import { locationNameToKey, hitLocationForRoll } from './module/utils/hit-location.js';
 import { fireRollResolved } from './module/utils/roll-events.js';
@@ -1262,7 +1263,17 @@ export async function requestSkillCheck(actor, {
     const item = Array.from(actor.items).find(i => i.type === 'skill' && i.name === name);
     if (!item) continue;
     const rawTotal = item.system.total ?? 0;
-    skillOptions.push({ name, rawTotal, total: applyFatigueToSkillSE(rawTotal, actor), item });
+    // v1.4.351. `total` is the conditions-applied, PRE-difficulty number, as
+    // it always was (`chosenSkillTotal` in the result). A module's grade shift
+    // (Destined's Bolster) is applied to the REQUESTED difficulty rather than
+    // folded into that floor, so a Bolstered Hard check is Standard — and the
+    // existing way conditions and the requested difficulty combine is left
+    // exactly as it was. `target` is what is actually rolled against.
+    const gradeCtx = { kind: 'requestedCheck', item };
+    const total    = applyGradeToSkill(rawTotal, getConditionFloor(actor, 'resist', gradeCtx));
+    const grade    = composeRollGrade(difficulty ?? 'standard', 'standard', getConditionShift(actor, 'resist', gradeCtx));
+    const target   = applyDifficulty(total, grade);
+    skillOptions.push({ name, rawTotal, total, grade, target, item });
   }
   if (skillOptions.length === 0) return noSkillResult;
 
@@ -1291,7 +1302,8 @@ export async function requestSkillCheck(actor, {
     if (!response || response.cancelled || response.gmOverride) return response;
     if (response.roll == null) return response;
     const base   = response.chosenSkillTotal ?? 0;
-    const target = difficulty ? applyDifficulty(base, difficulty) : base;
+    const chosen = skillOptions.find(o => o.name === response.chosenSkillName);
+    const target = chosen?.target ?? (difficulty ? applyDifficulty(base, difficulty) : base);
     const graded = (n) => determineOutcome(n, target);
     const { roll: newRoll } = await offerResistLuck({
       actor,
@@ -1314,7 +1326,7 @@ export async function requestSkillCheck(actor, {
     // For rollResolvedHooks on the dialog route (v1.4.350) — a uuid, since
     // this payload may cross the socket to the player's own client.
     actorUuid: actor.uuid,
-    skillOptions,
+    skillOptions: skillOptions.map(({ item: _item, ...plain }) => plain),
     lastCardId
   };
 
@@ -1342,10 +1354,10 @@ export async function requestSkillCheck(actor, {
   // manual / full -- both fully automated, no dialog, matching
   // resolveGripBreakFree's else-branch: auto-picks the best available skill
   // and rolls it unopposed.
-  const best = skillOptions.reduce((a, b) => (b.total > a.total ? b : a));
+  const best = skillOptions.reduce((a, b) => (b.target > a.target ? b : a));
   const roll = new Roll('1d100');
   await roll.evaluate();
-  const target    = difficulty ? applyDifficulty(best.total, difficulty) : best.total;
+  const target    = best.target;
   // Reading A (v1.4.315): fumble basis is the modified value. Note best.total
   // was ALREADY condition-graded but not difficulty-graded, so this site
   // previously matched neither reading - see fumble-basis-design.md.

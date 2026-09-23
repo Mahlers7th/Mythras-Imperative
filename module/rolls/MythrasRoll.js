@@ -9,6 +9,7 @@
 import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared } from '../utils/roll-math.js';
 import { swapDigits as swapDigitsShared } from './luck-point.js';
 import { fireRollResolved } from '../utils/roll-events.js';
+import { composeRollGrade } from '../utils/condition-grade.js';
 
 export class MythrasRoll {
 
@@ -36,14 +37,18 @@ export class MythrasRoll {
     // is still 'attack' (see _getConditionFloorGrade) — this is what lets a
     // hook tell a Perception check from a sword swing without that overload
     // being resolved first.
-    const floorGrade   = CombatEngine._getConditionFloorGrade(actor, { kind: 'sheet', item });
+    // v1.4.351: the condition floor and a module's grade shift are applied
+    // separately — floor against the chosen difficulty, then the shift on the
+    // result (composeRollGrade). A Bolstered Hard roll is Standard.
+    const floorGrade   = CombatEngine._getConditionFloorOnly(actor, { kind: 'sheet', item });
+    const gradeShift   = CombatEngine._getConditionShift(actor, { kind: 'sheet', item });
     const gradeOrder   = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
     const floorIdx     = gradeOrder.indexOf(floorGrade);
 
     // Hero advantage: grade one step easier — shift floor index down by 1 (but never below 0)
     const effectiveFloorIdx = gradeEasier ? Math.max(0, floorIdx - 1) : floorIdx;
     const defaultDiff  = gradeOrder[effectiveFloorIdx];
-    const condNotesStr = CombatEngine._buildConditionNotes(actor);
+    const condNotesStr = CombatEngine._buildConditionNotes(actor, { kind: 'sheet', item });
 
     // Effective skill after applying the floor grade
     const effectiveSkill = MythrasRoll._applyFatigueGrade(
@@ -135,10 +140,9 @@ export class MythrasRoll {
             const pid     = html.find('#mi-passion').val() || '';
             const passion = eligiblePassions.find(p => p.id === pid);
             const augment = passion ? passion.system.augmentBonus : 0;
-            // Worst of chosen difficulty and the active condition floor
-            const chosenIdx  = gradeOrder.indexOf(diff);
-            const worstIdx   = Math.max(chosenIdx, floorIdx);
-            const worstGrade = gradeOrder[worstIdx] ?? diff;
+            // The harder of the chosen difficulty and the condition floor,
+            // then any module shift — exactly what execute() will roll against.
+            const worstGrade = composeRollGrade(diff, floorGrade, gradeShift);
             const target = MythrasRoll.applyDifficulty(skillTotal + augment, worstGrade);
             html.find('#mi-target-display').text(worstGrade === 'hopeless' ? '—' : `${target}`);
           };
@@ -165,6 +169,19 @@ export class MythrasRoll {
   // -------------------------------------------------------------------------
 
   static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null }) {
+    // The grade actually rolled at: the harder of the chosen difficulty and
+    // the condition floor, then any module shift (v1.4.351, composeRollGrade).
+    // Same context as the dialog, so the target shown and the target rolled
+    // against cannot diverge — the v1.4.309 class of bug.
+    if (actor) {
+      const { CombatEngine: CE } = await import('../combat/CombatEngine.js');
+      difficulty = composeRollGrade(
+        difficulty,
+        CE._getConditionFloorOnly(actor, { kind: 'sheet', item }),
+        CE._getConditionShift(actor, { kind: 'sheet', item }),
+      );
+    }
+
     // Hopeless — no dice, automatic failure
     if (difficulty === 'hopeless') {
       return MythrasRoll._postResult({ actor, item, skillName, roll: null, target: 0, outcome: 'failure', difficulty, modifier, passion });
@@ -183,26 +200,11 @@ export class MythrasRoll {
     const unaugmented   = skillTotal + modifier;
     const adjustedSkill = unaugmented + augment;
 
-    // Apply chosen difficulty grade
-    let target     = MythrasRoll.applyDifficulty(adjustedSkill, difficulty);
-    let critBasis  = MythrasRoll.applyDifficulty(unaugmented,   difficulty);
-
-    // All active condition penalties (fatigue, prone) — take worst grade
-    if (actor) {
-      const { CombatEngine: CE } = await import('../combat/CombatEngine.js');
-      // Same context as the dialog above — the two must agree, or the target
-      // shown to the player and the target rolled against diverge, which is
-      // the v1.4.309 class of bug.
-      const condFloor = CE._getConditionFloorGrade(actor, { kind: 'sheet', item });
-      if (condFloor && condFloor !== 'standard') {
-        const condTarget = MythrasRoll.applyDifficulty(adjustedSkill, condFloor);
-        target = Math.min(target, condTarget);
-        // The critical basis takes the same floor — p18's "this includes
-        // skills that receive a modifier" applies to conditions too. Only the
-        // AUGMENT is excluded from it, nothing else.
-        critBasis = Math.min(critBasis, MythrasRoll.applyDifficulty(unaugmented, condFloor));
-      }
-    }
+    // Apply the final grade. The critical basis takes it too — p18's "this
+    // includes skills that receive a modifier" applies to conditions and
+    // module shifts alike. Only the AUGMENT is excluded from it, nothing else.
+    const target    = MythrasRoll.applyDifficulty(adjustedSkill, difficulty);
+    const critBasis = MythrasRoll.applyDifficulty(unaugmented,   difficulty);
 
     // Roll 1d100
     const roll = new Roll('1d100');

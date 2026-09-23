@@ -38,7 +38,7 @@
  * globals... CONFIG.MYTHRAS" step).
  */
 
-import { getConditionGrade, applyGradeToSkill, explainConditionGrade, CONDITION_GRADE_ORDER } from '../module/utils/condition-grade.js';
+import { getConditionGrade, getConditionFloor, getConditionShift, composeRollGrade, applyGradeToSkill, explainConditionGrade, CONDITION_GRADE_ORDER } from '../module/utils/condition-grade.js';
 import { getFatigueSkillGrade, applyFatigueToSkill as applyFatigueOnly } from '../module/utils/fatigue.js';
 import {
   getActiveImpaleGrade, getActiveEntangleGrade, getActiveBlindGrade,
@@ -636,5 +636,57 @@ describe('explainConditionGrade', () => {
   test('contributions that cancel report a zero net shift, so the banner stays quiet', () => {
     MYTHRAS.conditionGradeHooks = [() => 1, () => -1];
     expect(explainConditionGrade(makeActor(), 'attack').shift).toBe(0);
+  });
+});
+
+// =============================================================================
+// v1.4.351 — composeRollGrade: floor against the chosen difficulty, THEN the
+// module shift. Chris, 2026-09-23: "If the shot has a difficulty of HARD, it
+// should be STANDARD when Bolster is used on the character."
+// =============================================================================
+describe('composeRollGrade', () => {
+  test('a Bolstered Hard roll is Standard — the shift moves the chosen difficulty', () => {
+    expect(composeRollGrade('hard', 'standard', -1)).toBe('standard');
+  });
+  test('a critical Bolster (two grades) on a Hard roll is Easy', () => {
+    expect(composeRollGrade('hard', 'standard', -2)).toBe('easy');
+  });
+  test('a harder shift (Shared Misstep) moves it the other way: Hard becomes Formidable', () => {
+    expect(composeRollGrade('hard', 'standard', 1)).toBe('formidable');
+  });
+  test('conditions are still a floor: Hard while Exhausted is Formidable, then the shift applies', () => {
+    expect(composeRollGrade('hard', 'formidable', 0)).toBe('formidable');
+    expect(composeRollGrade('hard', 'formidable', -1)).toBe('hard');
+  });
+  test('no chosen difficulty is exactly what getConditionGrade always returned', () => {
+    for (const floor of CONDITION_GRADE_ORDER.slice(2)) {
+      for (const shift of [-2, -1, 0, 1, 2]) {
+        const i = Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, CONDITION_GRADE_ORDER.indexOf(floor) + shift));
+        expect({ floor, shift, g: composeRollGrade('standard', floor, shift) }).toEqual({ floor, shift, g: CONDITION_GRADE_ORDER[i] });
+      }
+    }
+  });
+  test('clamped to the table and tolerant of a missing or unknown grade', () => {
+    expect(composeRollGrade('veryEasy', 'standard', -3)).toBe('veryEasy');
+    expect(composeRollGrade('hopeless', 'standard', 5)).toBe('hopeless');
+    expect(composeRollGrade(null, undefined, -1)).toBe('easy');
+    expect(composeRollGrade('nonsense', 'standard', 0)).toBe('standard');
+  });
+});
+
+describe('getConditionFloor / getConditionShift — the two halves of getConditionGrade', () => {
+  afterEach(() => { MYTHRAS.conditionGradeHooks = []; });
+  test('the floor ignores module shifts; the shift is the hook sum', () => {
+    MYTHRAS.conditionGradeHooks = [() => -1];
+    const a = makeActor();
+    expect(getConditionFloor(a, 'attack')).toBe('standard');
+    expect(getConditionShift(a, 'attack')).toBe(-1);
+    expect(getConditionGrade(a, 'attack')).toBe('easy');
+  });
+  test('recombined, they give exactly getConditionGrade', () => {
+    MYTHRAS.conditionGradeHooks = [() => 1];
+    const a = makeActor();
+    expect(composeRollGrade('standard', getConditionFloor(a, 'resist'), getConditionShift(a, 'resist')))
+      .toBe(getConditionGrade(a, 'resist'));
   });
 });

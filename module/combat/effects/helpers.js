@@ -1149,7 +1149,9 @@ export async function runSEDialog(data) {
             resolved = true;
             const roll = new Roll('1d100');
             await roll.evaluate();
-            const target   = difficulty ? applyDifficulty(sk.total, difficulty) : sk.total;
+            // requestSkillCheck precomputes each option's target (v1.4.351),
+            // including any module grade shift; older payloads fall back.
+            const target   = sk.target ?? (difficulty ? applyDifficulty(sk.total, difficulty) : sk.total);
             // Reading A (v1.4.315): the fumble basis is the modified value, so
             // it is `target`, not the pre-difficulty `sk.total` this used to
             // pass. Two arguments express that — rawSkill defaults to target.

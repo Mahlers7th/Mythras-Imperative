@@ -160,6 +160,22 @@ export const CONDITION_GRADE_ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'f
  */
 export function getConditionGrade(actor, role, context = {}) {
   if (!actor) return 'standard';
+  return composeRollGrade('standard', getConditionFloor(actor, role, context), getConditionShift(actor, role, context));
+}
+
+/**
+ * The worst active CONDITION floor for a role — fatigue, impale, entangle,
+ * prone, blind — WITHOUT any module shift. Split out of getConditionGrade in
+ * v1.4.351 so a roll that has a chosen difficulty can apply the two parts in
+ * the right order: see composeRollGrade.
+ *
+ * @param {Actor} actor
+ * @param {'attack'|'defence'|'resist'} role
+ * @param {object} [context]
+ * @returns {string} a CONDITION_GRADE_ORDER grade id, never easier than 'standard'
+ */
+export function getConditionFloor(actor, role, context = {}) {
+  if (!actor) return 'standard';
 
   let worstIdx = CONDITION_GRADE_ORDER.indexOf('standard');
   const floorTo = (gradeId) => {
@@ -188,17 +204,55 @@ export function getConditionGrade(actor, role, context = {}) {
     floorTo(getActiveBlindGrade(actor));
   }
 
-  // Step 4: conditionGradeHooks — a signed step shift on top of the
-  // composed floor, summed across modules, clamped only to the table's
-  // own bounds. NOT per-condition suppression — see this file's own
-  // header ("THE CAVEAT THAT MATTERS") and config.js's conditionGradeHooks
-  // doc comment before registering a consumer here.
-  const shift = sumHookContributions(
+  return CONDITION_GRADE_ORDER[worstIdx];
+}
+
+/**
+ * The module grade shift for this roll — the conditionGradeHooks sum, signed
+ * (negative easier, positive harder). NOT per-condition suppression — see this
+ * file's own header ("THE CAVEAT THAT MATTERS") and config.js's
+ * conditionGradeHooks doc comment before registering a consumer.
+ *
+ * @param {Actor} actor
+ * @param {'attack'|'defence'|'resist'} role
+ * @param {object} [context]
+ * @returns {number}
+ */
+export function getConditionShift(actor, role, context = {}) {
+  if (!actor) return 0;
+  return sumHookContributions(
     CONFIG.MYTHRAS?.conditionGradeHooks, [actor, role, context ?? {}], { errorLabel: 'conditionGradeHook' }
   ).total;
-  const shiftedIdx = Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, worstIdx + shift));
+}
 
-  return CONDITION_GRADE_ORDER[shiftedIdx];
+/**
+ * THE rule for a roll's final Difficulty Grade (v1.4.351):
+ *
+ *   the harder of (the chosen difficulty, the condition floor),
+ *   THEN moved by the module shift.
+ *
+ * Conditions are floors: a Hard task while Exhausted (Formidable) is
+ * Formidable, not both — the harder one wins. A module shift is different: it
+ * moves whatever the task already is. Destined's Bolster makes the next roll
+ * "one difficulty grade easier", so a Hard shot becomes Standard (Chris,
+ * 2026-09-23). Before v1.4.351 the shift was folded into the floor, and the
+ * floor then lost to any harder chosen difficulty — a Bolster only ever helped
+ * a Standard task, and was used up regardless.
+ *
+ * Pure. With no chosen difficulty ('standard') this is exactly what
+ * getConditionGrade has always returned.
+ *
+ * @param {string|null} chosen  the difficulty the roll was set at
+ * @param {string} floor        getConditionFloor's result
+ * @param {number} [shift]      getConditionShift's result
+ * @returns {string} a CONDITION_GRADE_ORDER grade id
+ */
+export function composeRollGrade(chosen, floor, shift = 0) {
+  const std = CONDITION_GRADE_ORDER.indexOf('standard');
+  const at  = (g) => { const i = CONDITION_GRADE_ORDER.indexOf(g); return i < 0 ? std : i; };
+  const base = Math.max(at(chosen ?? 'standard'), at(floor ?? 'standard'));
+  const steps = Math.round(Number(shift) || 0);
+  return CONDITION_GRADE_ORDER[Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, base + steps))];
 }
 
 /**

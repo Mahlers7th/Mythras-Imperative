@@ -966,10 +966,17 @@ export const MYTHRAS = {
   //     style   attack/defence paths.
   //     flags   circumstance booleans the attack dialog already computes.
   //
-  //   The easier-direction contract, which surprises people: on direct-multiply
-  //   paths a negative sum applies numerically, but on DIALOG paths the shifted
-  //   grade arrives as the pre-selected default and a player's explicit harder
-  //   choice overrides it. That is player agency at the table, not a bug.
+  //   How the shift combines with a CHOSEN difficulty (v1.4.351 — this used
+  //   to be different, and it was a bug): conditions are a floor, and the
+  //   harder of the chosen difficulty and that floor wins; THEN the hook sum
+  //   moves the result (composeRollGrade, condition-grade.js). So a Hard roll
+  //   with a -1 shift is Standard, and with a +1 shift Formidable. Before
+  //   v1.4.351 the shift was folded into the floor, so on the sheet roll and
+  //   the attack dialog an easier shift lost to any harder chosen difficulty
+  //   — Destined's Bolster only ever helped a Standard task. Direct paths with
+  //   no chosen difficulty are unchanged. Requested checks shift the REQUESTED
+  //   difficulty. A hook that matches on the rolled item gets it as
+  //   context.item on every path, attack and defence included.
   // -----------------------------------------------------------------------
 
   /** @type {Function[]} Each returns a signed CONDITION_GRADE_ORDER step shift. Receives (actor, role, context); role is 'attack'|'defence'|'resist', context fields are all optional */

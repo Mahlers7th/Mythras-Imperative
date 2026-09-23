@@ -25,7 +25,7 @@
  * Parrying a missed attack: defender may spend AP; attacker is still Failure.
  */
 
-import { getConditionGrade, applyGradeToSkill, explainConditionGrade } from '../utils/condition-grade.js';
+import { getConditionGrade, getConditionFloor, getConditionShift, applyGradeToSkill, explainConditionGrade } from '../utils/condition-grade.js';
 import {
   classifyLocation, getImpaleGrade, weaponBaseMax, determineOutcome as determineOutcomeShared,
   resolveOpposedRoll as resolveOpposedRollShared,
@@ -1548,6 +1548,9 @@ export class CombatEngine {
     // one as "not known here".
     return applyGradeToSkill(raw, getConditionGrade(ctx.defender, 'defence', {
       kind:   'defence',
+      // The style IS the skill being rolled (v1.4.351): a hook that matches on
+      // the rolled item — Destined's Bolster — needs it here as on every roll.
+      item:   ctx.defenceStyle  ?? null,
       weapon: ctx.defenceWeapon ?? null,
       style:  ctx.defenceStyle  ?? null
     }));
@@ -6029,6 +6032,7 @@ export class CombatEngine {
     // so the attack path gets per-weapon context for free.
     return applyGradeToSkill(raw, getConditionGrade(actor, 'attack', {
       kind:   'attack',
+      item:   style  ?? null,
       weapon: weapon ?? null,
       style:  style  ?? null
     }));
@@ -6113,6 +6117,18 @@ export class CombatEngine {
   // avoid doing.
   static _getConditionFloorGrade(actor, context = {}) {
     return getConditionGrade(actor, 'attack', { kind: 'attack', ...context });
+  }
+
+  // The two halves of that grade, for a roll that ALSO has a chosen
+  // difficulty (the sheet roll, the attack dialog). They must be combined
+  // with composeRollGrade — floor against the chosen difficulty first, the
+  // module shift after — or an easier shift is lost to any harder task
+  // (v1.4.351). Same role and context as _getConditionFloorGrade.
+  static _getConditionFloorOnly(actor, context = {}) {
+    return getConditionFloor(actor, 'attack', { kind: 'attack', ...context });
+  }
+  static _getConditionShift(actor, context = {}) {
+    return getConditionShift(actor, 'attack', { kind: 'attack', ...context });
   }
 
   // -------------------------------------------------------------------------
