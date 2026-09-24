@@ -38,6 +38,7 @@ import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { roundUp } from '../utils/rounding.js';
 import { fireRollResolved } from '../utils/roll-events.js';
+import { reachFor, setStoredReach, HAFT_DAMAGE } from './reach-state.js';
 import {
   waitForCard,
   runSEDialog,
@@ -1342,6 +1343,25 @@ export class CombatEngine {
       }
     }
 
+    // ── Weapon Reach (optional rule, v1.4.353) ───────────────────────────────
+    // A GM's range override from the attack dialog is stored first, so it
+    // holds for the rest of the fight; then the attack is judged at that range.
+    // The dialog already refuses an attack that cannot reach, so this is the
+    // guard for macros and other callers — and it refuses before any AP is spent.
+    if (!confirmedCtx.isRanged) {
+      const choice = confirmedCtx.reachChoice ?? 'auto';
+      const reach = reachFor(attacker, confirmedCtx.weapon, defender, { choice });
+      if (reach && choice !== 'auto' && game.user.isGM) {
+        await setStoredReach(attacker, defender, choice === 'closed' ? reach.R : null);
+      }
+      if (reach && !reach.verdict.canAttack) {
+        ui.notifications.warn(`${attacker.name} is held at bay: at ${reach.rangeLabel} reach, a ${reach.weaponLabel} weapon cannot reach ${defender.name}.`);
+        return;
+      }
+      confirmedCtx.reachR          = reach?.R ?? null;
+      confirmedCtx.reachHaftSteps  = reach?.verdict.haftSteps ?? 0;
+    }
+
     // Attacker spends 1 AP — proactive action
     await CombatEngine._spendActionPoint(attacker);
 
@@ -2132,14 +2152,15 @@ export class CombatEngine {
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
-      ctx.willBeProne       ? '<span class="mi-card-pill mi-card-pill--alert">Prone</span>'     : ''
+      ctx.willBeProne       ? '<span class="mi-card-pill mi-card-pill--alert">Prone</span>'     : '',
+      ctx.reachHaftSteps    ? `<span class="mi-card-pill mi-card-pill--alert">Haft strike (Size −${ctx.reachHaftSteps})</span>` : ''
     ].filter(Boolean).join('');
 
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';
     const applyMod   = weapon.system.damageModApplies ?? true;
     const effectiveDM1 = applyMod
       ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge) : dmMod;
-    const baseDamage1 = CombatEngine._getWeaponDamage(weapon, attacker);
+    const baseDamage1 = CombatEngine._attackDamageBase(ctx);
     const dmgFormula = (applyMod && effectiveDM1 && effectiveDM1 !== '+0' && effectiveDM1 !== '0')
       ? `${baseDamage1}${effectiveDM1}` : baseDamage1;
 
@@ -2182,6 +2203,7 @@ export class CombatEngine {
           stage:            'outcome',
           dmgFormula,
           isCharge:           ctx.isCharge,
+          reachHaftSteps:     ctx.reachHaftSteps ?? 0,
           isBurstFire:        ctx.isBurstFire ?? false,
           isFullAuto:         ctx.isFullAuto ?? false,
           rangeBand:          ctx.rangeBand ?? null,
@@ -2263,7 +2285,7 @@ export class CombatEngine {
     const applyMod   = ctx.weapon.system.damageModApplies ?? true;
     const effectiveDM2 = applyMod
       ? CombatEngine._getEffectiveDamageModifier(dmMod, ctx.weapon, ctx.attacker, ctx.isCharge) : dmMod;
-    const baseDamage2 = CombatEngine._getWeaponDamage(ctx.weapon, ctx.attacker);
+    const baseDamage2 = CombatEngine._attackDamageBase(ctx);
     const dmgFormula = (applyMod && effectiveDM2 && effectiveDM2 !== '+0' && effectiveDM2 !== '0')
       ? `${baseDamage2}${effectiveDM2}` : baseDamage2;
 
@@ -2448,7 +2470,7 @@ export class CombatEngine {
     const effectiveDM = applyMod
       ? CombatEngine._getEffectiveDamageModifier(dmMod, weapon, attacker, ctx.isCharge)
       : dmMod;
-    const baseDamageFullAuto = CombatEngine._getWeaponDamage(weapon, attacker);
+    const baseDamageFullAuto = CombatEngine._attackDamageBase(ctx);
     let dmgFormula = (applyMod && effectiveDM && effectiveDM !== '+0' && effectiveDM !== '0')
       ? `${baseDamageFullAuto}${effectiveDM}` : baseDamageFullAuto;
 
@@ -4258,6 +4280,7 @@ export class CombatEngine {
       stage:                flags.stage ?? null,
       dmgFormula:           flags.dmgFormula ?? null,
       isCharge:             flags.isCharge ?? false,
+      reachHaftSteps:       flags.reachHaftSteps ?? 0,
       isBurstFire:          flags.isBurstFire ?? false,
       isFullAuto:           flags.isFullAuto ?? false,
       rangeBand:            flags.rangeBand ?? null,
@@ -5816,6 +5839,17 @@ export class CombatEngine {
   // but the wielder whose characteristics matter is the crew member.
   // -------------------------------------------------------------------------
 
+  /**
+   * The damage dice this attack rolls, before the Damage Modifier. The
+   * weapon's own, or — when the optional Weapon Reach rule has the attacker's
+   * weapon encroached — the haft strike's 1d3+1 (Core p.107, v1.4.353). The
+   * Damage Modifier still applies on top (Chris's ruling, 2026-09-23).
+   */
+  static _attackDamageBase(ctx) {
+    if (ctx?.reachHaftSteps > 0) return HAFT_DAMAGE;
+    return CombatEngine._getWeaponDamage(ctx.weapon, ctx.attacker);
+  }
+
   static _getWeaponDamage(weapon, actor) {
     for (const fn of (CONFIG.MYTHRAS?.weaponDamageHooks ?? [])) {
       try {
@@ -5883,6 +5917,11 @@ export class CombatEngine {
     // this can never coincide with the long-range step-down above.
     if (ctx?.isCharge) {
       atkSize = Math.min(4, atkSize + 1);
+    }
+    // Weapon Reach: an encroached weapon's "Size is reduced as many steps as
+    // the difference between the two weapons' Reach" (Core p.107, v1.4.353).
+    if (ctx?.reachHaftSteps > 0) {
+      atkSize = Math.max(0, atkSize - ctx.reachHaftSteps);
     }
 
     const diff = atkSize - defSize; // positive = attack weapon is larger / more forceful
@@ -5959,6 +5998,10 @@ export class CombatEngine {
     // Charge / Diving Strike — see the identical comment in resolveParryReduction.
     if (ctx?.isCharge) {
       atkSize = Math.min(4, atkSize + 1);
+    }
+    // Weapon Reach haft strike — see resolveParryReduction.
+    if (ctx?.reachHaftSteps > 0) {
+      atkSize = Math.max(0, atkSize - ctx.reachHaftSteps);
     }
 
     return CombatEngine._sizeDiffMultiplier(atkSize - defSize);

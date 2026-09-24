@@ -10,6 +10,24 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.353 — September 2026
+- **✨ Weapon Reach, part 1: an optional rule from Mythras Core (p.94, p.106–107).** A new world setting, **Weapon Reach (optional rule)**, is **off by default**. With it off, nothing about combat changes. The book calls reach an option "for those desiring more realistic combat", and Chris's reason for automating it: players "either love, or hate" it, and automation makes it much easier to use.
+  - **When it applies:** only when two weapons are **two or more Reach steps apart** (Touch, Short, Medium, Long, Very Long), so a dagger against a falchion is unaffected, but a dagger against a great axe is not.
+  - **Held at bay:** a fight starts at the longer weapon's reach (Chris's ruling). The shorter weapon's attack dialog says why it can't attack, and its Attack button is disabled. The engine refuses the attack too, before any Action Point is spent, so a macro can't get round it.
+  - **Closed in:** the longer weapon **can't parry**. Both the Defend dialog and the GM Mode panel leave it off the list and say why. Its attacks are **haft strikes**: **Size reduced by the reach difference** and **1d3+1 damage plus the Damage Modifier** (Chris's ruling). The Size loss applies to parries and Ward Location, on every automation level, and the card shows a *Haft strike (Size −N)* pill.
+  - **One number models every case:** the reach the pair is fighting at. It's the longer weapon's reach until someone closes in, then the reach of the weapon that closed. Every weapon is judged against it, so switching to a short backup weapon once closed in works without anything extra.
+  - **The range is stored per pair on the active combat**, and ends with it. For now the **GM sets it** from a *Reach range* control on the attack dialog, which only the GM sees: *As it stands*, *At the longer weapon's reach*, or *Closed in*. Change Range, and the Close Range and Open Range Special Effects, come next.
+  - The rules are pure and tested: `module/utils/reach.js`, with 13 tests including the book's own examples. The live half is in `module/combat/reach-state.js`.
+- **Destined is unaffected.** Destined uses its own Reach Weapon Expertise rather than this system (Chris's decision), and every Destined weapon's Reach is Touch, so the rule never triggers there even if it's switched on.
+- 1005 tests pass (20 suites). Lint at 0 errors.
+- **Live-verified** (Playwright, two clients), 18 checks. Player2's dagger fought the GM's great axe. Every world actor, token, combat and setting was unchanged afterwards.
+  - With the rule off, there was no change. With it on, the dagger was held at bay, the dialog said why, and Attack was disabled. Player2 had no range control.
+  - When the GM set *Closed in*, the axe's attack was a haft strike: the damage formula was `1d3+1` plus the Damage Modifier, with a *Haft strike (Size −2)* pill, and the range was stored for the pair.
+  - Inside that range, the dagger could attack. The axe was not offered to parry, in either the Defend dialog or the GM Mode panel, and the dialog said why.
+  - Parry arithmetic: a dagger parrying the Huge axe blocks nothing, but against the haft (Huge − 2) it blocks half.
+  - When the GM opened the range again, the stored range was cleared, and the dagger was held at bay once more.
+- Not yet committed
+
 ## v1.4.352 — September 2026
 - **⚠️ A hero advantage's "one Grade easier" was lost on any roll harder than Standard.** Endurance, Stealth and Willpower advantages ("rolls are one Grade easier") only moved the sheet dialog's *default*, from Standard to Easy. A GM calling for a **Hard** Endurance roll got a plain Hard roll. It is the same defect v1.4.351 fixed for Bolster, and it gets the same fix: Chris's ruling (2026-09-23) is that the easier grade applies to the difficulty the roll is actually made at, so **Hard becomes Standard**.
   - The advantage is now a **shift on the final grade**, joined to the module shift in `composeRollGrade`. The sheet dialog opens at the task's real difficulty, and its live target shows the shifted grade.

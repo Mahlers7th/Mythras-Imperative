@@ -22,6 +22,7 @@
 import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
+import { reachFor, reachRuleOn, reachBannerText, canParryAt } from './reach-state.js';
 
 export class AttackerDialog {
 
@@ -238,12 +239,24 @@ export class AttackerDialog {
           <i class="fas fa-exclamation-triangle"></i> ${conditionNotesStr}
         </div>` : ''}
 
+        <div class="mi-attacker-condition-banner" id="mi-atk-reach-banner" style="display:none"></div>
+
         <div class="mi-dialog-fields">
 
           <div class="mi-form-row">
             <label>Weapon</label>
             <select id="mi-atk-weapon">${weaponOptions}</select>
           </div>
+
+          ${reachRuleOn() && game.user.isGM ? `
+          <div class="mi-form-row" id="mi-atk-reach-row">
+            <label>Reach range</label>
+            <select id="mi-atk-reach">
+              <option value="auto" selected>As it stands</option>
+              <option value="long">At the longer weapon's reach</option>
+              <option value="closed">Closed in (the shorter weapon's reach)</option>
+            </select>
+          </div>` : ''}
 
           <div class="mi-form-row">
             <label>Style</label>
@@ -361,6 +374,11 @@ export class AttackerDialog {
             label: 'Attack',
             callback: async html => {
               const result = _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, allStyleWeapons);
+              // Weapon Reach (v1.4.353): the GM's override travels with the
+              // attack; the range it gives is what the defence is judged at.
+              result.reachChoice = html.find('#mi-atk-reach')[0]?.value ?? 'auto';
+              result.reachR = result.isRanged ? null
+                : (reachFor(attacker, result.weapon, defender, { choice: result.reachChoice })?.R ?? null);
               if (!gmMode) {
                 resolve(result);
                 return;
@@ -371,7 +389,7 @@ export class AttackerDialog {
               await CombatEngine._rollAttack(result);
               const gmResult = await _showGmDefencePhase(
                 result, defender,
-                defParryWeaponsAll, defStylesByWeaponId,
+                defParryWeaponsAll.filter(w => canParryAt(result.reachR, w)), defStylesByWeaponId,
                 evadeSkill, acrobaticsSkill, hasDaredevil
               );
               resolve(gmResult);
@@ -484,6 +502,21 @@ export class AttackerDialog {
               }
             }
 
+            // Weapon Reach (v1.4.353) — held at bay means no attack at all;
+            // closed in is allowed, but said out loud.
+            const reachBanner = html.find('#mi-atk-reach-banner')[0];
+            const reachChoice = html.find('#mi-atk-reach')[0]?.value ?? 'auto';
+            const reach = isRanged ? null : reachFor(attacker, resolvedWeapon, defender, { choice: reachChoice });
+            const reachText = reachBannerText(reach, defender.name);
+            if (reachBanner) {
+              reachBanner.style.display = reachText ? '' : 'none';
+              reachBanner.innerHTML = reachText ? `<i class="fas fa-ruler-horizontal"></i> ${reachText}` : '';
+            }
+            if (reach && !reach.verdict.canAttack && attackBtn) {
+              attackBtn.disabled = true;
+              attackBtn.title    = 'Held at bay by a longer weapon — close the range first';
+            }
+
             // Note: the GM Mode inline defender panel (weapon/style rebuild on
             // weapon change) used to live here. It's no longer part of this
             // dialog's DOM — RAW ordering moved it to the second phase
@@ -493,6 +526,8 @@ export class AttackerDialog {
           };
 
           // When weapon changes, rebuild the style list and update ranged/melee mode
+          html.find('#mi-atk-reach')[0]?.addEventListener('change', () => _updateRangedMode());
+
           weaponSel.addEventListener('change', () => {
             const wId    = weaponSel.value;
             const styles = stylesByWeaponId[wId] ?? [];

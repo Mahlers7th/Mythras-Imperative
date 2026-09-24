@@ -27,6 +27,8 @@
  * after defenceData is received — not here, to keep the dialog stateless.
  */
 
+import { canParryAt } from './reach-state.js';
+
 export class DefenderDialog {
 
   /**
@@ -81,7 +83,11 @@ export class DefenderDialog {
       }
     }
 
-    const parryWeapons     = _buildParryWeaponList(defender, stylesByWeaponId, isRangedAttack);
+    // Weapon Reach (optional rule, v1.4.353): once closed in, a weapon two or
+    // more steps longer than the range "cannot parry the attacks of the shorter".
+    const parryWeaponsAll  = _buildParryWeaponList(defender, stylesByWeaponId, isRangedAttack);
+    const parryWeapons     = isRangedAttack ? parryWeaponsAll : parryWeaponsAll.filter(w => canParryAt(ctx.reachR, w));
+    const reachBlocked     = parryWeaponsAll.filter(w => !parryWeapons.includes(w));
 
     // ── Look up evade and acrobatics skill totals ────────────────────────────
     const evadeSkill       = _findSkill(defender, 'Evade');
@@ -210,6 +216,12 @@ export class DefenderDialog {
           <span class="mi-dialog-skill-name">${attacker.name} attacks with ${weapon?.name ?? 'weapon'}</span>
           <span class="mi-dialog-skill-base" id="mi-def-skill-display">—</span>
         </div>
+
+        ${reachBlocked.length ? `
+        <div class="mi-attacker-condition-banner">
+          <i class="fas fa-ruler-horizontal"></i>
+          Closed in — too long to parry at this range: ${reachBlocked.map(w => w.name).join(', ')}. Evade, fight unarmed, or parry with a shorter weapon.
+        </div>` : ''}
 
         ${isRangedAttack ? `
         <div class="mi-attacker-condition-banner">

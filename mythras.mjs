@@ -457,6 +457,18 @@ Hooks.once('setup', () => {
     default: false
   });
 
+  // Weapon Reach (Mythras Core p.106-107) — an optional rule the book itself
+  // calls "for those desiring more realistic combat". Off by default: with it
+  // off, nothing about combat changes (v1.4.353). See module/utils/reach.js.
+  game.settings.register('mythras-imperative', 'weaponReach', {
+    name:    'Weapon Reach (optional rule)',
+    hint:    'Mythras Core p.106-107. With weapons two or more Reach steps apart, the longer one holds the shorter at bay until it closes in; once closed in, the longer weapon cannot parry and strikes with its haft (Size reduced, 1d3+1 damage). Off by default.',
+    scope:   'world',
+    config:  true,
+    type:    Boolean,
+    default: false
+  });
+
   // Start-of-session Luck Point replenishment — a GM button, not a hook.
   // Foundry has no "session" concept and every automatic proxy for one (world
   // startup, a user connecting) refills wrongly on a mid-evening restart or a
@@ -2978,7 +2990,8 @@ async function _onSemiAutoRollDamage(ev, message) {
         // Expressed as a full-block reduction rather than a special case —
         // "blocks fully" IS a multiplier of 0.
         ? { multiplier: 0, label: 'full' }
-        : CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle, null, attacker, defender);
+        : CombatEngine.resolveParryReduction(weapon, parryWeapon, parryStyle,
+            { reachHaftSteps: Number(outcomeFlags0.reachHaftSteps) || 0 }, attacker, defender);
     }
     // If parry failed/fumbled: parryReduction stays null, no reduction applied
   }
@@ -3028,7 +3041,8 @@ async function _onSemiAutoRollDamage(ev, message) {
   // ~1644), same source _onSemiAutoRollDamage already uses for the card's
   // defence description below — no separate flags read needed.
   const wardReduction = locationId
-    ? CombatEngine.resolveWardReduction(weapon, defender, locationId, defenceType, null, attacker)
+    ? CombatEngine.resolveWardReduction(weapon, defender, locationId, defenceType,
+        { reachHaftSteps: Number(outcomeFlags0.reachHaftSteps) || 0 }, attacker)
     : null;
 
   // ── THE ARITHMETIC, in one pure call ─────────────────────────────────────
