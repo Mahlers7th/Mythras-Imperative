@@ -26,7 +26,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Inside that range, the dagger could attack. The axe was not offered to parry, in either the Defend dialog or the GM Mode panel, and the dialog said why.
   - Parry arithmetic: a dagger parrying the Huge axe blocks nothing, but against the haft (Huge − 2) it blocks half.
   - When the GM opened the range again, the stored range was cleared, and the dagger was held at bay once more.
-- Not yet committed
+- Committed as `94b8dcd80e8badd930b8712e48036cc31fd098ea`
 
 ## v1.4.352 — September 2026
 - **⚠️ A hero advantage's "one Grade easier" was lost on any roll harder than Standard.** Endurance, Stealth and Willpower advantages ("rolls are one Grade easier") only moved the sheet dialog's *default*, from Standard to Easy. A GM calling for a **Hard** Endurance roll got a plain Hard roll. It is the same defect v1.4.351 fixed for Bolster, and it gets the same fix: Chris's ruling (2026-09-23) is that the easier grade applies to the difficulty the roll is actually made at, so **Hard becomes Standard**.
