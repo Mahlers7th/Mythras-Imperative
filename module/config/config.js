@@ -1342,6 +1342,10 @@ export const MYTHRAS = {
     { id: 'slipFree',         label: 'MYTHRAS.SESlipFree',         who: 'defender', restriction: 'defenderCritical',        phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'slipFree'         },
     { id: 'weaponMalfunction',label: 'MYTHRAS.SEWeaponMalfunction',who: 'defender', restriction: 'attackerFumblesFirearm',  phase: 'opposed',        requiresDamage: false, requiresFumble: true,  resolver: 'weaponMalfunction' },
     { id: 'withdraw',         label: 'MYTHRAS.SEWithdraw',         who: 'defender', restriction: null,                      phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'withdraw'         },
+    // Optional Weapon Reach rule only (Core p.97-98; v1.4.355). Close Range is
+    // offensive and defensive, Open Range defensive only (Core p.100 table).
+    { id: 'closeRange',       label: 'MYTHRAS.SECloseRange',       who: 'both',     restriction: 'reachCanClose',           phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'closeRange'       },
+    { id: 'openRange',        label: 'MYTHRAS.SEOpenRange',        who: 'defender', restriction: 'reachCanOpen',            phase: 'opposed',        requiresDamage: false, requiresFumble: false, resolver: 'openRange'        },
   ],
 
   // -----------------------------------------------------------------------

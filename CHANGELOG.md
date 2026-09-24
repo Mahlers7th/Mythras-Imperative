@@ -10,6 +10,21 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.355 — September 2026
+- **✨ Weapon Reach, part 3: the Close Range and Open Range Special Effects** (Mythras Core p.97–98), for the optional Weapon Reach rule.
+  - **Close Range** is available to whichever side wins, as the Core table has it. It changes the range *"so that they end up at the Range favoured by the shorter weapon"*.
+  - **Open Range** is available to the defender only. It changes the range *"so that they end up at the Range favoured by the longer weapon"*.
+  - **They're offered only when they'd change something:** the rule is on, it's a melee exchange, the two weapons are **two or more Reach steps apart**, and the fight isn't already at that range. The defender's weapon is the one they parried with, or their longest if they didn't parry. When either effect is chosen, the new range is stored for the pair and a chat card says so.
+  - They work on every automation level, including semi-auto, where a won effect is resolved later from the Roll Damage button. For that path, the outcome card now carries the pair's range.
+- **Withdraw now breaks off a closed-in range.** It *"break[s] off engagement"*, so with the rule on, the stored range between the two is cleared.
+- 1009 tests pass (20 suites). Lint at 0 errors.
+- **Live-verified** (two clients), 10 new checks, plus the part 1 (18) and part 2 (17) tests rerun clean. Every world actor, token, combat and setting was unchanged afterwards.
+  - The great axe attacked and missed, and the dagger parried: Player2 was offered **Close Range** but not Open Range, and choosing it moved the fight to Short reach.
+  - Once closed in, Close Range was no longer offered, and Open Range was.
+  - The dagger attacked and missed, and the axeman Evaded: the GM was offered **Open Range**, and choosing it restored the longer reach, with a card saying so.
+  - Withdraw cleared a closed-in range.
+- Not yet committed
+
 ## v1.4.354 — September 2026
 - **✨ Weapon Reach, part 2: the Change Range combat action** (Mythras Core p.91, p.107), for the optional Weapon Reach rule. Players can now close in, open the range and withdraw themselves; the GM's range control from v1.4.353 stays as an override.
   - **Where it is:** in the **combat tracker's right-click menu**, next to Delay, because you change range *instead of* attacking. It only appears while the rule is on, and only for combatants you own. Target the opponent first.

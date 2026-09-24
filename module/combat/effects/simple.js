@@ -10,10 +10,60 @@
 
 const NS = 'mythras-imperative';
 
+import { reachSpan, setStoredReach, reachRuleOn } from '../reach-state.js';
+import { REACH_LABELS, reachCode } from '../../utils/reach.js';
+
+async function reachCard(ctx, title, text) {
+  const winner = ctx.seWinner === 'defender' ? ctx.defender : ctx.attacker;
+  await ChatMessage.create({
+    content: `
+      <div class="mi-chat-card">
+        <div class="mi-card-header mi-card-header--stacked">
+          <span class="mi-card-actor">${ctx.attacker?.name ?? '?'} ↔ ${ctx.defender?.name ?? '?'}</span>
+          <span class="mi-card-skill">${title}</span>
+        </div>
+        <div class="mi-card-body"><div class="mi-outcome-row"><span class="mi-outcome success">
+          <i class="fas fa-arrows-left-right"></i> ${text}
+        </span></div></div>
+      </div>`,
+    speaker: ChatMessage.getSpeaker({ actor: winner })
+  });
+}
+
+/**
+ * Close Range (Core p.97): "Permits the character to automatically change the
+ * engagement range between himself and his opponent, so that they end up at
+ * the Range favoured by the shorter weapon." Optional Weapon Reach rule (v1.4.355).
+ */
+export async function resolveCloseRange(ctx) {
+  const span = reachSpan(ctx);
+  if (!span) return;
+  const ok = await setStoredReach(ctx.attacker, ctx.defender, span.shorter);
+  await reachCard(ctx, 'Close Range', ok
+    ? `The fight closes in to ${REACH_LABELS[reachCode(span.shorter)]} reach — the shorter weapon's range.`
+    : 'The range could not be stored (no active combat, or no GM).');
+}
+
+/**
+ * Open Range (Core p.98): "... so that they end up at the Range favoured by the
+ * longer weapon." Optional Weapon Reach rule (v1.4.355).
+ */
+export async function resolveOpenRange(ctx) {
+  const span = reachSpan(ctx);
+  if (!span) return;
+  const ok = await setStoredReach(ctx.attacker, ctx.defender, null);
+  await reachCard(ctx, 'Open Range', ok
+    ? `The fight opens out to ${REACH_LABELS[reachCode(span.longer)]} reach — the longer weapon's range.`
+    : 'The range could not be stored (no active combat, or no GM).');
+}
+
 
 export async function resolveWithdraw(ctx) {
   const { attacker, defender } = ctx;
   if (!defender) return;
+  // Optional Weapon Reach (v1.4.355): withdrawing breaks off the engagement,
+  // so a closed-in range between the two does not survive it.
+  if (reachRuleOn() && attacker) await setStoredReach(attacker, defender, null);
 
   await ChatMessage.create({
     content: `

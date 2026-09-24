@@ -95,6 +95,22 @@ export function reachFor(attacker, weapon, defender, { choice = 'auto' } = {}) {
     rangeLabel: REACH_LABELS[reachCode(R)], weaponLabel: REACH_LABELS[reachCode(w)] };
 }
 
+/**
+ * The two weapons of an exchange and the range they are at — for the Close
+ * Range / Open Range Special Effects (v1.4.355). The defender's weapon is the
+ * one they parried with, or their longest if they did not parry. Null when
+ * the rule is off, the attack is ranged, or the weapons are less than two
+ * steps apart (the rule then changes nothing, Core p.106).
+ */
+export function reachSpan(ctx) {
+  if (!reachRuleOn() || !ctx || ctx.isRanged || !Number.isFinite(ctx.reachR)) return null;
+  const a = weaponReach(ctx.weapon);
+  const d = isMeleeWeapon(ctx.defenceWeapon) ? weaponReach(ctx.defenceWeapon) : longestMeleeReach(ctx.defender);
+  const shorter = Math.min(a, d), longer = Math.max(a, d);
+  if (longer - shorter < 2) return null;
+  return { shorter, longer, R: ctx.reachR, closed: ctx.reachR <= shorter };
+}
+
 /** Can this weapon parry at range R? (No rule, or no range → yes.) */
 export function canParryAt(R, weapon) {
   if (!Number.isFinite(R) || !isMeleeWeapon(weapon)) return true;

@@ -3220,6 +3220,8 @@ async function _onSemiAutoRollDamage(ev, message) {
           defenderSkillTotal:   outcomeFlags2.defenderSkillTotal ?? 0,
           chosenSpecialEffects: chosenSEs2,
           seWinner:             outcomeFlags2.seWinner           ?? 'attacker',
+          isRanged:             outcomeFlags2.isRanged           ?? false,
+          reachR:               outcomeFlags2.reachR             ?? null,  // Close/Open Range (v1.4.355)
           hitLocationId:        locationId ?? null,
           hitLocationLabel:     locationLabel,
           chatMessageId:        messageId ?? null

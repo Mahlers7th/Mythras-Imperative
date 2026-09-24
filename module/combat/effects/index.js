@@ -24,6 +24,8 @@ import {
   resolveSelectTarget,
   resolveWeaponMalfunction,
   resolvePressAdvantage,
+  resolveCloseRange,
+  resolveOpenRange,
 } from './simple.js';
 
 // ── Batch 3: opposed-roll resolvers ──────────────────────────────────────────
@@ -87,6 +89,8 @@ export {
 
 export const SE_RESOLVERS = {
   withdraw:          resolveWithdraw,
+  closeRange:        resolveCloseRange,
+  openRange:         resolveOpenRange,
   duckBack:          resolveDuckBack,
   rapidReload:       resolveRapidReload,
   overpenetrate:     resolveOverpenetrate,

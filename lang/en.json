@@ -139,6 +139,8 @@
   "MYTHRAS.SETripOpponent": "Trip Opponent",
   "MYTHRAS.SEWeaponMalfunction": "Weapon Malfunction",
   "MYTHRAS.SEWithdraw": "Withdraw",
+  "MYTHRAS.SECloseRange": "Close Range",
+  "MYTHRAS.SEOpenRange": "Open Range",
   "MYTHRAS.SizeEnormous": "Enormous",
   "MYTHRAS.SizeHuge": "Huge",
   "MYTHRAS.SizeLarge": "Large",

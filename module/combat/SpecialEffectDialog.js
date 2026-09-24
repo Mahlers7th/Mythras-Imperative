@@ -34,6 +34,8 @@
  * Resolves with string[] of chosen SE ids, or [] if cancelled.
  */
 
+import { reachSpan } from './reach-state.js';
+
 export class SpecialEffectDialog {
 
   /**
@@ -292,6 +294,18 @@ function _filterSEs(ctx, isAttackerWinner) {
         // Falls back gracefully: any firearm is eligible so the SE at least appears;
         // the GM decides at the table whether the weapon qualifies.
         return traits.includes('firearm') && (traits.includes('hightech') || traits.includes('highTech'));
+
+      // Weapon Reach (optional rule, v1.4.355): offered only when the two
+      // weapons are 2+ steps apart and the range is not already where the
+      // effect would put it.
+      case 'reachCanClose': {
+        const span = reachSpan(ctx);
+        return !!span && !span.closed;
+      }
+      case 'reachCanOpen': {
+        const span = reachSpan(ctx);
+        return !!span && span.R < span.longer;
+      }
 
       case 'defenderProne':
         // Arise: only meaningful while actually prone.
