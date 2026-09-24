@@ -23,7 +23,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Once closed in, Close Range was no longer offered, and Open Range was.
   - The dagger attacked and missed, and the axeman Evaded: the GM was offered **Open Range**, and choosing it restored the longer reach, with a card saying so.
   - Withdraw cleared a closed-in range.
-- Not yet committed
+- Committed as `44b4c161403d60189e998f91c84f3e08e1ddf163`
 
 ## v1.4.354 — September 2026
 - **✨ Weapon Reach, part 2: the Change Range combat action** (Mythras Core p.91, p.107), for the optional Weapon Reach rule. Players can now close in, open the range and withdraw themselves; the GM's range control from v1.4.353 stays as an override.
