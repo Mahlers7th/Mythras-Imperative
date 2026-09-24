@@ -72,6 +72,27 @@ export function closedReach(closerReach, otherReach) {
   return Math.min(closerReach, otherReach);
 }
 
+const GRADE_RANK = { critical: 3, success: 2, failure: 1, fumble: 0 };
+
+/**
+ * Change Range's Evade contest (Core p.107): "If the character initiating the
+ * Change Range action wins then he can close the range ... If the opponent
+ * wins then the existing range is maintained." An Opposed Roll (Core p.46):
+ * the better level of success wins; at the same level of success, the higher
+ * roll still within the skill wins. If both fail there is no winner (Core:
+ * "Lodz failed to cut the purse"), so the initiator does not get through.
+ * @param {{grade: string, roll: number}} initiator
+ * @param {{grade: string, roll: number}} opponent
+ * @returns {boolean} true when the initiator wins
+ */
+export function changeRangeWins(initiator, opponent) {
+  const a = GRADE_RANK[initiator?.grade] ?? 0;
+  const b = GRADE_RANK[opponent?.grade] ?? 0;
+  if (a <= 1) return false;          // the initiator failed: no range change, whatever the opponent did
+  if (a !== b) return a > b;
+  return (Number(initiator.roll) || 0) > (Number(opponent.roll) || 0);
+}
+
 /** A stable key for a pair of fighters, whichever way round they are. */
 export function pairKey(uuidA, uuidB) {
   return [String(uuidA), String(uuidB)].sort().join('|');

@@ -1,4 +1,4 @@
-import { reachIndex, reachCode, engagementReach, reachVerdict, closedReach, pairKey, HAFT_DAMAGE } from '../module/utils/reach.js';
+import { reachIndex, reachCode, engagementReach, reachVerdict, closedReach, pairKey, HAFT_DAMAGE, changeRangeWins } from '../module/utils/reach.js';
 
 const T = 0, S = 1, M = 2, L = 3, VL = 4;
 
@@ -43,6 +43,24 @@ describe('reachVerdict — the book examples', () => {
   });
   test('an unarmed fighter (Touch) held off by a Medium sword', () => {
     expect(reachVerdict(engagementReach(T, M), T).canAttack).toBe(false);
+  });
+});
+
+describe('changeRangeWins — the Evade contest', () => {
+  test('a better level of success wins', () => {
+    expect(changeRangeWins({ grade: 'critical', roll: 3 }, { grade: 'success', roll: 40 })).toBe(true);
+    expect(changeRangeWins({ grade: 'success', roll: 30 }, { grade: 'critical', roll: 2 })).toBe(false);
+  });
+  test('a success beats a failed opponent', () => {
+    expect(changeRangeWins({ grade: 'success', roll: 30 }, { grade: 'failure', roll: 80 })).toBe(true);
+  });
+  test('both succeed: the higher roll wins', () => {
+    expect(changeRangeWins({ grade: 'success', roll: 45 }, { grade: 'success', roll: 30 })).toBe(true);
+    expect(changeRangeWins({ grade: 'success', roll: 30 }, { grade: 'success', roll: 45 })).toBe(false);
+  });
+  test('both fail: nobody wins, the range stays', () => {
+    expect(changeRangeWins({ grade: 'failure', roll: 90 }, { grade: 'failure', roll: 70 })).toBe(false);
+    expect(changeRangeWins({ grade: 'failure', roll: 90 }, { grade: 'fumble', roll: 99 })).toBe(false);
   });
 });
 

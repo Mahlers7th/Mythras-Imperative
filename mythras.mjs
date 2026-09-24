@@ -629,6 +629,9 @@ Hooks.once('ready', () => {
   // This must run in 'ready' — game.socket is not available before this hook.
   CombatSocket.register();
   _registerCombatRequestHandlers();
+  // Change Range (optional Weapon Reach rule, v1.4.354): its two request
+  // handlers and the combat tracker entry. Inert while the rule is off.
+  import('./module/combat/change-range.js').then(m => m.registerChangeRange());
 
   // ── Frozen API surface for modules (Destined et al.) ──────────────────────
   // syncHitLocationHP is the sole writer of hit-location item system.hp (max).

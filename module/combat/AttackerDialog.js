@@ -240,6 +240,10 @@ export class AttackerDialog {
         </div>` : ''}
 
         <div class="mi-attacker-condition-banner" id="mi-atk-reach-banner" style="display:none"></div>
+        ${ctx.changeRangeEvade ? `
+        <div class="mi-attacker-condition-banner">
+          <i class="fas fa-arrows-left-right"></i> ${defender.name} is changing range — they defend with Evade, and get through whatever happens.
+        </div>` : ''}
 
         <div class="mi-dialog-fields">
 
@@ -379,7 +383,9 @@ export class AttackerDialog {
               result.reachChoice = html.find('#mi-atk-reach')[0]?.value ?? 'auto';
               result.reachR = result.isRanged ? null
                 : (reachFor(attacker, result.weapon, defender, { choice: result.reachChoice })?.R ?? null);
-              if (!gmMode) {
+              // Attacking someone as they Change Range: their defence is
+              // already decided (Evade), so GM Mode's defence panel is skipped.
+              if (!gmMode || result.changeRangeEvade) {
                 resolve(result);
                 return;
               }

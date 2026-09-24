@@ -1405,6 +1405,18 @@ export class CombatEngine {
     // Effect has been chosen.
     await CombatEngine._offerAttackLuck(confirmedCtx);
 
+    // ── Change Range: attacked while moving (optional Weapon Reach, v1.4.354) ─
+    // "if the opponent decides to attack the closing character instead, then he
+    // must make an opposed roll of his combat skill versus the closing
+    // character's Evade skill" (Core p.107). The Evade is part of the Change
+    // Range action the mover already paid for: no defence dialog, no second
+    // Action Point (see _afterDefenceResolved), and not left prone.
+    if (confirmedCtx.changeRangeEvade) {
+      CombatEngine._applyDefenceData(confirmedCtx, { defenceType: 'evade', willBeProne: false });
+      await CombatEngine._afterDefenceResolved(confirmedCtx);
+      return;
+    }
+
     // ── Step 5b: Surprised path — skip defender dialog entirely ─────────────
     if (confirmedCtx.defenderSurprised) {
       confirmedCtx.defenceType        = 'none';
@@ -1873,7 +1885,7 @@ export class CombatEngine {
 
     // Defender spends 1 AP for a reactive action (parry/evade/acrobatics).
     // Don't Defend ('none') costs nothing. Surprised cannot react — no AP spent.
-    if (ctx.defenceType !== 'none' && !ctx.defenderSurprised) {
+    if (ctx.defenceType !== 'none' && !ctx.defenderSurprised && !ctx.changeRangeEvade) {
       await CombatEngine._spendActionPoint(defender);
     }
 

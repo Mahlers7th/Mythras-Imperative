@@ -10,6 +10,27 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.354 — September 2026
+- **✨ Weapon Reach, part 2: the Change Range combat action** (Mythras Core p.91, p.107), for the optional Weapon Reach rule. Players can now close in, open the range and withdraw themselves; the GM's range control from v1.4.353 stays as an override.
+  - **Where it is:** in the **combat tracker's right-click menu**, next to Delay, because you change range *instead of* attacking. It only appears while the rule is on, and only for combatants you own. Target the opponent first.
+  - **The mover chooses** to **close in** (with which weapon; the new range is that weapon's reach), **open** back to the longer weapon's reach, or **withdraw** from the fight. It costs **1 Action Point**.
+  - **The opponent's player chooses** how to respond, in a dialog on their own screen:
+    - **Let them.** No Action Point is spent. This is also what happens automatically if they have no Action Points left.
+    - **Oppose with Evade (1 AP).** An opposed Evade roll, with each roll on its owner's screen. Core's opposed-roll rule decides it: the better level of success wins, and at the same level, the higher roll wins. **If both fail, nobody wins**, so the range stays as it was.
+    - **Attack as they move (1 AP).** A normal attack on the opponent's own Attack dialog, which says what's happening. The mover defends with **Evade automatically**, as part of the move they've already paid for: there's no Defend dialog, no second Action Point, and they aren't left prone. As the book says, *"whether or not the blow lands, the closing character bridges the distance"*, so the move goes through either way.
+  - A chat card records who did what, and the result.
+- **New combat style trait: Cautious Fighter** (from Core, not Imperative): *"Can use the Change Range action to automatically withdraw from engagement with no need to roll."* With it, Withdraw succeeds without asking the opponent.
+- The contest rule is pure and tested (`changeRangeWins`, 4 new tests). The flow is in `module/combat/change-range.js`.
+- **Not applied:** the over-100% opposed-skill penalty (Core p.51) in the Evade contest. Each side's roll goes through `requestSkillCheck` separately, so neither knows the other's total. An Evade above 100% is rare, but it's a known gap.
+- 1009 tests pass (20 suites). Lint at 0 errors.
+- **Live-verified** (two clients), 17 checks, clean on four runs. Player2's dagger fighter faced the GM's axeman, and every world actor, token, combat and setting was unchanged afterwards.
+  - **The tracker menu:** the entry showed for Player2's own fighter only, and disappeared with the rule off.
+  - **Let them:** the range became Short. The mover paid 1 AP; the axeman paid nothing.
+  - **Evade:** with both succeeding on the same roll, the range held and both paid 1 AP. When the mover succeeded and the axeman failed, the mover got through.
+  - **Attack:** the axeman's Attack dialog explained the situation. The exchange was defended by Evade with no Defend dialog on Player2's screen, the mover paid only the Change Range AP, wasn't left prone, and got through.
+  - **Cautious Fighter:** withdrew with no response asked for, and the card said why.
+- Not yet committed
+
 ## v1.4.353 — September 2026
 - **✨ Weapon Reach, part 1: an optional rule from Mythras Core (p.94, p.106–107).** A new world setting, **Weapon Reach (optional rule)**, is **off by default**. With it off, nothing about combat changes. The book calls reach an option "for those desiring more realistic combat", and Chris's reason for automating it: players "either love, or hate" it, and automation makes it much easier to use.
   - **When it applies:** only when two weapons are **two or more Reach steps apart** (Touch, Short, Medium, Long, Very Long), so a dagger against a falchion is unaffected, but a dagger against a great axe is not.

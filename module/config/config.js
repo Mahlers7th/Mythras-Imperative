@@ -1424,6 +1424,14 @@ export const MYTHRAS = {
       description: 'Any melee weapon in the style can also be thrown at no penalty to skill, but damage roll is halved.',
       engineEffect: true   // melee weapons in style gain thrown capability; damage halved
     },
+    // From Mythras Core (p.88), not Imperative — added with the optional
+    // Weapon Reach rule's Change Range action (v1.4.354).
+    cautiousFighter: {
+      key:          'cautiousFighter',
+      label: 'Cautious Fighter',
+      description: 'Can use the Change Range action to automatically withdraw from engagement with no need to roll. (Mythras Core; used with the optional Weapon Reach rule.)',
+      engineEffect: true   // Change Range → Withdraw succeeds with no opposed roll
+    },
     unarmedProwess: {
       key:          'unarmedProwess',
       label: 'Unarmed Prowess',
