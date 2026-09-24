@@ -29,7 +29,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **Evade:** with both succeeding on the same roll, the range held and both paid 1 AP. When the mover succeeded and the axeman failed, the mover got through.
   - **Attack:** the axeman's Attack dialog explained the situation. The exchange was defended by Evade with no Defend dialog on Player2's screen, the mover paid only the Change Range AP, wasn't left prone, and got through.
   - **Cautious Fighter:** withdrew with no response asked for, and the card said why.
-- Not yet committed
+- Committed as `b7da14add92d28697c9ae3a110f90adcfeb8fefa`
 
 ## v1.4.353 — September 2026
 - **✨ Weapon Reach, part 1: an optional rule from Mythras Core (p.94, p.106–107).** A new world setting, **Weapon Reach (optional rule)**, is **off by default**. With it off, nothing about combat changes. The book calls reach an option "for those desiring more realistic combat", and Chris's reason for automating it: players "either love, or hate" it, and automation makes it much easier to use.
