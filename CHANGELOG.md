@@ -25,7 +25,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - The pool went 26 → 17 and every hit location stayed at full HP. No wound, Endurance roll or Mitigate offer appeared.
   - Stun Location was offered against a lone Howler but not against the swarm.
   - The Full Auto card line is covered by unit tests only.
-- Not yet committed.
+- Committed as `de29d612f44ce3a01b787eabbec87a4b6d103ddc`
 
 ## v1.4.357 — September 2026
 - **✨ An area attack can be centred on a placed point.** A module may now add `ctx.areaAttack.centre = { x, y, sceneId }` (scene pixel coordinates), and the blast is measured from that point — an empty square included — instead of from the first target. First user: Destined v1.9.144, where the player places the Detonate circle on the map.
