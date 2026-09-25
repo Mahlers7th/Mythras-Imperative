@@ -38,6 +38,7 @@ import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { roundUp } from '../utils/rounding.js';
 import { fireRollResolved } from '../utils/roll-events.js';
+import { findDamageSink } from '../utils/damage-sink.js';
 import { isAreaAttack, areaDamageAfterDodge, tokensInRadius, mergeAreaTargets, areaCentre } from '../utils/area-attack.js';
 import { reachFor, setStoredReach, HAFT_DAMAGE } from './reach-state.js';
 import {
@@ -3460,6 +3461,10 @@ export class CombatEngine {
           <span class="mi-outcome ${woundClass}">${ctx.woundLevel.charAt(0).toUpperCase() + ctx.woundLevel.slice(1)} Wound — ${ctx.hitLocationLabel}</span>
 
         </div>` : ''}
+        ${ctx.damageSinkLabel && typeof ctx.newCurrent === 'number' ? `
+        <div class="mi-outcome-row">
+          <span class="mi-outcome mi-wound-minor">${ctx.damageSinkLabel}: ${Math.max(0, ctx.newCurrent)}/${ctx.maxHp}</span>
+        </div>` : ''}
       </div>` : '';
 
     const outcomeLabel = {
@@ -4706,6 +4711,15 @@ export class CombatEngine {
     };
   }
 
+  // _damageSinkFor — the damageLocationHooks sink for this hit, or null
+  // (v1.4.358). See module/utils/damage-sink.js and config.js.
+  // -------------------------------------------------------------------------
+  static _damageSinkFor(defender, locItem, ctx) {
+    return findDamageSink(defender, locItem, ctx, CONFIG.MYTHRAS?.damageLocationHooks,
+      err => console.error('Mythras Imperative | damageLocationHooks: hook threw', err));
+  }
+
+  // -------------------------------------------------------------------------
   // _applyDamage — writes system.current and system.wound on the location item
   //
   // Schema (HitLocationData):
@@ -4739,7 +4753,20 @@ export class CombatEngine {
 
     if (damage > 0) {
       const locItem = ctx.hitLocationId ? defender.items.get(ctx.hitLocationId) : null;
-      if (locItem) {
+      // A damageLocationHooks sink (v1.4.358) takes the damage instead of the
+      // struck location — e.g. a swarm's single pool of Hit Points. The
+      // location stays named on the card; no wound is assessed.
+      const sink = CombatEngine._damageSinkFor(defender, locItem, ctx);
+      if (sink) {
+        const newCurrent = sink.current - damage;
+        await sink.write(newCurrent, damage);
+        ctx.woundLevel        = 'none';
+        ctx.newCurrent        = newCurrent;
+        ctx.maxHp             = sink.max;
+        ctx.enduranceRequired = false;
+        ctx.damageSinkLabel   = sink.label;
+        ctx.appliedDamage     = damage;
+      } else if (locItem) {
         const maxHp      = locItem.system.hp ?? 4;
         const currentHp  = locItem.system.current ?? maxHp;
         const newCurrent = currentHp - damage;
@@ -4751,6 +4778,8 @@ export class CombatEngine {
         ctx.locationType      = CombatEngine._classifyLocation(locItem.name);
         // Serious: location at 0 or below. Major: location at -maxHp or below.
         ctx.enduranceRequired = newCurrent <= 0;
+
+        ctx.appliedDamage     = damage;
 
         await locItem.update({
           'system.current': newCurrent,
@@ -5018,7 +5047,14 @@ export class CombatEngine {
     let newCurrent   = null;
     let maxHp        = null;
     let locationType = null;
-    if (finalDamage > 0 && locId) {
+    const selfSink = finalDamage > 0
+      ? CombatEngine._damageSinkFor(attacker, locId ? attacker.items.get(locId) : null, { defender: attacker, hitLocationId: locId, accidentalInjury: true })
+      : null;
+    if (selfSink) {
+      maxHp      = selfSink.max;
+      newCurrent = selfSink.current - finalDamage;
+      await selfSink.write(newCurrent, finalDamage);
+    } else if (finalDamage > 0 && locId) {
       const locItem = attacker.items.get(locId);
       if (locItem) {
         maxHp        = locItem.system.hp ?? 4;

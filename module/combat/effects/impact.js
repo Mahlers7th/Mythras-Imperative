@@ -21,6 +21,7 @@
  */
 
 import { getItem } from './helpers.js';
+import { findDamageSink } from '../../utils/damage-sink.js';
 
 // -------------------------------------------------------------------------
 // resolveImpact — SE: Impact (requires damage > 0)
@@ -38,7 +39,15 @@ export async function resolveImpact(ctx, damage) {
   const kept  = Math.max(damage, rerollTotal);
   const delta = kept - damage;
 
-  if (delta > 0 && ctx.hitLocationId) {
+  // A damageLocationHooks sink (v1.4.358) takes the extra damage instead of
+  // the location, as it took the original hit.
+  const sink = delta > 0
+    ? findDamageSink(defender, ctx.hitLocationId ? getItem(defender, ctx.hitLocationId) : null, ctx,
+        CONFIG.MYTHRAS?.damageLocationHooks, err => console.error('Mythras Imperative | damageLocationHooks: hook threw', err))
+    : null;
+  if (sink) {
+    await sink.write(sink.current - delta, delta);
+  } else if (delta > 0 && ctx.hitLocationId) {
     const locItem = getItem(defender, ctx.hitLocationId);
     if (locItem) {
       const newCurrent = (locItem.system.current ?? locItem.system.hp) - delta;

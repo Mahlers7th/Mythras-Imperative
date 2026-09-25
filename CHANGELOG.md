@@ -10,6 +10,23 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.358 — September 2026
+- **✨ Two extension points for creatures that keep one pool of Hit Points.** First user: Destined v1.9.145's swarms, run as units under the Companion's Managing Large Groups rules ("treated as if they only have a single location"). The players still roll and name hit locations.
+  - **`damageLocationHooks`** — `(defender, locItem, ctx) => DamageSink | undefined`, first valid sink wins. The struck location is still rolled, named on the card and armoured as normal, but the damage goes to the sink, and **no wound is assessed**: no Serious or Major wound, no Endurance roll, no Mitigate Damage offer. Consulted at every combat write to a hit location: `_applyDamage` (Full Auto, Semi-Auto Apply Damage, area attacks, Bleed), the Accidental Injury self-hit, and Impact's extra damage.
+  - **`seExclusionHooks`** — `(seId, ctx, isAttackerWinner) => true | undefined`. Any `true` hides that Special Effect from the winner. Default-allow and applies to every SE: the opposite of `seEligibilityHooks`.
+  - Pure helpers `findDamageSink`, `isSEExcluded` and `isDamageSink` are in `module/utils/damage-sink.js`. A throwing hook is logged and treated as declining.
+- **Cards:**
+  - The Semi-Auto damage card previews the pool ("Swarm HP: 26 → 17/26") instead of predicting a wound for the rolled location.
+  - The Full Auto outcome card adds a "Swarm HP: x/max" line.
+  - The Apply Damage notice names the pool.
+- 1054 tests pass (22 suites, 20 new).
+- **Live-verified** from the player side (Destined v1.9.145 live test, `s12-swarm.mjs`, 29/29), with GM Mode off in Semi-Auto.
+  - Player2 attacked a swarm and pressed Roll Hit Location (Left Leg) and Roll Damage. The GM pressed Apply 9.
+  - The pool went 26 → 17 and every hit location stayed at full HP. No wound, Endurance roll or Mitigate offer appeared.
+  - Stun Location was offered against a lone Howler but not against the swarm.
+  - The Full Auto card line is covered by unit tests only.
+- Not yet committed.
+
 ## v1.4.357 — September 2026
 - **✨ An area attack can be centred on a placed point.** A module may now add `ctx.areaAttack.centre = { x, y, sceneId }` (scene pixel coordinates), and the blast is measured from that point — an empty square included — instead of from the first target. First user: Destined v1.9.144, where the player places the Detonate circle on the map.
   - A centre from a different scene, or a malformed one, is ignored: the blast centres on the first target, as in v1.4.356.

@@ -146,6 +146,28 @@ export const MYTHRAS = {
   damageHooks: [],
 
   // -----------------------------------------------------------------------
+  // DAMAGE LOCATION HOOKS (v1.4.358)
+  //   damageLocationHook : (defender, locItem, ctx) => DamageSink | undefined
+  //   DamageSink = { label, current, max, write: async (newCurrent, damage) }
+  //   Consulted at every write of combat damage to a hit location, after
+  //   damageHooks have settled the number: CombatEngine._applyDamage (Full
+  //   Auto, Semi-Auto Apply Damage, area attacks, Bleed), the Accidental
+  //   Injury self-hit, and Impact's extra damage. The FIRST hook to return a
+  //   valid sink takes the damage instead of the struck location: the
+  //   location is still rolled, named on the card and armoured as normal, but
+  //   its own HP is untouched and NO wound is assessed (no Serious/Major
+  //   wound, no Endurance roll) — the sink's owner decides what 0 means.
+  //   Pure helper and validation: module/utils/damage-sink.js.
+  //
+  //   Added for units under the Companions' "Managing Large Groups" rules (a
+  //   swarm of twenty Howlers): "treated as if they only have a single
+  //   location", while the players still roll and name hit locations.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each may return a DamageSink to take the damage instead of the struck location */
+  damageLocationHooks: [],
+
+  // -----------------------------------------------------------------------
   // EVASION HOOKS
   // evasionHook : (ctx, willBeProne) => boolean | void
   //   Called after the defender chooses Evade or Acrobatics.
@@ -235,6 +257,24 @@ export const MYTHRAS = {
 
   /** @type {Function[]} Each returns true to grant a `gated` SE to this winner, or undefined/falsy for no opinion */
   seEligibilityHooks: [],
+
+  // -----------------------------------------------------------------------
+  // SPECIAL EFFECT EXCLUSION HOOKS (v1.4.358)
+  //   seExclusionHook : (seId, ctx, isAttackerWinner) => true | undefined
+  //   Called by SpecialEffectDialog._filterSEs for EVERY catalog entry that
+  //   survived its restriction (and, for a gated entry, the eligibility gate
+  //   above). Any hook returning exactly `true` hides that SE from this
+  //   winner. Default-ALLOW, the opposite of seEligibilityHooks. Read-time
+  //   and pure, same contract as seEligibilityHooks. A throwing hook is
+  //   logged and treated as declining.
+  //
+  //   Added so a target with no real body parts (a swarm) is not offered
+  //   Special Effects that act on one location — Bleed, Impale, Stun
+  //   Location.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} Each returns true to hide an SE from this winner */
+  seExclusionHooks: [],
 
   // -----------------------------------------------------------------------
   // BASH KNOCKBACK MULTIPLIER HOOKS

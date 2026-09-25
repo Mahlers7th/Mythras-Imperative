@@ -35,6 +35,7 @@
  */
 
 import { reachSpan } from './reach-state.js';
+import { isSEExcluded } from '../utils/damage-sink.js';
 
 export class SpecialEffectDialog {
 
@@ -332,6 +333,10 @@ function _filterSEs(ctx, isAttackerWinner) {
       });
       if (!eligible) return false;
     }
+
+    // Module exclusion (v1.4.358) — default-allow, applies to every SE.
+    if (isSEExcluded(se.id, ctx, isAttackerWinner, CONFIG.MYTHRAS?.seExclusionHooks,
+      err => console.error('Mythras Imperative | seExclusionHooks: hook threw', err))) return false;
 
     return true;
   }).map(se => ({

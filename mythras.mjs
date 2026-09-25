@@ -2243,7 +2243,12 @@ function _onRenderChatMessage(message, html) {
         // If a damageHooks consumer (e.g. a power granting damage immunity)
         // reduced damage to 0, or the location didn't resolve, ctx.newCurrent
         // stays unset — report "no damage" rather than a stale/wrong number.
-        if (typeof ctx.newCurrent === 'number' && beforeCurrent !== null) {
+        if (typeof ctx.newCurrent === 'number' && ctx.damageSinkLabel) {
+          // A damageLocationHooks sink (v1.4.358) took it, not the location.
+          ui.notifications.info(
+            `Applied ${ctx.appliedDamage} to ${actor.name} (${locLabel} — ${ctx.damageSinkLabel}). ${ctx.damageSinkLabel}: ${ctx.newCurrent}/${ctx.maxHp}.`
+          );
+        } else if (typeof ctx.newCurrent === 'number' && beforeCurrent !== null) {
           const appliedDamage = beforeCurrent - ctx.newCurrent;
           ui.notifications.info(
             `Applied ${appliedDamage} to ${actor.name}'s ${locLabel}. Current HP: ${ctx.newCurrent}. Wound: ${ctx.woundLevel}.`
@@ -3251,7 +3256,10 @@ async function _onSemiAutoRollDamage(ev, message) {
   const mitigateLoc = locationId ? defender.items.get(locationId) : null;
   const mitigateMax = mitigateLoc?.system?.hp ?? 0;
   const mitigateCur = mitigateLoc?.system?.current ?? 0;
-  const wouldBeMajor = !!mitigateLoc
+  // A damageLocationHooks sink (v1.4.358) takes the damage instead of the
+  // location, so no wound is predicted: the card previews the pool instead.
+  const damageSink = CombatEngine._damageSinkFor(defender, mitigateLoc, { defender, hitLocationId: locationId ?? null });
+  const wouldBeMajor = !damageSink && !!mitigateLoc
     && woundLevel(finalDamage, mitigateMax, mitigateCur - finalDamage) === 'major';
   // One point per exchange for the defender (Chris, 2026-09-17): a point
   // already spent on Cheat Fate or Desperate Effort means no Mitigate.
@@ -3311,6 +3319,7 @@ async function _onSemiAutoRollDamage(ev, message) {
           </button>
         </div>
         ${wouldBeMajor ? `<div class="mi-outcome-row"><span class="mi-outcome mi-wound-major">Major Wound</span></div>` : ''}
+        ${damageSink && finalDamage > 0 ? `<div class="mi-outcome-row"><span class="mi-outcome mi-wound-minor">${damageSink.label}: ${damageSink.current} → ${Math.max(0, damageSink.current - finalDamage)}/${damageSink.max}</span></div>` : ''}
         ${mitigateRow}` : '<div class="mi-outcome-row"><span class="mi-outcome success">Damage fully blocked</span></div>'}
       </div>
     </div>`;
