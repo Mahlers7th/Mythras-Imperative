@@ -23,6 +23,7 @@ import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 import { reachFor, reachRuleOn, reachBannerText, canParryAt } from './reach-state.js';
+import { isAreaAttack } from '../utils/area-attack.js';
 
 export class AttackerDialog {
 
@@ -385,7 +386,11 @@ export class AttackerDialog {
                 : (reachFor(attacker, result.weapon, defender, { choice: result.reachChoice })?.R ?? null);
               // Attacking someone as they Change Range: their defence is
               // already decided (Evade), so GM Mode's defence panel is skipped.
-              if (!gmMode || result.changeRangeEvade) {
+              // An area attack skips it too (v1.4.356): every actor caught,
+              // the first target included, is asked for their Evade by the
+              // area loop — this panel would ask the first target twice, and
+              // offer a Parry a blast does not allow.
+              if (!gmMode || result.changeRangeEvade || isAreaAttack(result)) {
                 resolve(result);
                 return;
               }

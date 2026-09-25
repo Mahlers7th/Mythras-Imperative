@@ -38,6 +38,7 @@ import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { roundUp } from '../utils/rounding.js';
 import { fireRollResolved } from '../utils/roll-events.js';
+import { isAreaAttack, areaDamageAfterDodge, tokensInRadius, mergeAreaTargets, areaCentre } from '../utils/area-attack.js';
 import { reachFor, setStoredReach, HAFT_DAMAGE } from './reach-state.js';
 import {
   waitForCard,
@@ -795,6 +796,18 @@ export class CombatEngine {
       if (result === false) return;
     }
 
+    // ── Area attack: who is caught (v1.4.356) ────────────────────────────────
+    // A preRoll hook declared ctx.areaAttack (Destined's Detonate). Gather
+    // everyone in the blast HERE, on the attacker's own client, because this is
+    // the one place guaranteed to be looking at the scene the player targeted
+    // on — the exchange itself may resolve on the GM's client, which can be
+    // viewing a different scene. See module/utils/area-attack.js for the rules.
+    if (isAreaAttack(ctx)) {
+      const caught = await CombatEngine._gatherAreaTargets(ctx, targetTokens);
+      if (!caught) return; // cancelled at the confirmation dialog
+      ctx._targetActors = caught;
+    }
+
     // Branch on automation level
     if (CombatEngine.automationLevel === 'manual') {
       await CombatEngine._runManual(ctx);
@@ -803,6 +816,91 @@ export class CombatEngine {
 
     // Semi / Automated / GM Only — full dialog flow
     await CombatEngine._runDialog(ctx);
+  }
+
+  /**
+   * Everyone caught in an area attack: the player's own targets, plus every
+   * token on the canvas whose footprint reaches inside the radius around the
+   * first target. Shown as a checklist so the player (or GM) can drop anyone
+   * the measurement caught unfairly — a token behind a wall, say, since this
+   * measures straight-line distance and knows nothing about walls.
+   *
+   * Hidden tokens are only considered on a GM's client, so a player's
+   * checklist never names a creature the GM has hidden.
+   *
+   * @param {object} ctx
+   * @param {Token[]} targetTokens  the player's targets; the first is the blast's centre
+   * @returns {Promise<Actor[]|null>} actors caught, primary first; null if cancelled
+   */
+  static async _gatherAreaTargets(ctx, targetTokens) {
+    const primary = targetTokens[0];
+    const radius  = Number(ctx.areaAttack.radius);
+    const label   = ctx.areaAttack.label ?? 'Area attack';
+
+    const gridSize     = canvas?.grid?.size ?? canvas?.scene?.grid?.size ?? 0;
+    const gridDistance = canvas?.grid?.distance ?? canvas?.scene?.grid?.distance ?? 0;
+    const candidates   = (canvas?.tokens?.placeables ?? []).filter(t =>
+      t.actor && (game.user.isGM || !t.document?.hidden)
+    );
+    // A blast placed on the map (v1.4.357) measures from where it was put;
+    // otherwise from the first target, as before.
+    const centre   = areaCentre(ctx, primary.center, canvas?.scene?.id ?? null);
+    const isPlaced = centre !== primary.center;
+    const caughtIds = tokensInRadius(
+      centre,
+      candidates.map(t => ({ id: t.id, x: t.center.x, y: t.center.y, size: t.document?.width ?? 1 })),
+      radius, gridSize, gridDistance
+    );
+    const orderedIds = mergeAreaTargets(primary.id, targetTokens.map(t => t.id), caughtIds);
+    const tokenById  = new Map([...candidates, ...targetTokens].map(t => [t.id, t]));
+    const tokens     = orderedIds.map(id => tokenById.get(id)).filter(t => t?.actor);
+
+    const rows = tokens.map((t, i) => `
+      <label class="mi-defence-option">
+        <input type="checkbox" name="mi-area-target" value="${t.id}" checked ${i === 0 ? 'disabled' : ''}>
+        <span class="mi-defence-label">
+          <span class="mi-defence-name">${t.name}</span>
+          <span class="mi-defence-note">${i === 0 ? (isPlaced ? '(nearest the centre)' : '(centre of the blast)') : ''}</span>
+        </span>
+      </label>`).join('');
+
+    const content = `
+      <div class="mi-attacker-dialog">
+        <div class="mi-dialog-skill-header">
+          <span class="mi-dialog-skill-name">${label} — ${radius} m radius</span>
+          <span class="mi-dialog-skill-base">${tokens.length} caught</span>
+        </div>
+        <p class="mi-muted">Everyone whose body reaches inside the radius is caught, friend or foe.
+          Untick anyone the blast should not reach (walls are not measured).</p>
+        <div class="mi-defence-options">${rows}</div>
+      </div>`;
+
+    return new Promise(resolve => {
+      new Dialog({
+        title: `${label} — who is caught?`,
+        content,
+        buttons: {
+          confirm: {
+            icon: '<i class="fas fa-burst"></i>',
+            label: 'Resolve the blast',
+            callback: (html) => {
+              const kept = new Set(
+                html.find('input[name="mi-area-target"]:checked').map((_, el) => el.value).get()
+              );
+              kept.add(primary.id); // the centre is always caught
+              resolve(tokens.filter(t => kept.has(t.id)).map(t => t.actor));
+            }
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: 'Cancel',
+            callback: () => resolve(null)
+          }
+        },
+        default: 'confirm',
+        close: () => resolve(null)
+      }, { width: 380, classes: ['mi-dialog', 'dialog'] }).render(true);
+    });
   }
 
 
@@ -1218,6 +1316,249 @@ export class CombatEngine {
     });
   }
 
+  // -------------------------------------------------------------------------
+  // Area attack (v1.4.356) — Destined's Blast: Detonate is the first user.
+  //
+  // One attack roll against the first target. A miss does nothing. On a hit,
+  // each actor caught gets its own exchange: an Evade-type Reaction that halves
+  // the damage on a success (no Parry), its own hit location, its own card.
+  // Damage is rolled ONCE — _resolveFullAutoDamage stores the first roll on the
+  // shared ctx.areaAttack object and every later target reuses it. Special
+  // Effects go to the first target only, like Full Auto.
+  //
+  // Each target's exchange runs through the normal _afterDefenceResolved, so
+  // wounds, Luck offers, Special Effects, attackResolvedHooks and every card
+  // behave exactly as they do for a single attack.
+  // -------------------------------------------------------------------------
+
+  static async _runAreaExchanges(confirmedCtx, targets) {
+    const { attacker } = confirmedCtx;
+    const area = confirmedCtx.areaAttack;
+
+    // One roll for the whole blast. A no-op if AttackerDialog already rolled it
+    // (GM Mode), exactly as on the single-target path.
+    await CombatEngine._rollAttack(confirmedCtx);
+    await CombatEngine._offerAttackLuck(confirmedCtx);
+
+    const hit = confirmedCtx.attackOutcome === 'critical' || confirmedCtx.attackOutcome === 'success';
+    if (!hit) {
+      // A miss does nothing (Chris's ruling). The first target is still resolved
+      // as an ordinary undefended miss, so the usual miss card posts, the
+      // attackResolvedHooks fire (Destined spends its Detonate charge there),
+      // and a fumble behaves as any other fumbled attack.
+      confirmedCtx.defenceType        = 'none';
+      confirmedCtx.defenderSkillTotal = 0;
+      confirmedCtx.defenceOutcome     = 'none';
+      confirmedCtx.inlineDefenceData  = null;
+      await CombatEngine._afterDefenceResolved(confirmedCtx);
+      return;
+    }
+
+    await ChatMessage.create({
+      user:    game.user.id,
+      speaker: ChatMessage.getSpeaker({ actor: attacker }),
+      content: `
+        <div class="mythras-card">
+          <h3><i class="fas fa-burst"></i> ${area.label ?? 'Area attack'} — ${area.radius} m radius</h3>
+          <p>${attacker.name}'s attack: <strong>${confirmedCtx.attackResult}</strong>
+            (${confirmedCtx.attackOutcome}). Caught in the blast:
+            <strong>${targets.map(a => a.name).join(', ')}</strong>.</p>
+          <p class="mi-muted">Each may Evade to halve the damage. Damage is rolled once for everyone.</p>
+        </div>`
+    });
+
+    let isFirstTarget = true;
+    for (const [areaTargetIndex, targetActor] of targets.entries()) {
+      const targetCtx = {
+        ...confirmedCtx,
+        // 0 for the centre of the blast. attackResolvedHooks fire once per
+        // target here, all for the SAME attack roll — a hook that should act
+        // once per attack reads this to tell the first call from the rest.
+        areaTargetIndex,
+        // The attack is one roll: announce it once (rollResolvedHooks promise
+        // "exactly once per roll"), on the first target's card.
+        _skipAttackRollEvent: !isFirstTarget,
+        defender:             targetActor,
+        defenceType:          null,
+        defenceStyle:         null,
+        defenceWeapon:        null,
+        defenderSkillTotal:   null,
+        defenderSurprised: (() => {
+          const token = canvas?.tokens?.placeables?.find(t => t.actor?.id === targetActor.id);
+          return (token?.actor ?? targetActor).statuses?.has('surprised') ?? false;
+        })(),
+        wardedLocations:      CombatEngine._buildWardList(targetActor),
+        bonusSpecialEffects:  [...(confirmedCtx.bonusSpecialEffects ?? [])],
+        inlineDefenceData:    null,   // area targets are always asked for their dodge
+        defenceRoll:          null,
+        defenceResult:        null,
+        defenceOutcome:       null,
+        seAdvantage:          null,
+        seWinner:             null,
+        seCount:              null,
+        chosenSpecialEffects: [],
+        hitLocationId:        null,
+        hitLocationLabel:     null,
+        hitLocationRoll:      null,
+        damageRoll:           null,
+        damageRoll2:          null,
+        impaleRolls:          null,
+        rawDamage:            null,
+        damageAfterParry:     null,
+        damageAfterArmour:    null,
+        parryReduction:       null,
+        wardReduction:        null,
+        sunderResult:         null,
+        woundLevel:           null,
+        enduranceRequired:    false,
+        areaHalved:           false,
+        chatMessageId:        null,
+        stage:                'init',
+        _fullAutoSuppressSEs: !isFirstTarget,
+        _targetActors:        null,
+        // Shared by reference across every target — this is what carries the
+        // single damage roll from the first target to the rest.
+        areaAttack:           area,
+      };
+
+      await CombatEngine._runAreaSingleTarget(targetCtx);
+      isFirstTarget = false;
+    }
+  }
+
+  /**
+   * One actor's share of a blast: ask for the dodge, then resolve normally.
+   * Mirrors _runFullAutoSingleTarget's branches, minus the attack roll (shared)
+   * and with an Evade-only defence.
+   */
+  static async _runAreaSingleTarget(ctx) {
+    const { attacker, defender } = ctx;
+
+    // A vehicle's hull and structure model has no hit-location equivalent, and
+    // folding it into this path would be new vehicle rendering. Said, not guessed.
+    if (defender?.type === 'vehicle') {
+      ui.notifications.info(`${defender.name} is a vehicle — resolve its share of the blast by hand.`);
+      return;
+    }
+
+    if (ctx.defenderSurprised) {
+      ctx.defenceType        = 'none';
+      ctx.defenderSkillTotal = 0;
+      ctx.defenceOutcome     = 'none';
+      if (!ctx.bonusSpecialEffects.includes('surpriseBonus')) ctx.bonusSpecialEffects.push('surpriseBonus');
+      await CombatEngine._afterDefenceResolved(ctx);
+      return;
+    }
+
+    const defAP = defender.system.attributes?.actionPoints;
+    if (defAP && typeof defAP.value === 'number' && defAP.value <= 0) {
+      const rallied = await CombatEngine._offerDesperateEffort(defender, ctx);
+      if (!rallied) {
+        ctx.defenceType        = 'none';
+        ctx.defenderSkillTotal = 0;
+        ctx.defenceOutcome     = 'none';
+        await CombatEngine._afterDefenceResolved(ctx);
+        return;
+      }
+    }
+
+    let defenceData;
+    if (CombatEngine.gmMode) {
+      defenceData = await CombatEngine._showAreaEvadeDialog(ctx);
+    } else {
+      const exchangeId = foundry.utils.randomID(16);
+      const { CombatSocket, _findDefenderUserId, _shouldRunLocally } = await import('./CombatSocket.js');
+      if (_shouldRunLocally(_findDefenderUserId(defender))) {
+        const { DefenderDialog } = await import('./DefenderDialog.js');
+        defenceData = await DefenderDialog.show(ctx, exchangeId);
+      } else {
+        ui.notifications.info(`${defender.name} is caught in ${attacker.name}'s blast — waiting for their Evade…`);
+        defenceData = await CombatSocket.challenge(ctx, exchangeId);
+      }
+    }
+
+    // DefenderDialog has no Parry to offer against an area attack; this guard
+    // is for anything that reaches here some other way.
+    if (!defenceData || defenceData.defenceType === 'parry') {
+      ctx.defenceType        = 'none';
+      ctx.defenderSkillTotal = 0;
+    } else {
+      CombatEngine._applyDefenceData(ctx, defenceData);
+    }
+
+    await CombatEngine._afterDefenceResolved(ctx);
+  }
+
+  /**
+   * GM Mode: the dodge choice for one actor caught in a blast. Returns the
+   * shape _applyDefenceData reads — `{ defenceType, willBeProne }` — or null
+   * for Don't Defend.
+   */
+  static async _showAreaEvadeDialog(ctx) {
+    const { attacker, defender } = ctx;
+    const area = ctx.areaAttack;
+    const evadeTotal = Array.from(defender.items).find(i => i.type === 'skill' && i.name === 'Evade')?.system.total ?? 0;
+    const acrobatics = Array.from(defender.items).find(i => i.type === 'skill' && i.name === 'Acrobatics') ?? null;
+    const hasDaredevil = Array.from(defender.items).some(
+      i => i.type === 'combat-style' && (i.system.traits ?? []).includes('daredevil')
+    );
+
+    const content = `
+      <div class="mi-attacker-dialog">
+        <div class="mi-dialog-skill-header">
+          <span class="mi-dialog-skill-name">${attacker.name}'s ${area.label ?? 'blast'} → ${defender.name}</span>
+          <span class="mi-dialog-skill-base mi-outcome ${ctx.attackOutcome}">${ctx.attackResult}</span>
+        </div>
+        <p class="mi-muted">Caught in a ${area.radius} m blast. No Parry — a successful Evade halves the damage.</p>
+        <div class="mi-defence-options mi-defence-options--inline" style="padding: 8px 0;">
+          <label class="mi-defence-option">
+            <input type="radio" name="mi-area-def" value="evade" checked>
+            <span class="mi-defence-label">
+              <span class="mi-defence-name">Evade</span>
+              <span class="mi-defence-skill">${evadeTotal}%</span>
+              <span class="mi-defence-note">${hasDaredevil ? '(Daredevil — no prone)' : '(will be prone)'}</span>
+            </span>
+          </label>
+          ${acrobatics ? `
+          <label class="mi-defence-option">
+            <input type="radio" name="mi-area-def" value="acrobatics">
+            <span class="mi-defence-label">
+              <span class="mi-defence-name">Acrobatics</span>
+              <span class="mi-defence-skill">${acrobatics.system.total ?? 0}%</span>
+              <span class="mi-defence-note">(no prone)</span>
+            </span>
+          </label>` : ''}
+          <label class="mi-defence-option">
+            <input type="radio" name="mi-area-def" value="none">
+            <span class="mi-defence-label">
+              <span class="mi-defence-name">Don't Defend</span>
+              <span class="mi-defence-skill">—</span>
+              <span class="mi-defence-note">(full damage)</span>
+            </span>
+          </label>
+        </div>
+      </div>`;
+
+    return new Promise(resolve => {
+      new Dialog({
+        title: `${area.label ?? 'Blast'} — ${defender.name}`,
+        content,
+        buttons: {
+          confirm: {
+            label: 'Confirm',
+            callback: (html) => {
+              const type = html.find('input[name="mi-area-def"]:checked').val() ?? 'none';
+              if (type === 'none') { resolve(null); return; }
+              resolve({ defenceType: type, willBeProne: type === 'evade' && !hasDaredevil });
+            }
+          }
+        },
+        default: 'confirm',
+        close: () => resolve(null)
+      }, { width: 360, classes: ['mi-dialog', 'dialog'] }).render(true);
+    });
+  }
+
   static async _runDialog(ctx) {
     // ── Step 5: Attacker dialog ─────────────────────────────────────────────
     const { AttackerDialog } = await import('./AttackerDialog.js');
@@ -1374,6 +1715,15 @@ export class CombatEngine {
     if (confirmedCtx.isInterrupt) {
       await CombatEngine._clearDelay(attacker);
       ui.notifications.info(`${attacker.name} Interrupts — Delay spent.`);
+    }
+
+    // ── Area attack — one roll, everyone in the radius (v1.4.356) ────────────
+    // After the attacker's Action Point (a blast is one attack) and before any
+    // single-target branch. See module/utils/area-attack.js for the rulings.
+    if (isAreaAttack(confirmedCtx)) {
+      const targets = confirmedCtx._targetActors?.length ? confirmedCtx._targetActors : [defender];
+      await CombatEngine._runAreaExchanges(confirmedCtx, targets);
+      return;
     }
 
     // ── Step 5a: Vehicle defender — skip all defender dialog / socket logic ──
@@ -2086,6 +2436,11 @@ export class CombatEngine {
     if (isFullAutoConsolidatedDamage) {
       // Always burst-type damage for full-auto (isBurstFire is set true per target)
       await CombatEngine._resolveBurstDamage(ctx, null);  // null: no per-target card
+    } else if (attackerScored && isAreaAttack(ctx)) {
+      // Area attack (v1.4.356): always resolved automatically, at every
+      // automation level — one damage roll is shared by every target, so there
+      // can be no per-card Roll Damage button (see _postOutcomeCard).
+      await CombatEngine._resolveFullAutoDamage(ctx, chatMsg);
     } else if (attackerScored && CombatEngine.automationLevel === 'full') {
       if (ctx.isBurstFire) {
         await CombatEngine._resolveBurstDamage(ctx, chatMsg);
@@ -2136,8 +2491,11 @@ export class CombatEngine {
     // re-roll, so this is the once-per-exchange point to say they happened
     // (v1.4.350, module/utils/roll-events.js). The defender only rolled if
     // they actually defended.
-    fireRollResolved({ actor: attacker, item: ctx.attackerStyle ?? null, kind: 'attack',
-      result: ctx.attackResult, target: ctx.attackerSkillTotal, grade: ctx.attackOutcome });
+    // An area attack's one roll is announced on its first target's card only.
+    if (!ctx._skipAttackRollEvent) {
+      fireRollResolved({ actor: attacker, item: ctx.attackerStyle ?? null, kind: 'attack',
+        result: ctx.attackResult, target: ctx.attackerSkillTotal, grade: ctx.attackOutcome });
+    }
     if (ctx.defenceResult != null && ctx.defenceType && ctx.defenceType !== 'none') {
       fireRollResolved({ actor: defender, item: ctx.defenceStyle ?? null, kind: 'defence',
         result: ctx.defenceResult, target: ctx.defenderSkillTotal, grade: ctx.defenceOutcome });
@@ -2165,7 +2523,8 @@ export class CombatEngine {
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
       ctx.willBeProne       ? '<span class="mi-card-pill mi-card-pill--alert">Prone</span>'     : '',
-      ctx.reachHaftSteps    ? `<span class="mi-card-pill mi-card-pill--alert">Haft strike (Size −${ctx.reachHaftSteps})</span>` : ''
+      ctx.reachHaftSteps    ? `<span class="mi-card-pill mi-card-pill--alert">Haft strike (Size −${ctx.reachHaftSteps})</span>` : '',
+      isAreaAttack(ctx)     ? `<span class="mi-card-pill">${ctx.areaAttack.label ?? 'Area'} · ${ctx.areaAttack.radius} m</span>` : ''
     ].filter(Boolean).join('');
 
     const dmMod      = attacker.system.attributes?.damageModifier ?? '';
@@ -2181,7 +2540,9 @@ export class CombatEngine {
 
     // Semi-Auto: show roll buttons. Full-Auto: engine handles it after this returns.
     // Burst fire: single "Roll Burst Damage" button replaces the normal loc+dmg pair.
-    const damageButtons = (attackerScored && isSemi) ? (ctx.isBurstFire ? `
+    // Area attacks never get buttons: their damage is ONE roll shared by every
+    // target, resolved automatically in _afterDefenceResolved (v1.4.356).
+    const damageButtons = (attackerScored && isSemi && !isAreaAttack(ctx)) ? (ctx.isBurstFire ? `
       <div class="mi-manual-actions">
         <button class="mi-btn mi-btn-burst"
           data-attacker-id="${attacker.id}"
@@ -2200,7 +2561,11 @@ export class CombatEngine {
       ctx, pills, outcomeLabel, defenceTypeLabel, damageButtons, seHtml: ''
     });
 
-    const rolls = [ctx.attackRoll, ctx.defenceRoll].filter(Boolean);
+    // An area attack's one attack roll rides on its first target's card only —
+    // attached to every card, dice animations throw the same d100 once per
+    // target (seen live with Dice So Nice, v1.4.356). The card prints the
+    // result from ctx either way.
+    const rolls = [ctx._skipAttackRollEvent ? null : ctx.attackRoll, ctx.defenceRoll].filter(Boolean);
 
     const msg = await ChatMessage.create({
       content,
@@ -2250,7 +2615,7 @@ export class CombatEngine {
     });
 
     // Update button data-message-id now that we have the message id
-    if (msg && isSemi && attackerScored) {
+    if (msg && isSemi && attackerScored && !isAreaAttack(ctx)) {
       const updatedContent = content.replace(/data-message-id="PENDING"/g, `data-message-id="${msg.id}"`);
       await msg.update({ content: updatedContent });
     }
@@ -2489,8 +2854,15 @@ export class CombatEngine {
 
     // Impale SE — roll damage twice, attacker picks best (rules p.44)
     const impaleChosen = ctx.chosenSpecialEffects.includes('impale');
-    const damageRoll   = new Roll(dmgFormula);
-    await damageRoll.evaluate();
+    // Area attack (v1.4.356): ONE damage roll for everyone caught. The first
+    // target to take damage rolls it and leaves it on the shared ctx.areaAttack
+    // object (shared by reference across every target's ctx); the rest reuse it.
+    let damageRoll = isAreaAttack(ctx) ? (ctx.areaAttack.sharedDamageRoll ?? null) : null;
+    if (!damageRoll) {
+      damageRoll = new Roll(dmgFormula);
+      await damageRoll.evaluate();
+      if (isAreaAttack(ctx)) ctx.areaAttack.sharedDamageRoll = damageRoll;
+    }
     let rawDamage = damageRoll.total;
 
     if (impaleChosen) {
@@ -2521,6 +2893,15 @@ export class CombatEngine {
     // Applied after Maximise Damage but before parry and armour reduction.
     if (ctx.isRanged && ctx.rangeBand === 'long') {
       rawDamage = Math.ceil(rawDamage / 2);
+    }
+    // Area attack (v1.4.356): "Anyone within the area of effect can Evade as a
+    // Reaction to halve the damage inflicted" (Destined core p.83). Round up,
+    // like Long range above. There is no Parry against a blast, so the parry
+    // step below never fires for one; a warded shield still blocks passively.
+    if (isAreaAttack(ctx)) {
+      const dodge    = areaDamageAfterDodge(rawDamage, ctx.defenceType, ctx.defenceOutcome);
+      rawDamage      = dodge.damage;
+      ctx.areaHalved = dodge.halved;
     }
     ctx.rawDamage = rawDamage;
 
@@ -3050,12 +3431,16 @@ export class CombatEngine {
     })() : '';
     const longRangeNote = (ctx.isRanged && ctx.rangeBand === 'long')
       ? '<span class="mi-card-pill mi-card-pill--range">Long Range — damage halved</span>' : '';
+    // Area attack (v1.4.356): say why the number is half the dice shown.
+    const areaNote = ctx.areaHalved
+      ? '<span class="mi-card-pill mi-card-pill--range">Evaded the blast — damage halved</span>' : '';
     const damageSection = ctx.rawDamage > 0 ? `
       <div class="mi-card-damage-row">
         <div class="mi-card-damage-header">
           <span class="mi-card-damage-num">${ctx.rawDamage} damage</span>
           ${CombatEngine._diceBreakdown(ctx.damageRoll)}
           ${longRangeNote}
+          ${areaNote}
           ${parryNote ? `<span class="mi-card-note">(${parryNote})</span>` : ''}
           ${ctx.damageAfterArmour > 0 ? `<span class="mi-card-damage-final">\u2192 ${ctx.damageAfterArmour} to ${ctx.hitLocationLabel}</span>` : '<span class="mi-card-note">Blocked</span>'}
         </div>
@@ -3094,7 +3479,8 @@ export class CombatEngine {
       ctx.isFullAuto        ? '<span class="mi-card-pill">Full Auto</span>'                     : (ctx.isBurstFire ? '<span class="mi-card-pill">Burst Fire</span>' : ''),
       ctx.defenderSurprised ? '<span class="mi-card-pill mi-card-pill--alert">Surprised</span>' : '',
       ctx.difficulty !== 'standard' ? `<span class="mi-card-pill">${ctx.difficulty}</span>`     : '',
-      ctx.willBeProne       ? '<span class="mi-card-pill mi-card-pill--alert">Prone</span>'     : ''
+      ctx.willBeProne       ? '<span class="mi-card-pill mi-card-pill--alert">Prone</span>'     : '',
+      isAreaAttack(ctx)     ? `<span class="mi-card-pill">${ctx.areaAttack.label ?? 'Area'} · ${ctx.areaAttack.radius} m</span>` : ''
     ].filter(Boolean).join('');
 
     const newContent = CombatEngine._buildOutcomeCardContent({

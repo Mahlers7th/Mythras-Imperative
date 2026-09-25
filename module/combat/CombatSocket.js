@@ -354,6 +354,13 @@ export const CombatSocket = {
       isFullAuto:         ctx.isFullAuto ?? false,
       declaredRounds:     ctx.declaredRounds ?? 0,
 
+      // Area attack (v1.4.356) — the defender's dialog needs to know it is a
+      // blast (no Parry, Evade halves). Radius and label only: the shared
+      // damage Roll on ctx.areaAttack stays on the resolving client.
+      areaAttack:         ctx.areaAttack
+        ? { radius: ctx.areaAttack.radius, label: ctx.areaAttack.label ?? null }
+        : null,
+
       // Bonus SEs granted by combat actions (e.g. chargeBonus)
       bonusSpecialEffects: ctx.bonusSpecialEffects ?? [],
 
@@ -406,6 +413,7 @@ export const CombatSocket = {
       isBurstFire:         payload.isBurstFire ?? false,
       isFullAuto:          payload.isFullAuto ?? false,
       declaredRounds:      payload.declaredRounds ?? 0,
+      areaAttack:          payload.areaAttack ?? null,
 
       bonusSpecialEffects: payload.bonusSpecialEffects ?? [],
 

@@ -28,6 +28,7 @@
  */
 
 import { canParryAt } from './reach-state.js';
+import { isAreaAttack } from '../utils/area-attack.js';
 
 export class DefenderDialog {
 
@@ -59,6 +60,8 @@ export class DefenderDialog {
     // ── Collect defender's weapons and styles for the Parry option ────────────
     // For ranged attacks only shields may be used to parry (rules p.49).
     const isRangedAttack   = ctx.isRanged ?? false;
+    // Area attack (v1.4.356) — a blast cannot be parried; Evade halves it.
+    const isAreaAttackCtx  = isAreaAttack(ctx);
     const stylesByWeaponId = _buildStylesByWeaponMap(defender);
 
     // Formidable Natural Weapons: creature can actively parry with natural weapons.
@@ -85,9 +88,12 @@ export class DefenderDialog {
 
     // Weapon Reach (optional rule, v1.4.353): once closed in, a weapon two or
     // more steps longer than the range "cannot parry the attacks of the shorter".
-    const parryWeaponsAll  = _buildParryWeaponList(defender, stylesByWeaponId, isRangedAttack);
-    const parryWeapons     = isRangedAttack ? parryWeaponsAll : parryWeaponsAll.filter(w => canParryAt(ctx.reachR, w));
-    const reachBlocked     = parryWeaponsAll.filter(w => !parryWeapons.includes(w));
+    const parryWeaponsAll   = _buildParryWeaponList(defender, stylesByWeaponId, isRangedAttack);
+    const parryWeaponsReach = isRangedAttack ? parryWeaponsAll : parryWeaponsAll.filter(w => canParryAt(ctx.reachR, w));
+    // Area attack: nothing to parry — "anyone within the area of effect can
+    // Evade" (Destined core p.83). A warded shield still blocks passively.
+    const parryWeapons      = isAreaAttackCtx ? [] : parryWeaponsReach;
+    const reachBlocked      = isAreaAttackCtx ? [] : parryWeaponsAll.filter(w => !parryWeaponsReach.includes(w));
 
     // ── Look up evade and acrobatics skill totals ────────────────────────────
     const evadeSkill       = _findSkill(defender, 'Evade');
@@ -223,7 +229,11 @@ export class DefenderDialog {
           Closed in — too long to parry at this range: ${reachBlocked.map(w => w.name).join(', ')}. Evade, fight unarmed, or parry with a shorter weapon.
         </div>` : ''}
 
-        ${isRangedAttack ? `
+        ${isAreaAttackCtx ? `
+        <div class="mi-attacker-condition-banner">
+          <i class="fas fa-burst"></i>
+          Caught in a ${ctx.areaAttack.radius} m blast — no Parry. A successful Evade halves the damage.
+        </div>` : isRangedAttack ? `
         <div class="mi-attacker-condition-banner">
           <i class="fas fa-bullseye"></i>
           Ranged attack — only shields may parry
@@ -254,7 +264,7 @@ export class DefenderDialog {
             </div>
 
             <label class="mi-defence-option">
-              <input type="radio" name="mi-def-type" value="evade">
+              <input type="radio" name="mi-def-type" value="evade" ${isAreaAttackCtx ? 'checked' : ''}>
               <span class="mi-defence-label">
                 <span class="mi-defence-name">Evade</span>
                 <span class="mi-defence-skill">${evadeTotal}%</span>
@@ -267,7 +277,7 @@ export class DefenderDialog {
             ${swimRow}
 
             <label class="mi-defence-option">
-              <input type="radio" name="mi-def-type" value="none" ${parryWeapons.length ? '' : 'checked'}>
+              <input type="radio" name="mi-def-type" value="none" ${(parryWeapons.length || isAreaAttackCtx) ? '' : 'checked'}>
               <span class="mi-defence-label">
                 <span class="mi-defence-name">Don't Defend</span>
                 <span class="mi-defence-skill">—</span>

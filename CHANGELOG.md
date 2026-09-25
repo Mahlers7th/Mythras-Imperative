@@ -10,6 +10,41 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.357 — September 2026
+- **✨ An area attack can be centred on a placed point.** A module may now add `ctx.areaAttack.centre = { x, y, sceneId }` (scene pixel coordinates), and the blast is measured from that point — an empty square included — instead of from the first target. First user: Destined v1.9.144, where the player places the Detonate circle on the map.
+  - A centre from a different scene, or a malformed one, is ignored: the blast centres on the first target, as in v1.4.356.
+  - The checklist names the first target "nearest the centre" when the blast was placed.
+  - New helper `areaCentre` in `module/utils/area-attack.js`. The contract is in `extension-point-api-updated.md`.
+- 1034 tests pass (21 suites, 5 new). The runtime smoke test gains a case for a blast placed on the empty square between two tokens (it catches both), and one for a centre from another scene (it's ignored).
+- **Live-verified** on Foundry v14.367 with GM Mode off, from a player's client (Destined v1.9.144 live test, `s11-placement.mjs`). The GM resolved a player-cast blast over the socket, measured from the placed centre. It caught four targets nearest-first, with "nearest the centre" in the checklist. The enemies' Evades went to the GM and the player's own token's Evade to the player. One shared damage roll was applied, halved on each successful Evade.
+- Not yet committed.
+
+## v1.4.356 — September 2026
+- **✨ Area attacks.** A module can now declare an attack as a blast from its `preRoll` hook — `ctx.areaAttack = { radius, label }` — and the engine resolves it against everyone in the radius. First user: Destined's Blast with the Detonate Boost, which until now only posted the radius and damage for the GM to apply by hand. Rulings (Chris, 2026-09-25, from Destined core p.83):
+  - **One attack roll**, against the first target. **A miss does nothing.**
+  - **Who's caught:** your own targets, plus every token whose body reaches inside the radius of the first target. A checklist opens first, so you can untick anyone the measurement caught unfairly (walls aren't measured). Hidden tokens are only listed on the GM's client.
+  - **On a hit, damage is rolled once** and applied to everyone caught, each with their own hit location.
+  - **Everyone caught may Evade** (or Acrobatics, Fly or Swim) as a Reaction. **A success halves the damage**, rounding up, and the card says so. There's no Parry. Shields still block passively as normal.
+  - **Special Effects go to the first target only**, as with Full Auto.
+  - Area damage always resolves automatically, even in semi-auto, because one roll is shared by everyone.
+- **For module authors:** `attackResolvedHooks` fire once per target, all for the same roll; `ctx.areaTargetIndex` (0 = the centre) tells them apart. `rollResolvedHooks` see the shared attack roll only once. The full contract is in `extension-point-api-updated.md`.
+- **Not covered:** a vehicle caught in a blast is left to the GM, with a notification.
+- **Found while building this, not fixed (flagged for a later batch):**
+  - **GM Mode Full Auto defence choices are ignored.** `_showFullAutoGMDefenceDialog` returns `{ type }`, but `_applyDefenceData` reads `defenceType`, so every target in a GM-Mode Full Auto spray defends as Don't Defend, whatever the GM picked.
+  - **Fly and Swim defend at 0%.** DefenderDialog offers them as Evade substitutes, but `_resolveDefenceSkill` has no branch for either, so they fall through to the Parry lookup and resolve against 0.
+- **Two fixes found in live testing:**
+  - **GM Mode asked the first target twice.** After Attack, the attacker dialog opened its inline defence panel for the first target, offering a Parry that a blast doesn't allow, and the area loop then asked that target again. An area attack now skips that panel (`AttackerDialog.js`), the same way a Change Range Evade already did.
+  - **Dice animations threw the attack roll once per target.** With Dice So Nice installed, each target's card carried the shared attack roll, so the same d100 animated four times in a four-target blast. Only the first target's card carries it now.
+- 1029 tests pass (21 suites, 20 new in `tests/area-attack.test.js`). Lint at 0 errors, no new warnings. A runtime smoke test against the real `CombatEngine` methods, with Foundry stubbed, also passes: the shared damage roll, Evade halving, a miss doing nothing, one exchange per target, the Parry refusal, a single attack-roll event, no damage buttons on semi-auto area cards, and target gathering (including never naming hidden tokens on a player's checklist).
+- **Live-verified** (local world, Foundry 14.367, with Destined v1.9.143), on a throwaway scene with throwaway actors. Afterwards every world actor, scene and setting was unchanged, and the test chat cards were removed.
+  - **Checklist:** a 3 m blast on the centre Howler listed exactly the four tokens reaching inside it, including a 2-square Grotesque whose centre was outside the radius. It left out a Howler 9 m away and the attacker.
+  - **Hit, GM Mode, semi-auto:** one attack roll (88) and one damage roll (2d8 = 9) on every card. Successful Evades took 5 and went prone. Don't Defend took 9 with no Action Point spent. The Grotesque's 10 armour blocked its 5. Cards showed the Area pill and the "Evaded the blast" pill, and had no Roll Damage buttons. Wound consequences resolved per target.
+  - **A second hit** confirmed the prone penalty applies to Evade inside a blast (90% down to 45%), and that only the first card now carries the attack roll.
+  - **A miss** posted one ordinary miss card: no blast card, no damage, and Destined's charge still spent.
+  - **Cancelling at the checklist** spent nothing: no Action Point, no card, and the charge kept.
+  - **Two clients, GM Mode off:** a GM-owned target's local defence dialog, and **Player2's socket challenge**, both opened with Evade preselected, Parry disabled and the blast banner. Player2's successful Evade halved the shared 4 to 2. The attacker's Special Effects were offered for the centre target only.
+- Not yet committed.
+
 ## v1.4.355 — September 2026
 - **✨ Weapon Reach, part 3: the Close Range and Open Range Special Effects** (Mythras Core p.97–98), for the optional Weapon Reach rule.
   - **Close Range** is available to whichever side wins, as the Core table has it. It changes the range *"so that they end up at the Range favoured by the shorter weapon"*.
