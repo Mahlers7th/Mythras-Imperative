@@ -17,7 +17,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - New helper `areaCentre` in `module/utils/area-attack.js`. The contract is in `extension-point-api-updated.md`.
 - 1034 tests pass (21 suites, 5 new). The runtime smoke test gains a case for a blast placed on the empty square between two tokens (it catches both), and one for a centre from another scene (it's ignored).
 - **Live-verified** on Foundry v14.367 with GM Mode off, from a player's client (Destined v1.9.144 live test, `s11-placement.mjs`). The GM resolved a player-cast blast over the socket, measured from the placed centre. It caught four targets nearest-first, with "nearest the centre" in the checklist. The enemies' Evades went to the GM and the player's own token's Evade to the player. One shared damage roll was applied, halved on each successful Evade.
-- Not yet committed.
+- Committed as `e606b83a679ae69a8de199305faf8766035a2e69`
 
 ## v1.4.356 — September 2026
 - **✨ Area attacks.** A module can now declare an attack as a blast from its `preRoll` hook — `ctx.areaAttack = { radius, label }` — and the engine resolves it against everyone in the radius. First user: Destined's Blast with the Detonate Boost, which until now only posted the radius and damage for the GM to apply by hand. Rulings (Chris, 2026-09-25, from Destined core p.83):
@@ -43,7 +43,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - **A miss** posted one ordinary miss card: no blast card, no damage, and Destined's charge still spent.
   - **Cancelling at the checklist** spent nothing: no Action Point, no card, and the charge kept.
   - **Two clients, GM Mode off:** a GM-owned target's local defence dialog, and **Player2's socket challenge**, both opened with Evade preselected, Parry disabled and the blast banner. Player2's successful Evade halved the shared 4 to 2. The attacker's Special Effects were offered for the centre target only.
-- Not yet committed.
+- Committed as `e606b83a679ae69a8de199305faf8766035a2e69`
 
 ## v1.4.355 — September 2026
 - **✨ Weapon Reach, part 3: the Close Range and Open Range Special Effects** (Mythras Core p.97–98), for the optional Weapon Reach rule.
