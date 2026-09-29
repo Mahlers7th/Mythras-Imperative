@@ -39,7 +39,7 @@ Follow-up to v1.4.362: the effect state it listed as known is now per token. Alo
   - Deleting a swarm removed only the entries naming that swarm.
   - The final state was re-read from a fresh login.
   - v1.4.362's damage/Prone test (`s16`) still passes.
-- Not yet committed
+- Committed as `0b2d4e94bb47a448138841392757cd1a2e72bced`
 
 ## v1.4.362 — September 2026
 - **🐛 Several tokens of one actor were treated as one — damage and Prone landed on the wrong token.** Found at the table: five Howler swarms, one swarm of 5 dragged out five times, so five unlinked tokens of ONE actor. The targeted swarm didn't take the damage; a Trip left a different swarm Prone.
@@ -53,7 +53,7 @@ Follow-up to v1.4.362: the effect state it listed as known is now per token. Alo
   - Hargrim targeted swarm #3; the card named that token and 15 damage took #3 from 11 → 0. The other four stayed at 11.
   - Prone applied through the card's defender reference landed on #3 only.
   - A socket challenge for #4 arrived as #4.
-- Not yet committed
+- Committed as `0b2d4e94bb47a448138841392757cd1a2e72bced`
 
 ## v1.4.361 — September 2026
 - **🐛 Weapon Reach was lost when an attack reached a player's client.** Found in a live two-client test (GM Mode off) after Chris asked what the player sees.
@@ -62,7 +62,7 @@ Follow-up to v1.4.362: the effect state it listed as known is now per token. Alo
   - The GM's own client was unaffected.
   - Both fields now travel with the challenge. Live-verified: the Halberd is dropped from the player's parry list and the warning shows.
 - 1056 tests pass (22 suites).
-- Not yet committed
+- Committed as `0b2d4e94bb47a448138841392757cd1a2e72bced`
 
 ## v1.4.360 — September 2026
 - **The skill roll dialog's Difficulty dropdown now shows the grade actually rolled.** Requested by Chris after trying Destined's Savant.
@@ -73,7 +73,7 @@ Follow-up to v1.4.362: the effect state it listed as known is now per token. Alo
   - Trade-off: when the GM calls a Hard task, the player picks the shifted grade themselves (Standard for a Savant skill). GM-requested checks are unaffected and still apply the shift automatically.
   - The attack dialog is unchanged.
 - 1056 tests pass (22 suites).
-- Not yet committed
+- Committed as `0b2d4e94bb47a448138841392757cd1a2e72bced`
 
 ## v1.4.359 — September 2026
 - **🐛 Easy and Very Easy could not be chosen** in the skill roll dialog or the attack dialog. Found at the table.
@@ -81,7 +81,7 @@ Follow-up to v1.4.362: the effect state it listed as known is now per token. Alo
   - Behind the dialogs, `composeRollGrade` took the harder of the chosen grade and the floor, so an Easy roll from any path was rolled at Standard. This included a GM-requested check and an attack made Easy by Aiming.
   - Fix: a Standard floor is no floor. A real condition (fatigue, prone, impale, entangle, blind) still sets the minimum grade and still greys out the easier ones.
 - 1056 tests pass (22 suites, 2 new).
-- Not yet committed
+- Committed as `0b2d4e94bb47a448138841392757cd1a2e72bced`
 
 ## v1.4.358 — September 2026
 - **✨ Two extension points for creatures that keep one pool of Hit Points.** First user: Destined v1.9.145's swarms, run as units under the Companion's Managing Large Groups rules ("treated as if they only have a single location"). The players still roll and name hit locations.
