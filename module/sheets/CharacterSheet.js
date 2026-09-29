@@ -6,6 +6,8 @@
 
 import { locationNameToKey } from '../utils/hit-location.js';
 import { sumHookContributions } from '../utils/modifier-bus.js';
+import { tokenFor } from '../utils/actor-resolution.js';
+import { removeFlagEntries } from '../utils/flag-entries.js';
 
 const { ActorSheetV2 }             = foundry.applications.sheets;
 const { HandlebarsApplicationMixin } = foundry.applications.api;
@@ -517,7 +519,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     const baseActor = this.document;
     const actorId   = baseActor?.id ?? null;
     const token     = actorId
-      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      ? tokenFor(baseActor)
       : null;
     const actor     = token?.actor ?? baseActor;
     const weapon    = actor.items.get(ev.currentTarget.dataset.itemId);
@@ -788,7 +790,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
     // Clear the jam flag for this weapon
     const updated = { ...jammed };
     delete updated[weaponId];
-    await actor.setFlag(NS, 'jammedWeapons', updated);
+    await removeFlagEntries(actor, NS, 'jammedWeapons', [weaponId]);
 
     await ChatMessage.create({
       content: `
@@ -1302,7 +1304,7 @@ export class CharacterSheet extends HandlebarsApplicationMixin(ActorSheetV2) {
       const baseActor = this.document;
       const actorId   = baseActor?.id ?? null;
       const token     = actorId
-        ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+        ? tokenFor(baseActor)
         : null;
       const actor     = token?.actor ?? baseActor;
       const existing  = actor.items.find(i => i.type === 'ammo' && i.name === srcItem.name);

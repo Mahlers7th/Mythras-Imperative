@@ -38,6 +38,7 @@ import { locationNameToKey, resolveLocationChoice } from '../utils/hit-location.
 import { sumHookContributions } from '../utils/modifier-bus.js';
 import { roundUp } from '../utils/rounding.js';
 import { fireRollResolved } from '../utils/roll-events.js';
+import { resolveTokenActor, combatRef, tokenFor, sameActor } from '../utils/actor-resolution.js';
 import { findDamageSink } from '../utils/damage-sink.js';
 import { isAreaAttack, areaDamageAfterDodge, tokensInRadius, mergeAreaTargets, areaCentre } from '../utils/area-attack.js';
 import { reachFor, setStoredReach, HAFT_DAMAGE } from './reach-state.js';
@@ -58,6 +59,7 @@ import {
 } from './effects/helpers.js';
 import { SE_RESOLVERS } from './effects/index.js';
 import { postEntangleTripCard } from './effects/entangle.js';
+import { clearFlag } from '../utils/flag-entries.js';
 
 export class CombatEngine {
 
@@ -994,7 +996,7 @@ export class CombatEngine {
         defenceWeapon:        null,
         defenderSkillTotal:   null,
         defenderSurprised: (() => {
-          const token = canvas?.tokens?.placeables?.find(t => t.actor?.id === targetActor.id);
+          const token = tokenFor(targetActor);
           return (token?.actor ?? targetActor).statuses?.has('surprised') ?? false;
         })(),
         wardedLocations:      CombatEngine._buildWardList(targetActor),
@@ -1385,7 +1387,7 @@ export class CombatEngine {
         defenceWeapon:        null,
         defenderSkillTotal:   null,
         defenderSurprised: (() => {
-          const token = canvas?.tokens?.placeables?.find(t => t.actor?.id === targetActor.id);
+          const token = tokenFor(targetActor);
           return (token?.actor ?? targetActor).statuses?.has('surprised') ?? false;
         })(),
         wardedLocations:      CombatEngine._buildWardList(targetActor),
@@ -2415,7 +2417,7 @@ export class CombatEngine {
     if (ctx.chosenSpecialEffects.length > 0) {
       const NS      = 'mythras-imperative';
       const pcFlag  = defender?.getFlag(NS, 'prepareCounter') ?? null;
-      if (pcFlag && pcFlag.watchedSE && pcFlag.attackerActorId === attacker?.id) {
+      if (pcFlag && pcFlag.watchedSE && sameActor(pcFlag.attackerActorId, attacker)) {
         const matchIdx = ctx.chosenSpecialEffects.indexOf(pcFlag.watchedSE);
         if (matchIdx !== -1) {
           // Strip the matched SE so the dispatcher never sees it
@@ -2546,8 +2548,8 @@ export class CombatEngine {
     const damageButtons = (attackerScored && isSemi && !isAreaAttack(ctx)) ? (ctx.isBurstFire ? `
       <div class="mi-manual-actions">
         <button class="mi-btn mi-btn-burst"
-          data-attacker-id="${attacker.id}"
-          data-defender-id="${defender.id}"
+          data-attacker-id="${combatRef(attacker)}"
+          data-defender-id="${combatRef(defender)}"
           data-weapon-id="${weapon.id}"
           data-message-id="PENDING">
           <i class="fas fa-burst"></i> Roll Burst Damage (1d3 rounds)
@@ -2575,8 +2577,9 @@ export class CombatEngine {
       flags: {
         'mythras-imperative': {
           actorId:          attacker.id,
-          defenderId:       defender.id,
-          attackerId:       attacker.id,
+          // Token-exact references (v1.4.362): several swarm tokens share one actor id.
+          defenderId:       combatRef(defender),
+          attackerId:       combatRef(attacker),
           weaponId:         weapon.id,
           stage:            'outcome',
           dmgFormula,
@@ -2689,8 +2692,8 @@ export class CombatEngine {
     const dmgButton = hasDamageWeapon
       ? `<button class="mi-btn mi-btn-dmg-weapon"
           data-formula="${dmgFormula}"
-          data-attacker-id="${ctx.attacker.id}"
-          data-defender-id="${ctx.defender.id}"
+          data-attacker-id="${combatRef(ctx.attacker)}"
+          data-defender-id="${combatRef(ctx.defender)}"
           data-weapon-id="${ctx.weapon.id}"
           data-defence-weapon-id="${ctx.defenceWeapon?.id ?? ''}"
           data-se-winner="${ctx.seWinner}"
@@ -2703,8 +2706,8 @@ export class CombatEngine {
     const damageButtons = (attackerScored && isSemi) ? (ctx.isBurstFire ? `
       <div class="mi-manual-actions">
         <button class="mi-btn mi-btn-burst"
-          data-attacker-id="${ctx.attacker.id}"
-          data-defender-id="${ctx.defender.id}"
+          data-attacker-id="${combatRef(ctx.attacker)}"
+          data-defender-id="${combatRef(ctx.defender)}"
           data-weapon-id="${ctx.weapon.id}"
           data-message-id="${chatMsg.id}">
           <i class="fas fa-burst"></i> Roll Burst Damage (1d3 rounds)
@@ -2779,7 +2782,7 @@ export class CombatEngine {
     const icon  = chooseLocation ? 'fa-bullseye' : marksman ? 'fa-location-arrow' : 'fa-crosshairs';
     const label = chooseLocation ? 'Choose Location' : marksman ? 'Roll + Marksman' : 'Roll Hit Location';
     return `<button class="mi-btn mi-btn-loc"
-          data-defender-id="${ctx.defender.id}"
+          data-defender-id="${combatRef(ctx.defender)}"
           data-message-id="${msgId}"
           data-choose-location="${chooseLocation}">
           <i class="fas ${icon}"></i> ${label}
@@ -2795,12 +2798,12 @@ export class CombatEngine {
   static _buildDmgButton(ctx, msgId, dmgFormula) {
     return `<button class="mi-btn mi-btn-dmg"
           data-formula="${dmgFormula}"
-          data-defender-id="${ctx.defender.id}"
+          data-defender-id="${combatRef(ctx.defender)}"
           data-is-charge="${ctx.isCharge}"
           data-bypass-armour="${ctx.chosenSpecialEffects.includes('bypassArmour')}"
           data-parry-weapon-id="${ctx.defenceWeapon?.id ?? ''}"
           data-parry-style-id="${ctx.defenceStyle?.id ?? ''}"
-          data-attacker-id="${ctx.attacker.id}"
+          data-attacker-id="${combatRef(ctx.attacker)}"
           data-weapon-id="${ctx.weapon.id}"
           data-defence-type="${ctx.defenceType ?? 'none'}"
           data-defence-weapon-name="${ctx.defenceWeapon?.name ?? ''}"
@@ -4117,7 +4120,7 @@ export class CombatEngine {
         damageAfterShields = rawDamage - shields.value;
       }
       const newShieldVal = Math.max(0, shields.value - shieldAbsorb);
-      const baseActor    = game.actors.get(defender.id) ?? defender;
+      const baseActor    = defender;   // v1.4.363: this token's shields, not every token's
       await baseActor.update({ 'system.shields.value': newShieldVal });
     }
 
@@ -4148,7 +4151,7 @@ export class CombatEngine {
     await sysRoll.evaluate();
     ctx.systemRoll = sysRoll.total;
 
-    const baseActor = game.actors.get(defender.id) ?? defender;
+    const baseActor = defender;   // v1.4.363: this token's components
     const sysItems  = Array.from(baseActor.items)
       .filter(i => i.type === 'hit-location')
       .sort((a, b) => (a.system.sort ?? 0) - (b.system.sort ?? 0));
@@ -4331,7 +4334,7 @@ export class CombatEngine {
         <button class="mi-btn mi-btn-veh-dmg"
           data-formula="${dmgFormula}"
           data-vehicle-id="${defender.id}"
-          data-attacker-id="${attacker.id}"
+          data-attacker-id="${combatRef(attacker)}"
           data-weapon-id="${weapon.id}"
           data-is-charge="${ctx.isCharge}"
           data-message-id="PENDING">
@@ -4605,11 +4608,8 @@ export class CombatEngine {
   // a static import in the reverse direction would be circular.
   // -------------------------------------------------------------------------
   static _resolveActorById(actorId) {
-    if (!actorId) return null;
-    const token = canvas?.tokens?.placeables?.find(t =>
-      t.actor?.id === actorId || t.document?.actorId === actorId
-    ) ?? null;
-    return token?.actor ?? game.actors.get(actorId) ?? null;
+    // v1.4.362: accepts a combatRef (uuid) too — see actor-resolution.js.
+    return resolveTokenActor(actorId);
   }
 
   // -------------------------------------------------------------------------
@@ -4970,19 +4970,19 @@ export class CombatEngine {
             </div>
             <div class="mi-manual-actions">
               <button class="mi-btn mi-btn-loc"
-                data-defender-id="${attacker.id}"
+                data-defender-id="${combatRef(attacker)}"
                 data-message-id="PENDING"
                 data-choose-location="false">
                 <i class="fas fa-crosshairs"></i> Roll Hit Location
               </button>
               <button class="mi-btn mi-btn-dmg"
                 data-formula="${dmgFormula}"
-                data-defender-id="${attacker.id}"
+                data-defender-id="${combatRef(attacker)}"
                 data-is-charge="false"
                 data-bypass-armour="${isUnarmed}"
                 data-parry-weapon-id=""
                 data-parry-style-id=""
-                data-attacker-id="${attacker.id}"
+                data-attacker-id="${combatRef(attacker)}"
                 data-weapon-id="${weapon.id}"
                 data-defence-type="none"
                 data-defence-weapon-name=""
@@ -4999,8 +4999,8 @@ export class CombatEngine {
         flags: {
           'mythras-imperative': {
             actorId:          attacker.id,
-            defenderId:       attacker.id,
-            attackerId:       attacker.id,
+            defenderId:       combatRef(attacker),
+            attackerId:       combatRef(attacker),
             weaponId:         weapon.id,
             stage:            'outcome',
             dmgFormula,
@@ -5232,7 +5232,7 @@ export class CombatEngine {
 
     await defender.setFlag(NS, 'prepareCounter', {
       watchedSE,
-      attackerActorId: attacker.id,
+      attackerActorId: combatRef(attacker),
       combatId
     });
 
@@ -5337,7 +5337,7 @@ export class CombatEngine {
     }
 
     // ── 3. Clear the flag ─────────────────────────────────────────────────────
-    try { await defender.unsetFlag(NS, 'prepareCounter'); } catch (_) {}
+    try { await clearFlag(defender, NS, 'prepareCounter'); } catch (_) {}
 
     if (!substituteSEId) return;
 
@@ -5880,7 +5880,7 @@ export class CombatEngine {
    */
   static async _clearDelay(actor) {
     if (!actor?.getFlag?.('mythras-imperative', 'delaying')) return;
-    await actor.unsetFlag('mythras-imperative', 'delaying');
+    await clearFlag(actor, 'mythras-imperative', 'delaying');
     await removeStatusFromActor(actor, 'delaying');
   }
 
@@ -5994,7 +5994,7 @@ export class CombatEngine {
       // The GM toggles the 'surprised' condition on the token before the attack is made.
       // We check the token first (most reliable in v14); fall back to actor.statuses.
       defenderSurprised: (() => {
-        const token = canvas?.tokens?.placeables?.find(t => t.actor?.id === defender.id);
+        const token = tokenFor(defender);
         if (token) return token.actor?.statuses?.has('surprised') ?? false;
         return defender.statuses?.has('surprised') ?? false;
       })(),

@@ -1,3 +1,5 @@
+import { tokenFor } from '../utils/actor-resolution.js';
+import { removeFlagEntries } from '../utils/flag-entries.js';
 /**
  * mythras-imperative/module/sheets/WeaponSheet.js
  *
@@ -70,7 +72,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
         const baseActor = item.parent ?? null;
         const actorId   = baseActor?.id ?? null;
         const token     = actorId
-          ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+          ? tokenFor(baseActor)
           : null;
         const actor     = token?.actor ?? baseActor;
         const ammoItem  = actor?.items?.get(id) ?? game.items.get(id) ?? null;
@@ -129,7 +131,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     // appears on the token sheet.
     const actorId = baseActor?.id ?? null;
     const token   = actorId
-      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      ? tokenFor(baseActor)
       : null;
     const actor   = token?.actor ?? baseActor;
 
@@ -188,7 +190,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
     const baseActor = item.parent ?? null;
     const actorId   = baseActor?.id ?? null;
     const token     = actorId
-      ? (canvas?.tokens?.placeables?.find(t => t.actor?.id === actorId || t.document?.actorId === actorId) ?? null)
+      ? tokenFor(baseActor)
       : null;
     const actor     = token?.actor ?? baseActor;
 
@@ -365,7 +367,7 @@ export class WeaponSheet extends HandlebarsApplicationMixin(ItemSheetV2) {
 
     const updated = { ...jammed };
     delete updated[item.id];
-    await actor.setFlag(NS, 'jammedWeapons', updated);
+    await removeFlagEntries(actor, NS, 'jammedWeapons', [item.id]);
 
     await ChatMessage.create({
       content: `

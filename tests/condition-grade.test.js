@@ -672,6 +672,18 @@ describe('composeRollGrade', () => {
     expect(composeRollGrade(null, undefined, -1)).toBe('easy');
     expect(composeRollGrade('nonsense', 'standard', 0)).toBe('standard');
   });
+  // v1.4.359 — found at the table: every Easy/Very Easy roll came out Standard.
+  test("a 'standard' floor is no floor: Easy and Very Easy stay easy", () => {
+    expect(composeRollGrade('easy', 'standard', 0)).toBe('easy');
+    expect(composeRollGrade('veryEasy', 'standard', 0)).toBe('veryEasy');
+    expect(composeRollGrade('easy', undefined, 0)).toBe('easy');
+    expect(composeRollGrade('easy', 'standard', -1)).toBe('veryEasy');
+    expect(composeRollGrade('veryEasy', 'standard', 1)).toBe('easy');
+  });
+  test('a real condition floor still overrides an easier chosen grade', () => {
+    expect(composeRollGrade('easy', 'hard', 0)).toBe('hard');
+    expect(composeRollGrade('veryEasy', 'formidable', -1)).toBe('hard');
+  });
 });
 
 describe('getConditionFloor / getConditionShift — the two halves of getConditionGrade', () => {

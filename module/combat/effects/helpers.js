@@ -10,6 +10,7 @@
  */
 
 import { resolveOpposedRoll, quadrupedTripTotal } from '../../utils/combat-math.js';
+import { tokenFor } from '../../utils/actor-resolution.js';
 import { applyOverHundredPenalty } from '../../utils/roll-math.js';
 import { determineOutcome, applyDifficulty } from '../../utils/roll-math.js';
 import { getConditionGrade, applyGradeToSkill } from '../../utils/condition-grade.js';
@@ -36,10 +37,10 @@ export async function applyStatusToActor(actor, statusId) {
   // on the base actor document. We must operate on the synthetic actor obtained
   // from the canvas token placeable. If no canvas token exists (token deleted,
   // not yet placed, or off-scene), bail out — there is nothing to update.
-  const canvasToken    = canvas?.tokens?.placeables
-    ?.find(t => t.actor?.id === actor.id) ?? null;
-  if (!canvasToken) return;
-  const syntheticActor = canvasToken.actor;
+  // v1.4.362: the actor's OWN token — a search by actor id found the first
+  // token of that actor, so Prone landed on a sibling swarm.
+  const syntheticActor = actor?.isToken ? actor : (tokenFor(actor)?.actor ?? null);
+  if (!syntheticActor) return;
 
   // Avoid duplicating an already-active status
   if (syntheticActor.statuses?.has(statusId)) return;
@@ -54,10 +55,10 @@ export async function removeStatusFromActor(actor, statusId) {
   // Calling toggleStatusEffect via the base actor fallback causes
   // "does not exist in EmbeddedCollection" server errors because the
   // effect IDs belong to the (now-gone) token's actorDelta, not the base actor.
-  const canvasToken    = canvas?.tokens?.placeables
-    ?.find(t => t.actor?.id === actor.id) ?? null;
-  if (!canvasToken) return;
-  const syntheticActor = canvasToken.actor;
+  // v1.4.362: the actor's OWN token — a search by actor id found the first
+  // token of that actor, so Prone landed on a sibling swarm.
+  const syntheticActor = actor?.isToken ? actor : (tokenFor(actor)?.actor ?? null);
+  if (!syntheticActor) return;
 
   // Only remove if the status is actually active
   if (!syntheticActor.statuses?.has(statusId)) return;

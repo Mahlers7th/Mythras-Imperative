@@ -11,6 +11,7 @@
  *
  * No external dependencies beyond Foundry globals.
  */
+import { combatRef } from '../../utils/actor-resolution.js';
 
 const NS = 'mythras-imperative';
 
@@ -21,8 +22,7 @@ export async function resolvePinWeapon(ctx) {
   const { attacker, defender, weapon } = ctx;
   if (!attacker || !defender || !weapon) return;
 
-  // Resolve base attacker for persistent flag writes
-  const baseAttacker = game.actors.get(attacker.id) ?? attacker;
+  const baseAttacker = attacker;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
 
   const pinId         = foundry.utils.randomID(8);
   const pinnedWeapons = baseAttacker.getFlag(NS, 'pinnedWeapons') ?? {};
@@ -30,7 +30,7 @@ export async function resolvePinWeapon(ctx) {
   pinnedWeapons[pinId] = {
     weaponId:        weapon.id,
     weaponName:      weapon.name,
-    pinnedByActorId: defender.id,
+    pinnedByActorId: combatRef(defender),
     pinnedByName:    defender.name
   };
 

@@ -34,7 +34,7 @@
  *   the same client), the resolver fires and the engine continues.
  */
 
-import { resolveTokenActor } from '../utils/actor-resolution.js';
+import { resolveTokenActor, combatRef } from '../utils/actor-resolution.js';
 
 const SOCKET_NAME = 'system.mythras-imperative';
 
@@ -323,8 +323,9 @@ export const CombatSocket = {
   serialiseContext(ctx) {
     return {
       // Participants — by actor id
-      attackerId:         ctx.attacker?.id ?? null,
-      defenderId:         ctx.defender?.id ?? null,
+      // Token-exact (v1.4.362): several swarm tokens share one actor id.
+      attackerId:         combatRef(ctx.attacker),
+      defenderId:         combatRef(ctx.defender),
 
       // Weapon — by item id on the attacker
       weaponId:           ctx.weapon?.id ?? null,
@@ -363,6 +364,13 @@ export const CombatSocket = {
 
       // Bonus SEs granted by combat actions (e.g. chargeBonus)
       bonusSpecialEffects: ctx.bonusSpecialEffects ?? [],
+
+      // Weapon Reach (v1.4.361) — the range the exchange is fought at. Without
+      // it a remote defender's dialog saw no range and offered every weapon as
+      // a parry, including one closed inside (found live: a Halberd offered at
+      // Short reach on the player's client).
+      reachR:              Number.isFinite(ctx.reachR) ? ctx.reachR : null,
+      reachHaftSteps:      ctx.reachHaftSteps ?? 0,
 
       // Defender state
       defenderSurprised:   ctx.defenderSurprised ?? false,
@@ -416,6 +424,8 @@ export const CombatSocket = {
       areaAttack:          payload.areaAttack ?? null,
 
       bonusSpecialEffects: payload.bonusSpecialEffects ?? [],
+      reachR:              Number.isFinite(payload.reachR) ? payload.reachR : null,
+      reachHaftSteps:      payload.reachHaftSteps ?? 0,
 
       // Defender setup — populated by the defender dialog
       defenceType:         null,

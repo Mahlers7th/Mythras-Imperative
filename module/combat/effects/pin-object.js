@@ -28,6 +28,7 @@
  * Dependencies: none beyond Foundry globals — mirrors damage-weapon.js's
  * "no dialog, automatic in all modes" shape.
  */
+import { combatRef } from '../../utils/actor-resolution.js';
 
 const NS = 'mythras-imperative';
 
@@ -38,12 +39,12 @@ export async function resolvePinObject(ctx) {
   const { attacker, defender, weapon } = ctx;
   if (!attacker || !defender || !weapon) return;
 
-  const baseDefender = game.actors.get(defender.id) ?? defender;
+  const baseDefender = defender;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
   const pinEntryId    = foundry.utils.randomID(8);
 
   const existing = baseDefender.getFlag(NS, 'pinnedBy') ?? {};
   existing[pinEntryId] = {
-    attackerId:       attacker.id,
+    attackerId:       combatRef(attacker),
     weaponId:          weapon.id,
     weaponName:        weapon.name,
     hitLocationId:     ctx.hitLocationId    ?? '',

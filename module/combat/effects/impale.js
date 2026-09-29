@@ -31,8 +31,10 @@ import {
   getItem,
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
+import { resolveTokenActor, combatRef } from '../../utils/actor-resolution.js';
 import { getImpaleGrade, resolveOpposedRoll } from '../../utils/combat-math.js';
 import { determineOutcome } from '../../utils/roll-math.js';
+import { removeFlagEntries } from '../../utils/flag-entries.js';
 
 const NS = 'mythras-imperative';
 
@@ -57,7 +59,7 @@ export async function resolveImpale(ctx, damage) {
   if (!attacker || !defender || !weapon) return;
 
   // Resolve base attacker for persistent flag writes
-  const baseAttacker = game.actors.get(attacker.id) ?? attacker;
+  const baseAttacker = attacker;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
 
   const defenderSIZ   = defender.system?.characteristics?.siz?.value ?? 13;
   const weaponSize    = weapon.system?.size ?? 'M';
@@ -97,7 +99,7 @@ export async function resolveImpale(ctx, damage) {
   const hitLocationLabel = ctx.hitLocationLabel ?? '';
   const existingImpaledBy = defender.getFlag(NS, 'impaledBy') ?? {};
   existingImpaledBy[impaleEntryId] = {
-    attackerId:  baseAttacker.id,
+    attackerId:  combatRef(attacker),
     weaponId:    weapon.id,
     weaponName:  weapon.name,
     weaponSize:  weapon.system?.size ?? 'M',
@@ -113,7 +115,7 @@ export async function resolveImpale(ctx, damage) {
 
   const pendingImpales = baseAttacker.getFlag(NS, 'pendingImpales') ?? {};
   pendingImpales[impaleEntryId] = {
-    defenderId:         defender.id,
+    defenderId:         combatRef(defender),
     weaponId:           weapon.id,
     impaleEntryId,
     gradeId,
@@ -168,7 +170,7 @@ export async function postImpaleDecisionCard(attacker, entry) {
           <p class="mi-se-roll-note">Yanking costs a Ready Weapon action and a Brawn roll — failure means it stays (retry next turn). Leaving it in needs no action; the penalty already applies.</p>
           <div class="mi-manual-actions">
             <button class="mi-btn mi-btn-impale-leave"
-              data-attacker-id="${attacker.id}"
+              data-attacker-id="${combatRef(attacker)}"
               data-defender-id="${defenderId}"
               data-weapon-id="${weaponId}"
               data-impale-entry-id="${impaleEntryId}"
@@ -179,7 +181,7 @@ export async function postImpaleDecisionCard(attacker, entry) {
               <i class="fas fa-hand-paper"></i> Leave It In
             </button>
             <button class="mi-btn mi-btn-impale-yank"
-              data-attacker-id="${attacker.id}"
+              data-attacker-id="${combatRef(attacker)}"
               data-defender-id="${defenderId}"
               data-weapon-id="${weaponId}"
               data-impale-entry-id="${impaleEntryId}"
@@ -226,15 +228,15 @@ export async function applyImpaleLodge(btn) {
   const impaleEntryId = btn.dataset.impaleEntryId;
   const gradeId       = btn.dataset.gradeId;
 
-  const attacker = game.actors.get(attackerId);
-  const defender = game.actors.get(defenderId);
+  const attacker = resolveTokenActor(attackerId);
+  const defender = resolveTokenActor(defenderId);
   const weapon   = getItem(attacker, weaponId);
   if (!defender || !weapon) return;
 
   // Clear the pending impale — decision made
   const pending = attacker?.getFlag(NS, 'pendingImpales') ?? {};
   delete pending[impaleEntryId];
-  if (attacker) await attacker.setFlag(NS, 'pendingImpales', pending);
+  if (attacker) await removeFlagEntries(attacker, NS, 'pendingImpales', [impaleEntryId]);
 
   // Stamp the decision card resolved
   const decisionMsg = game.messages.contents.find(
@@ -277,8 +279,8 @@ export async function resolveImpaleYank(btn) {
   const halfDmgFormula   = btn.dataset.halfDmgFormula;
   const attackerSkillTotal = parseInt(btn.dataset.attackerSkillTotal ?? '0', 10);
 
-  const attacker = game.actors.get(attackerId);
-  const defender = game.actors.get(defenderId);
+  const attacker = resolveTokenActor(attackerId);
+  const defender = resolveTokenActor(defenderId);
   const weapon   = getItem(attacker, weaponId);
   if (!attacker || !defender || !weapon) return;
 
@@ -374,12 +376,12 @@ export async function resolveImpaleYank(btn) {
     // Clear impaledBy entry
     const existing = defender.getFlag(NS, 'impaledBy') ?? {};
     delete existing[impaleEntryId];
-    await defender.setFlag(NS, 'impaledBy', existing);
+    await removeFlagEntries(defender, NS, 'impaledBy', [impaleEntryId]);
 
     // Clear pending impale
     const pending = attacker.getFlag(NS, 'pendingImpales') ?? {};
     delete pending[impaleEntryId];
-    await attacker.setFlag(NS, 'pendingImpales', pending);
+    await removeFlagEntries(attacker, NS, 'pendingImpales', [impaleEntryId]);
 
     // Clear Incapacitated if this was the only source
     if (gradeId === 'incapacitated') {

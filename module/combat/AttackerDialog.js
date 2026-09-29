@@ -24,6 +24,7 @@ import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 import { reachFor, reachRuleOn, reachBannerText, canParryAt } from './reach-state.js';
 import { isAreaAttack } from '../utils/area-attack.js';
+import { tokenFor } from '../utils/actor-resolution.js';
 
 export class AttackerDialog {
 
@@ -90,12 +91,15 @@ export class AttackerDialog {
     const conditionNotesStr = CombatEngine._buildConditionNotes(attacker);
     const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
     const floorIdx   = gradeOrder.indexOf(floorGrade);
+    // 'standard' is no floor (v1.4.359) — only a real condition locks out
+    // the easier grades.
+    const hasFloor   = floorGrade !== 'standard';
 
     const difficultyOptions = Object.entries(CONFIG.MYTHRAS.difficultyGrades)
       .map(([key, grade]) => {
         const selected  = key === defaultDifficulty ? ' selected' : '';
         const thisIdx   = gradeOrder.indexOf(key);
-        const disabled  = thisIdx < floorIdx ? ' disabled' : '';
+        const disabled  = hasFloor && thisIdx < floorIdx ? ' disabled' : '';
         return `<option value="${key}"${selected}${disabled}>${game.i18n.localize(grade.label)}</option>`;
       }).join('');
 
@@ -672,7 +676,7 @@ export class AttackerDialog {
  */
 function _findTokenForActor(actor) {
   if (!canvas?.tokens?.placeables) return null;
-  return canvas.tokens.placeables.find(t => t.actor?.id === actor.id) ?? null;
+  return tokenFor(actor);   // v1.4.362: this token, not the first of its actor
 }
 
 /**

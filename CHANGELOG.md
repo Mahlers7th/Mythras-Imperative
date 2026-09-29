@@ -10,6 +10,79 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.363 — September 2026
+Follow-up to v1.4.362: the effect state it listed as known is now per token. Along the way this found that removing effect state has never worked.
+
+- **🐛 Effect state lived on the base actor, so every token of one actor shared it.** Several unlinked tokens of one actor (Destined's dragged-out swarms) would all be Pinned, Pressed, Entangled or Jammed together. Also affected: energy shields and vehicle system hits.
+  - These effects now write to the token's own actor: Entangle, Impale, Grip, Pin Down, Pin Object, Pin Weapon, Press Advantage, Weapon Malfunction (jams), Slip Free, energy shields and vehicle system hits.
+  - Linked actors are unchanged (their token actor IS the world actor).
+  - The cross-references they store (who entangled/gripped/impaled whom, Prepare Counter's watched attacker) now hold `combatRef`s, read back with `resolveTokenActor` and compared with the new `sameActor` (a bare id from an older entry still matches by id).
+- **Side effect of the old base-actor writes:** turn start cleared Pin Down and Press Advantage from the token actor, while they were written to the base actor, so on an unlinked token they never cleared.
+- **🐛 Removing effect state never worked.** All three found with probes on throwaway actors:
+  - **Merge:** `setFlag` merges, so "delete the entry, then `setFlag` the object" left the entry in place. A break-free never ended its Entangle or Grip, a yanked Impale stayed, a cleared jam stayed jammed, and the deleted-token clean-up never removed anything. Turn start "cleared" pending grip checks, impales and entangle trips with `setFlag({})`, also a no-op.
+  - **Token delta:** on an unlinked token's actor NO deletion form works on a fresh delta: `unsetFlag`, `-=key`, ForcedDeletion, on the actor or on the token's `delta.*` path.
+  - **The fix:** new `module/utils/flag-entries.js`:
+    - `clearFlag` writes `null`, and every reader already treats null as absent.
+    - `removeFlagEntries` writes `null`, then sets what remains.
+    - Both are used at all 33 sites that removed or cleared these flags.
+  - `removeFlagEntries` always writes. Callers `delete` from the LIVE object `getFlag` returns, so a "key already gone?" shortcut skipped the write, and the entry came back on the next update. Seen live.
+- **Token deletion clean-up** (`deleteToken`):
+  - It now sweeps unlinked tokens' own actors as well as world actors (`allStateHolders`).
+  - It no longer skips the deleted token's siblings, which share its actor id.
+  - It matches the deleted token by a ref built from the token itself, since its synthetic actor is already gone.
+  - `deleteCombat`'s Prepare Counter sweep covers token actors too.
+- **Tests:** 1072 pass (24 suites; new: `flag-entries.test.js`, and more in `actor-resolution.test.js`).
+- **Live-verified** (`s17-swarm-state.mjs`, 17/17, five tokens of one swarm plus Hargrim):
+  - Each effect landed on its own token only, and nothing was written to the base actor.
+  - Slip Free cleared the swarm's Entangle, its pending break-free and Hargrim's pending Trip against it, but not the one against another swarm.
+  - Deleting a jammed weapon cleared the jam.
+  - Deleting a swarm removed only the entries naming that swarm.
+  - The final state was re-read from a fresh login.
+  - v1.4.362's damage/Prone test (`s16`) still passes.
+- Not yet committed
+
+## v1.4.362 — September 2026
+- **🐛 Several tokens of one actor were treated as one — damage and Prone landed on the wrong token.** Found at the table: five Howler swarms, one swarm of 5 dragged out five times, so five unlinked tokens of ONE actor. The targeted swarm didn't take the damage; a Trip left a different swarm Prone.
+  - Combat identified both fighters by actor id, and every lookup by id found the first token of that actor on the map. This covered the outcome card's flags, the card buttons' `data-attacker-id`/`data-defender-id`, and the socket challenge.
+  - They now carry `combatRef(actor)`, the actor's uuid, which for an unlinked token names the token itself. `resolveTokenActor` accepts it, and still accepts a bare id for older cards.
+  - `CombatEngine._resolveActorById` now delegates to it instead of keeping its own copy. The Entangle and Impale buttons use it too; they read the world actor before.
+- **Status effects:** `applyStatusToActor` / `removeStatusFromActor` (Prone and every other status), Arise, the Surprised checks and the character/weapon sheets' token lookups now use the actor's own token (`tokenFor`). They used to search the canvas by actor id.
+- **Known, not fixed here (fixed in v1.4.363):** Entangle, Impale, Grip, Pin Down, Press Advantage and energy shields still write their state to the BASE actor. Every unlinked token of that actor inherits it.
+- **Tests:** 1063 pass (23 suites, 7 new in `actor-resolution.test.js`).
+- **Live-verified** with Player2 and GM Mode off, against five dragged-in "ZZ Howler Swarm (5)" tokens:
+  - Hargrim targeted swarm #3; the card named that token and 15 damage took #3 from 11 → 0. The other four stayed at 11.
+  - Prone applied through the card's defender reference landed on #3 only.
+  - A socket challenge for #4 arrived as #4.
+- Not yet committed
+
+## v1.4.361 — September 2026
+- **🐛 Weapon Reach was lost when an attack reached a player's client.** Found in a live two-client test (GM Mode off) after Chris asked what the player sees.
+  - `CombatSocket.serialiseContext` / `deserialiseContext` didn't carry `reachR` or `reachHaftSteps`. A remote defender's dialog therefore saw no range.
+  - After a Howler closed in to Short reach, Player2's Hargrim was offered his Halberd (Very Long) as a parry. The "Closed in — too long to parry" warning never showed.
+  - The GM's own client was unaffected.
+  - Both fields now travel with the challenge. Live-verified: the Halberd is dropped from the player's parry list and the warning shows.
+- 1056 tests pass (22 suites).
+- Not yet committed
+
+## v1.4.360 — September 2026
+- **The skill roll dialog's Difficulty dropdown now shows the grade actually rolled.** Requested by Chris after trying Destined's Savant.
+  - Before, a Savant skill's dropdown opened on Standard while the roll was already Easy. It read as if Savant hadn't worked.
+  - The dropdown now opens already moved by any condition floor and any grade shift. That covers module shifts (Savant, Bolster) and hero advantages. A Savant skill opens on Easy.
+  - What the dropdown shows is exactly what is rolled. `execute({ gradeIsFinal: true })` skips the second composition.
+  - With a condition, the easiest grade offered is the floor moved by the shift.
+  - Trade-off: when the GM calls a Hard task, the player picks the shifted grade themselves (Standard for a Savant skill). GM-requested checks are unaffected and still apply the shift automatically.
+  - The attack dialog is unchanged.
+- 1056 tests pass (22 suites).
+- Not yet committed
+
+## v1.4.359 — September 2026
+- **🐛 Easy and Very Easy could not be chosen** in the skill roll dialog or the attack dialog. Found at the table.
+  - Both dialogs greyed out every grade easier than the condition floor, and with no conditions that floor is Standard.
+  - Behind the dialogs, `composeRollGrade` took the harder of the chosen grade and the floor, so an Easy roll from any path was rolled at Standard. This included a GM-requested check and an attack made Easy by Aiming.
+  - Fix: a Standard floor is no floor. A real condition (fatigue, prone, impale, entangle, blind) still sets the minimum grade and still greys out the easier ones.
+- 1056 tests pass (22 suites, 2 new).
+- Not yet committed
+
 ## v1.4.358 — September 2026
 - **✨ Two extension points for creatures that keep one pool of Hit Points.** First user: Destined v1.9.145's swarms, run as units under the Companion's Managing Large Groups rules ("treated as if they only have a single location"). The players still roll and name hit locations.
   - **`damageLocationHooks`** — `(defender, locItem, ctx) => DamageSink | undefined`, first valid sink wins. The struck location is still rolled, named on the card and armoured as normal, but the damage goes to the sink, and **no wound is assessed**: no Serious or Major wound, no Endurance roll, no Mitigate Damage offer. Consulted at every combat write to a hit location: `_applyDamage` (Full Auto, Semi-Auto Apply Damage, area attacks, Bleed), the Accidental Injury self-hit, and Impact's extra damage.

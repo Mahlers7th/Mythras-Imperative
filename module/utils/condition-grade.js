@@ -239,6 +239,11 @@ export function getConditionShift(actor, role, context = {}) {
  * floor then lost to any harder chosen difficulty — a Bolster only ever helped
  * a Standard task, and was used up regardless.
  *
+ * A floor of 'standard' is NO floor (v1.4.359): it is what getConditionFloor
+ * returns when nothing is wrong with the character, so it must not pull an
+ * Easy or Very Easy task up to Standard. Before this, every Easy/Very Easy
+ * roll was silently rolled at Standard, and the dialogs greyed both out.
+ *
  * Pure. With no chosen difficulty ('standard') this is exactly what
  * getConditionGrade has always returned.
  *
@@ -250,7 +255,8 @@ export function getConditionShift(actor, role, context = {}) {
 export function composeRollGrade(chosen, floor, shift = 0) {
   const std = CONDITION_GRADE_ORDER.indexOf('standard');
   const at  = (g) => { const i = CONDITION_GRADE_ORDER.indexOf(g); return i < 0 ? std : i; };
-  const base = Math.max(at(chosen ?? 'standard'), at(floor ?? 'standard'));
+  const f    = at(floor ?? 'standard');
+  const base = f > std ? Math.max(at(chosen ?? 'standard'), f) : at(chosen ?? 'standard');
   const steps = Math.round(Number(shift) || 0);
   return CONDITION_GRADE_ORDER[Math.max(0, Math.min(CONDITION_GRADE_ORDER.length - 1, base + steps))];
 }

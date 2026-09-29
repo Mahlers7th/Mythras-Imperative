@@ -15,6 +15,7 @@
  */
 
 import { removeStatusFromActor } from './helpers.js';
+import { tokenFor } from '../../utils/actor-resolution.js';
 
 // -------------------------------------------------------------------------
 // resolveArise — SE: Arise (defender only, no restriction beyond being prone)
@@ -29,7 +30,7 @@ export async function resolveArise(ctx) {
   // internally so "was actually prone" is checked against the actor object
   // that will really be modified, not whichever one `ctx.defender` happens
   // to be.
-  const canvasToken = canvas?.tokens?.placeables?.find(t => t.actor?.id === defender.id) ?? null;
+  const canvasToken = tokenFor(defender);   // v1.4.362: this token, not the first of its actor
   const wasProne = canvasToken?.actor?.statuses?.has('prone') ?? false;
   if (wasProne) {
     await removeStatusFromActor(defender, 'prone');

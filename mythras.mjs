@@ -45,13 +45,14 @@ import { fireRollResolved } from './module/utils/roll-events.js';
 import { compareInitiative, resolveOpposedRoll, resolveDifferential, woundLevel, woundState, resolveWoundSync, mitigatedDamageForSerious } from './module/utils/combat-math.js';
 import { sumHookContributions }       from './module/utils/modifier-bus.js';
 import { getTraitsByCategory as _getTraitsByCategory } from './module/utils/trait-registry.js';
-import { resolveTokenActor as _resolveActor } from './module/utils/actor-resolution.js';
+import { resolveTokenActor as _resolveActor, allStateHolders, sameActor } from './module/utils/actor-resolution.js';
 import {
   canSpendLuck, offerLuckPointRouted, spendLuckPointRouted, wantsLuckPrompt, formulaRange,
   LUCK_PROMPT_SETTING, LUCK_PROMPT_ALWAYS, LUCK_PROMPT_SETBACKS,
 } from './module/rolls/luck-point.js';
 import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
 import { computeDamage }              from './module/combat/damage-pipeline.js';
+import { removeFlagEntries, clearFlag } from './module/utils/flag-entries.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -960,7 +961,7 @@ Hooks.on('deleteItem', async (item, _options, _userId) => {
     if (jammed[deletedId]) {
       const updated = { ...jammed };
       delete updated[deletedId];
-      await actor.setFlag('mythras-imperative', 'jammedWeapons', updated);
+      await removeFlagEntries(actor, 'mythras-imperative', 'jammedWeapons', [deletedId]);
     }
   }
 });
@@ -1585,7 +1586,7 @@ Hooks.on('createCombat', async (combat) => {
     for (const flag of pendingFlags) {
       try {
         const val = actor.getFlag(NS, flag);
-        if (val && Object.keys(val).length > 0) await actor.unsetFlag(NS, flag);
+        if (val && Object.keys(val).length > 0) await clearFlag(actor, NS, flag);
       } catch (_) {}
     }
   }
@@ -1601,10 +1602,10 @@ Hooks.on('createCombat', async (combat) => {
 Hooks.on('deleteCombat', async (_combat) => {
   if (!game.user.isGM) return;
   const NS = 'mythras-imperative';
-  for (const actor of game.actors.contents) {
+  for (const actor of allStateHolders()) {   // v1.4.363: unlinked tokens hold it on their own actor
     try {
       const pc = actor.getFlag(NS, 'prepareCounter');
-      if (pc) await actor.unsetFlag(NS, 'prepareCounter');
+      if (pc) await clearFlag(actor, NS, 'prepareCounter');
     } catch (_) {}
   }
 });
@@ -1649,7 +1650,7 @@ async function _onUpdateCombat(combat, changed) {
         if (!actor) continue;
         const pinned = actor.getFlag('mythras-imperative', 'pinnedWeapons');
         if (pinned && Object.keys(pinned).length > 0) {
-          await actor.unsetFlag('mythras-imperative', 'pinnedWeapons');
+          await clearFlag(actor, 'mythras-imperative', 'pinnedWeapons');
           console.log(`Mythras Imperative | Pin Weapon cleared for ${actor.name}`);
         }
       }
@@ -1806,7 +1807,7 @@ async function _onUpdateCombat(combat, changed) {
       await CombatEngine._postEntangleTripCard(actor, entry);
     }
     // Clear pending — user action on the card drives the rest
-    await actor.setFlag('mythras-imperative', 'pendingEntangleTrip', {});
+    await clearFlag(actor, 'mythras-imperative', 'pendingEntangleTrip');   // v1.4.363: setFlag({}) merged — cleared nothing
   }
 
   // ── Pending Entangle break-free — post Brawn roll at start of entangled actor's turn
@@ -1816,7 +1817,7 @@ async function _onUpdateCombat(combat, changed) {
   const pendingEntangleBreakFree = actor.getFlag('mythras-imperative', 'pendingEntangleBreakFree') ?? {};
   if (Object.keys(pendingEntangleBreakFree).length > 0) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-    await actor.setFlag('mythras-imperative', 'pendingEntangleBreakFree', {});
+    await clearFlag(actor, 'mythras-imperative', 'pendingEntangleBreakFree');
     for (const [entangleId, entry] of Object.entries(pendingEntangleBreakFree)) {
       await resolveEntangleBreakFree(actor, entry, entangleId);
     }
@@ -1827,7 +1828,7 @@ async function _onUpdateCombat(combat, changed) {
   const pendingGripCheck = actor.getFlag('mythras-imperative', 'pendingGripCheck') ?? {};
   if (Object.keys(pendingGripCheck).length > 0) {
     const { CombatEngine } = await import('./module/combat/CombatEngine.js');
-    await actor.setFlag('mythras-imperative', 'pendingGripCheck', {});
+    await clearFlag(actor, 'mythras-imperative', 'pendingGripCheck');
     for (const [gripEntryId, entry] of Object.entries(pendingGripCheck)) {
       await resolveGripBreakFree(actor, entry, gripEntryId);
     }
@@ -1841,7 +1842,7 @@ async function _onUpdateCombat(combat, changed) {
       await postImpaleDecisionCard(actor, entry);
     }
     // Clear all pending entries — cards are now posted
-    await actor.setFlag('mythras-imperative', 'pendingImpales', {});
+    await clearFlag(actor, 'mythras-imperative', 'pendingImpales');
   }
 
   // ── Pending Reload countdown — decrement each turn, complete on 0 ────────
@@ -1852,7 +1853,7 @@ async function _onUpdateCombat(combat, changed) {
     if (remaining <= 0) {
       // Reload complete — fill ammo and clear flag
       if (weapon) await weapon.update({ 'system.ammo': weapon.system.ammoMax ?? 0 });
-      await actor.unsetFlag('mythras-imperative', 'pendingReload');
+      await clearFlag(actor, 'mythras-imperative', 'pendingReload');
       ui.notifications.info(`${actor.name} has finished reloading ${weapon?.name ?? 'their weapon'}.`);
       await ChatMessage.create({
         content: `
@@ -1910,7 +1911,7 @@ async function _onUpdateCombat(combat, changed) {
   // until the next time this combatant acts.
   const pinnedDown = actor.getFlag('mythras-imperative', 'pinnedDown') ?? null;
   if (pinnedDown) {
-    await actor.unsetFlag('mythras-imperative', 'pinnedDown');
+    await clearFlag(actor, 'mythras-imperative', 'pinnedDown');
     console.log(`Mythras Imperative | Pin Down cleared from ${actor.name}`);
     ui.notifications.info(`${actor.name} is no longer Pinned Down — may return fire.`);
   }
@@ -1922,7 +1923,7 @@ async function _onUpdateCombat(combat, changed) {
   // button (a real enforced block, not informational-only like Pin Down).
   const pressAdvantaged = actor.getFlag('mythras-imperative', 'pressAdvantaged') ?? null;
   if (pressAdvantaged) {
-    await actor.unsetFlag('mythras-imperative', 'pressAdvantaged');
+    await clearFlag(actor, 'mythras-imperative', 'pressAdvantaged');
     console.log(`Mythras Imperative | Press Advantage cleared from ${actor.name}`);
     ui.notifications.info(`${actor.name} is no longer kept on the defensive — may attack again.`);
   }
@@ -1961,7 +1962,7 @@ async function _onUpdateCombat(combat, changed) {
   if (blindedBy && blindedBy.turnsRemaining > 0) {
     const remaining = blindedBy.turnsRemaining - 1;
     if (remaining === 0) {
-      await actor.unsetFlag('mythras-imperative', 'blindedBy');
+      await clearFlag(actor, 'mythras-imperative', 'blindedBy');
       // Remove the blinded token status via the canonical path
       const { CombatEngine } = await import('./module/combat/CombatEngine.js');
       await CombatEngine._removeStatusFromActor(actor, 'blinded');
@@ -2052,7 +2053,7 @@ async function _setDelaying(actor, active) {
     await CombatEngine._applyStatusToActor(actor, 'delaying');
     ui.notifications.info(`${actor.name} is Delaying — may Interrupt until the end of this Combat Round.`);
   } else {
-    await actor.unsetFlag('mythras-imperative', 'delaying');
+    await clearFlag(actor, 'mythras-imperative', 'delaying');
     await CombatEngine._removeStatusFromActor(actor, 'delaying');
   }
 }
@@ -2285,8 +2286,8 @@ function _onRenderChatMessage(message, html) {
       // Stamp the card resolved — no further action needed
       const { CombatEngine } = await import('./module/combat/CombatEngine.js');
       await ChatMessage.create({
-        content: `<div class="mi-chat-card"><div class="mi-card-body"><div class="mi-outcome-row"><span class="mi-outcome mi-wound-minor"><i class="fas fa-walking"></i> ${game.actors.get(target.dataset.attackerId)?.name ?? 'Attacker'} skips the trip — acts normally.</span></div></div></div>`,
-        speaker: { alias: game.actors.get(target.dataset.attackerId)?.name ?? 'Attacker' }
+        content: `<div class="mi-chat-card"><div class="mi-card-body"><div class="mi-outcome-row"><span class="mi-outcome mi-wound-minor"><i class="fas fa-walking"></i> ${_resolveActor(target.dataset.attackerId)?.name ?? 'Attacker'} skips the trip — acts normally.</span></div></div></div>`,
+        speaker: { alias: _resolveActor(target.dataset.attackerId)?.name ?? 'Attacker' }
       });
     }));
 
@@ -2647,7 +2648,7 @@ async function _onSemiAutoRollLocation(ev, message) {
   // The SE and the trait use the same picker and do not stack.
   const outcomeFlags      = message.flags?.['mythras-imperative'] ?? {};
   const attackerStyleItem = (() => {
-    const attacker = game.actors.get(outcomeFlags.attackerId);
+    const attacker = _resolveActor(outcomeFlags.attackerId);
     const styleId  = outcomeFlags.attackerStyleId ?? null;
     return styleId ? attacker?.items.get(styleId) ?? null : null;
   })();
@@ -3877,10 +3878,15 @@ Hooks.on('deleteToken', async (tokenDoc) => {
   const baseActorId = tokenDoc.actorId;
   const baseActor   = baseActorId ? game.actors.get(baseActorId) : null;
 
-  // deletedId covers both the base actor ID (linked tokens) and the synthetic
-  // actor ID (unlinked tokens) so cross-reference cleanup catches both cases.
-  const syntheticId = tokenDoc.actor?.id ?? null;
-  const deletedIds  = new Set([baseActorId, syntheticId].filter(Boolean));
+  // The deleted fighter as other actors' entries refer to it (v1.4.363): new
+  // entries hold its combatRef (uuid, exact per token), older ones the bare id.
+  // The token's synthetic actor may already be gone by now, so its ref is built
+  // from the token itself: an unlinked token's actor is Scene.x.Token.y.Actor.z.
+  const deletedActor = tokenDoc.actor ?? baseActor;
+  const deletedRef   = tokenDoc.actorLink
+    ? (baseActor?.uuid ?? null)
+    : (baseActorId ? `${tokenDoc.uuid}.Actor.${baseActorId}` : null);
+  const isDeleted    = (ref) => !!ref && (ref === deletedRef || sameActor(ref, deletedActor) || (!!baseActorId && ref === baseActorId));
 
   const NS = 'mythras-imperative';
 
@@ -3896,7 +3902,7 @@ Hooks.on('deleteToken', async (tokenDoc) => {
     for (const flag of ownFlags) {
       try {
         const val = baseActor.getFlag(NS, flag);
-        if (val !== undefined && val !== null) await baseActor.unsetFlag(NS, flag);
+        if (val !== undefined && val !== null) await clearFlag(baseActor, NS, flag);
       } catch (_) {}
     }
   }
@@ -3929,19 +3935,23 @@ Hooks.on('deleteToken', async (tokenDoc) => {
     ['pendingEntangleTrip',      'defenderId'],   // attacker holds this; defenderId is the victim
   ];
 
-  for (const otherActor of game.actors.contents) {
-    if (deletedIds.has(otherActor.id)) continue;
+  // Every holder — world actors AND unlinked tokens' own actors (v1.4.363:
+  // effect state lives on the token now). Skip only the deleted token itself,
+  // not its siblings: five swarm tokens share one actor id.
+  for (const otherActor of allStateHolders()) {
+    if (otherActor === deletedActor || (tokenDoc.actorLink && otherActor.id === baseActorId)) continue;
     for (const [flagName, fieldName] of crossRefs) {
       let entries;
       try { entries = otherActor.getFlag(NS, flagName); }
       catch (_) { continue; }
       if (!entries || typeof entries !== 'object') continue;
 
-      const filtered = Object.fromEntries(
-        Object.entries(entries).filter(([, entry]) => !deletedIds.has(entry[fieldName]))
-      );
-      if (Object.keys(filtered).length !== Object.keys(entries).length) {
-        await otherActor.setFlag(NS, flagName, filtered);
+      // Remove the matching keys explicitly (v1.4.363): setFlag with the
+      // filtered object MERGED into the stored one, so this clean-up never
+      // removed anything. See flag-entries.js.
+      const gone = Object.entries(entries).filter(([, entry]) => isDeleted(entry?.[fieldName])).map(([k]) => k);
+      if (gone.length) {
+        await removeFlagEntries(otherActor, NS, flagName, gone);
       }
     }
 
@@ -3949,8 +3959,8 @@ Hooks.on('deleteToken', async (tokenDoc) => {
     // clear the prepareCounter flag on the defending actor.
     try {
       const pc = otherActor.getFlag(NS, 'prepareCounter');
-      if (pc && deletedIds.has(pc.attackerActorId)) {
-        await otherActor.unsetFlag(NS, 'prepareCounter');
+      if (pc && isDeleted(pc.attackerActorId)) {
+        await clearFlag(otherActor, NS, 'prepareCounter');
       }
     } catch (_) {}
   }

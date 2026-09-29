@@ -24,7 +24,9 @@ import {
   tripResistSkillOptions,
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
+import { resolveTokenActor, combatRef } from '../../utils/actor-resolution.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
+import { removeFlagEntries } from '../../utils/flag-entries.js';
 
 const NS = 'mythras-imperative';
 
@@ -37,9 +39,9 @@ export async function resolveEntangle(ctx, damage, forcesFail) {
   const { attacker, defender } = ctx;
   const attackRoll = ctx.attackResult ?? 0;
 
-  // Resolve base actor for persistent flag writes (ctx actors may be synthetic)
-  const baseAttacker = game.actors.get(attacker.id) ?? attacker;
-  const baseDefender = game.actors.get(defender.id) ?? defender;
+  // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
+  const baseAttacker = attacker;
+  const baseDefender = defender;
 
   const _rawLabel = ctx.hitLocationLabel
     || (ctx.hitLocationId ? (defender.items.get(ctx.hitLocationId)?.name ?? '') : '')
@@ -64,7 +66,7 @@ export async function resolveEntangle(ctx, damage, forcesFail) {
   // Write entangled state to defender
   const entangledBy = baseDefender.getFlag(NS, 'entangledBy') ?? {};
   entangledBy[entangleId] = {
-    attackerActorId:    attacker.id,
+    attackerActorId:    combatRef(attacker),
     attackerName:       attacker.name,
     attackerRoll:       attackRoll,
     attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
@@ -81,7 +83,7 @@ export async function resolveEntangle(ctx, damage, forcesFail) {
   // Queue trip attempt for attacker's next turn
   const pendingEntangleTrip = baseAttacker.getFlag(NS, 'pendingEntangleTrip') ?? {};
   pendingEntangleTrip[entangleId] = {
-    defenderId:         defender.id,
+    defenderId:         combatRef(defender),
     defenderName:       defender.name,
     attackerRoll:       attackRoll,
     attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
@@ -94,7 +96,7 @@ export async function resolveEntangle(ctx, damage, forcesFail) {
   // Queue break-free attempt for defender's next turn
   const pendingEntangleBreakFree = baseDefender.getFlag(NS, 'pendingEntangleBreakFree') ?? {};
   pendingEntangleBreakFree[entangleId] = {
-    attackerActorId:    attacker.id,
+    attackerActorId:    combatRef(attacker),
     attackerName:       attacker.name,
     attackerRoll:       attackRoll,
     attackerSkillTotal: ctx.attackerSkillTotal ?? 0,
@@ -161,7 +163,7 @@ export async function postEntangleTripCard(attackerActor, entry) {
           </p>
           <div class="mi-manual-actions">
             <button class="mi-btn mi-btn-entangle-trip-yes"
-              data-attacker-id="${attackerActor.id}"
+              data-attacker-id="${combatRef(attackerActor)}"
               data-defender-id="${defenderId}"
               data-attacker-roll="${attackerRoll}"
               data-attacker-skill-total="${attackerSkillTotal}"
@@ -169,7 +171,7 @@ export async function postEntangleTripCard(attackerActor, entry) {
               <i class="fas fa-hiking"></i> Spend 1 AP — Trip ${defenderName}
             </button>
             <button class="mi-btn mi-btn-entangle-trip-no"
-              data-attacker-id="${attackerActor.id}"
+              data-attacker-id="${combatRef(attackerActor)}"
               data-entangle-id="${entangleId}">
               <i class="fas fa-times"></i> Skip — Act normally
             </button>
@@ -199,8 +201,8 @@ export async function resolveEntangleTripYes(btn) {
   const attackerSkillTotal = parseInt(btn.dataset.attackerSkillTotal ?? '0', 10);
   const entangleId         = btn.dataset.entangleId;
 
-  const attacker = game.actors.get(attackerId);
-  const defender = game.actors.get(defenderId);
+  const attacker = resolveTokenActor(attackerId);
+  const defender = resolveTokenActor(defenderId);
   if (!attacker || !defender) return;
 
   await spendActionPoint(attacker);
@@ -378,25 +380,24 @@ export async function resolveEntangleBreakFree(entangledActor, entry, entangleId
     ownAction:     true,
   }));
 
-  // Resolve base actor for persistent flag writes
-  const baseEntangled = game.actors.get(entangledActor.id) ?? entangledActor;
+  const baseEntangled = entangledActor;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
 
   if (freeSucceeds) {
     const entangledBy = baseEntangled.getFlag(NS, 'entangledBy') ?? {};
     delete entangledBy[entangleId];
-    await baseEntangled.setFlag(NS, 'entangledBy', entangledBy);
+    await removeFlagEntries(baseEntangled, NS, 'entangledBy', [entangleId]);
 
     if (Object.keys(entangledBy).length === 0) {
       await removeStatusFromActor(entangledActor, 'entangled');
     }
 
     // Clear attacker's pending trip for this entangle
-    const attackerActor = game.actors.get(attackerActorId);
+    const attackerActor = resolveTokenActor(attackerActorId);
     if (attackerActor) {
       const pending = attackerActor.getFlag(NS, 'pendingEntangleTrip') ?? {};
       if (pending[entangleId]) {
         delete pending[entangleId];
-        await attackerActor.setFlag(NS, 'pendingEntangleTrip', pending);
+        await removeFlagEntries(attackerActor, NS, 'pendingEntangleTrip', [entangleId]);
       }
     }
 

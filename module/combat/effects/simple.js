@@ -286,7 +286,7 @@ export async function resolvePressAdvantage(ctx) {
   const { attacker, defender } = ctx;
   if (!attacker || !defender) return;
 
-  const baseDefender = game.actors.get(defender.id) ?? defender;
+  const baseDefender = defender;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
   await baseDefender.setFlag(NS, 'pressAdvantaged', {
     attackerName: attacker.name,
     round:        game.combat?.round ?? 0
@@ -375,12 +375,11 @@ export async function resolveWeaponMalfunction(ctx) {
   const weaponId = weapon.id;
   const weaponName = weapon.name ?? 'firearm';
 
-  // Always write to the BASE actor, not the synthetic token actor.
-  // ctx.attacker may be a synthetic actor (canvas token) when called from
-  // the macro or full-auto paths. Flags written to the synthetic actor live
-  // in the token's actorDelta and are invisible to CharacterSheet._prepareContext,
-  // which reads from this.document (the base actor).
-  const baseActor = game.actors.get(attacker.id) ?? attacker;
+  // v1.4.363: the token's own actor. It used to be the BASE actor so the
+  // sidebar sheet would show the jam, but every unlinked token of that actor
+  // then jammed together; a token's sheet reads its own actor, and the turn
+  // and reload code clear the jam there.
+  const baseActor = attacker;
 
   // Write the jammed flag on the attacker's base actor
   const existing = baseActor.getFlag(NS, 'jammedWeapons') ?? {};

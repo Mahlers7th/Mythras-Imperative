@@ -1065,7 +1065,7 @@ export async function resolvePinDown(ctx, forcesFail) {
   const pinApplied = !defenderSucceeds;
   if (pinApplied) {
     // Write pinnedDown flag — cleared at the start of defender's next turn
-    const baseDefender = game.actors.get(defender.id) ?? defender;
+    const baseDefender = defender;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
     await baseDefender.setFlag('mythras-imperative', 'pinnedDown', {
       attackerName: attacker.name,
       round:        game.combat?.round ?? 0

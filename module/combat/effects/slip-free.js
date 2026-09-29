@@ -17,6 +17,8 @@
  */
 
 import { removeStatusFromActor } from './helpers.js';
+import { resolveTokenActor } from '../../utils/actor-resolution.js';
+import { removeFlagEntries, clearFlag } from '../../utils/flag-entries.js';
 
 const NS = 'mythras-imperative';
 
@@ -40,8 +42,8 @@ export async function resolveSlipFree(ctx) {
   const { attacker, defender } = ctx;
   if (!defender) return;
 
-  // Resolve base actor for flag writes
-  const baseDefender = game.actors.get(defender.id) ?? defender;
+  // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
+  const baseDefender = defender;
 
   // Count what we are about to clear (for the card display)
   const grippedBy       = baseDefender.getFlag(NS, 'grippedBy')      ?? {};
@@ -99,17 +101,17 @@ export async function resolveSlipFree(ctx) {
   try {
     // Clear grippedBy and matching pendingGripCheck entries on the defender
     if (gripIds.length > 0) {
-      await baseDefender.unsetFlag(NS, 'grippedBy');
+      await clearFlag(baseDefender, NS, 'grippedBy');
       const pendingGripCheck = baseDefender.getFlag(NS, 'pendingGripCheck') ?? {};
       const filteredGrip = Object.fromEntries(
         Object.entries(pendingGripCheck).filter(([k]) => !gripIds.includes(k))
       );
-      await baseDefender.setFlag(NS, 'pendingGripCheck', filteredGrip);
+      await removeFlagEntries(baseDefender, NS, 'pendingGripCheck', gripIds.filter(k => k in pendingGripCheck));
     }
 
     // Clear entangledBy, token status, and attacker-side pending trip flags
     if (entangleEntries.length > 0) {
-      await baseDefender.unsetFlag(NS, 'entangledBy');
+      await clearFlag(baseDefender, NS, 'entangledBy');
 
       try {
         await removeStatusFromActor(defender, 'entangled');
@@ -122,17 +124,17 @@ export async function resolveSlipFree(ctx) {
       const filteredBF  = Object.fromEntries(
         Object.entries(pendingBF).filter(([k]) => !entangleIds.includes(k))
       );
-      await baseDefender.setFlag(NS, 'pendingEntangleBreakFree', filteredBF);
+      await removeFlagEntries(baseDefender, NS, 'pendingEntangleBreakFree', entangleIds.filter(k => k in pendingBF));
 
       for (const [entangleId, entry] of entangleEntries) {
         const aId = entry.attackerActorId;
         if (!aId) continue;
-        const aActor = game.actors.get(aId);
+        const aActor = resolveTokenActor(aId);
         if (!aActor) continue;
         const pendingTrip = aActor.getFlag(NS, 'pendingEntangleTrip') ?? {};
         if (pendingTrip[entangleId]) {
           delete pendingTrip[entangleId];
-          await aActor.setFlag(NS, 'pendingEntangleTrip', pendingTrip);
+          await removeFlagEntries(aActor, NS, 'pendingEntangleTrip', [entangleId]);
         }
       }
     }
@@ -140,8 +142,8 @@ export async function resolveSlipFree(ctx) {
     // Clear pinnedWeapons (Pin Weapon) and pinnedBy (Pin Object) — both are
     // single flags with no cross-turn pending queue or companion actor-side
     // flag to clean up (see pin-weapon.js/pin-object.js's own headers).
-    if (pinnedWeaponIds.length > 0) await baseDefender.unsetFlag(NS, 'pinnedWeapons');
-    if (pinnedByIds.length > 0)     await baseDefender.unsetFlag(NS, 'pinnedBy');
+    if (pinnedWeaponIds.length > 0) await clearFlag(baseDefender, NS, 'pinnedWeapons');
+    if (pinnedByIds.length > 0)     await clearFlag(baseDefender, NS, 'pinnedBy');
   } catch (err) {
     console.error('Mythras | Slip Free flag cleanup error:', err);
   }

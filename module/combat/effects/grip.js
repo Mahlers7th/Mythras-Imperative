@@ -17,6 +17,8 @@ import {
 } from './helpers.js';
 import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll } from '../../utils/combat-math.js';
+import { resolveTokenActor, combatRef } from '../../utils/actor-resolution.js';
+import { removeFlagEntries } from '../../utils/flag-entries.js';
 
 const NS = 'mythras-imperative';
 
@@ -32,8 +34,7 @@ export async function resolveGrip(ctx, damage, forcesFail) {
   const isGMMode = game.settings.get(NS, 'gmMode') ?? false;
   const attackRoll = ctx.attackResult ?? 0;
 
-  // Resolve base actors for persistent flag writes (ctx actors may be synthetic)
-  const baseDefender = game.actors.get(defender.id) ?? defender;
+  const baseDefender = defender;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
 
   const gripperBrawn   = Array.from(attacker.items).find(i => i.type === 'skill' && i.name === 'Brawn');
   const gripperUnarmed = Array.from(attacker.items).find(i => i.type === 'skill' && i.name === 'Unarmed');
@@ -87,7 +88,7 @@ export async function resolveGrip(ctx, damage, forcesFail) {
   const gripEntryId = foundry.utils.randomID(8);
   const grippedBy   = baseDefender.getFlag(NS, 'grippedBy') ?? {};
   grippedBy[gripEntryId] = {
-    gripperActorId:    attacker.id,
+    gripperActorId:    combatRef(attacker),
     gripperName:       attacker.name,
     gripperSkillName:  gripperSkill.name,
     gripperSkillTotal: gripperSkill.total,
@@ -153,7 +154,7 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
   // and until v1.4.339 their skill total was passed where a roll belongs, so
   // they could never fail (and, at 96+, could never succeed). Rolled here,
   // before the victim's dialog, so the dialog shows the real number to beat.
-  const gripperActor = game.actors.get(gripperActorId) ?? null;
+  const gripperActor = resolveTokenActor(gripperActorId);
   const gripperRollObj = new Roll('1d100');
   await gripperRollObj.evaluate();
   let gripperRoll = gripperRollObj.total;
@@ -249,13 +250,12 @@ export async function resolveGripBreakFree(grippedActor, entry, gripEntryId) {
     freeSucceeds = !held.succeeds;
   }
 
-  // Resolve base actor for persistent flag writes
-  const baseGripped = game.actors.get(grippedActor.id) ?? grippedActor;
+  const baseGripped = grippedActor;   // v1.4.363: the token's OWN actor, not the base — several tokens of one actor (swarms) must not share this state.
 
   if (freeSucceeds) {
     const grippedBy = baseGripped.getFlag(NS, 'grippedBy') ?? {};
     delete grippedBy[gripEntryId];
-    await baseGripped.setFlag(NS, 'grippedBy', grippedBy);
+    await removeFlagEntries(baseGripped, NS, 'grippedBy', [gripEntryId]);
 
     await ChatMessage.create({
       content: `

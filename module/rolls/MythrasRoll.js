@@ -40,7 +40,8 @@ export class MythrasRoll {
     // being resolved first.
     // v1.4.351: the condition floor and a module's grade shift are applied
     // separately — floor against the chosen difficulty, then the shift on the
-    // result (composeRollGrade). A Bolstered Hard roll is Standard.
+    // result (composeRollGrade). Since v1.4.360 the dialog opens on that
+    // composed grade rather than composing after the player picks.
     const floorGrade   = CombatEngine._getConditionFloorOnly(actor, { kind: 'sheet', item });
     // A hero advantage ("Endurance rolls are one Grade easier") is the same
     // kind of thing as a module shift, so it joins it (v1.4.352). `gradeEasier`
@@ -49,12 +50,19 @@ export class MythrasRoll {
     const heroEasier   = gradeEasier || heroAdvantageShift(actor?.system?.heroAdvantages, item?.name) < 0;
     const gradeShift   = CombatEngine._getConditionShift(actor, { kind: 'sheet', item }) + (heroEasier ? -1 : 0);
     const gradeOrder   = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
-    const floorIdx     = gradeOrder.indexOf(floorGrade);
 
-    // The dialog opens at the task's own floor; any easier grade (hero
-    // advantage, a module) moves the FINAL grade, shown in the target below.
-    const effectiveFloorIdx = floorIdx;
-    const defaultDiff  = gradeOrder[effectiveFloorIdx];
+    // v1.4.360: the dropdown IS the grade rolled. It opens already moved by
+    // the floor and any shift (a Savant skill opens on Easy), and whatever the
+    // player leaves it on is rolled as-is — no second shift at execute().
+    // Chris, 2026-09-28: a dropdown left on Standard while the roll is Easy
+    // reads as "Savant didn't work". The cost: for a GM-called Hard task the
+    // player picks the shifted grade themselves (Standard for a Savant skill).
+    const hasFloor     = floorGrade !== 'standard';
+    const defaultDiff  = composeRollGrade('standard', floorGrade, gradeShift);
+    // The easiest grade a condition allows: the floor, moved by the shift.
+    const effectiveFloorIdx = hasFloor
+      ? gradeOrder.indexOf(composeRollGrade(floorGrade, floorGrade, gradeShift))
+      : 0;
     const condNotesStr = CombatEngine._buildConditionNotes(actor, { kind: 'sheet', item });
 
     // Effective skill after applying the floor grade
@@ -62,12 +70,13 @@ export class MythrasRoll {
       skillTotal, floorGrade !== 'standard' ? floorGrade : null
     );
 
-    // Difficulty options — floor pre-selected, easier options disabled
+    // Difficulty options — final grade pre-selected; easier options disabled
+    // only when a real condition sets the floor. 'standard' is no floor (v1.4.359).
     const difficultyOptions = Object.entries(CONFIG.MYTHRAS.difficultyGrades)
       .map(([key, grade]) => {
         const selected = key === defaultDiff ? ' selected' : '';
         const thisIdx  = gradeOrder.indexOf(key);
-        const disabled = thisIdx < effectiveFloorIdx ? ' disabled' : '';
+        const disabled = hasFloor && thisIdx < effectiveFloorIdx ? ' disabled' : '';
         return `<option value="${key}"${selected}${disabled}>${game.i18n.localize(grade.label)}</option>`;
       }).join('');
 
@@ -130,7 +139,7 @@ export class MythrasRoll {
               const difficulty = html.find('#mi-difficulty').val();
               const passionId  = html.find('#mi-passion').val() || '';
               const passion    = eligiblePassions.find(p => p.id === passionId) ?? null;
-              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, passion, gradeEasier: heroEasier });
+              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, passion, gradeEasier: heroEasier, gradeIsFinal: true });
               resolve(true);
             }
           },
@@ -147,9 +156,9 @@ export class MythrasRoll {
             const pid     = html.find('#mi-passion').val() || '';
             const passion = eligiblePassions.find(p => p.id === pid);
             const augment = passion ? passion.system.augmentBonus : 0;
-            // The harder of the chosen difficulty and the condition floor,
-            // then any module shift — exactly what execute() will roll against.
-            const worstGrade = composeRollGrade(diff, floorGrade, gradeShift);
+            // The dropdown is the final grade (v1.4.360) — exactly what
+            // execute() will roll against.
+            const worstGrade = diff;
             const target = MythrasRoll.applyDifficulty(skillTotal + augment, worstGrade);
             html.find('#mi-target-display').text(worstGrade === 'hopeless' ? '—' : `${target}`);
           };
@@ -175,12 +184,14 @@ export class MythrasRoll {
   // Execute Roll
   // -------------------------------------------------------------------------
 
-  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null, gradeEasier = false }) {
+  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null, gradeEasier = false, gradeIsFinal = false }) {
     // The grade actually rolled at: the harder of the chosen difficulty and
     // the condition floor, then any module shift (v1.4.351, composeRollGrade).
     // Same context as the dialog, so the target shown and the target rolled
     // against cannot diverge — the v1.4.309 class of bug.
-    if (actor) {
+    // `gradeIsFinal` (v1.4.360): the roll dialog's dropdown already carries
+    // the floor and shift, so composing again would apply Savant twice.
+    if (actor && !gradeIsFinal) {
       const { CombatEngine: CE } = await import('../combat/CombatEngine.js');
       const heroEasier = gradeEasier || heroAdvantageShift(actor.system?.heroAdvantages, item?.name) < 0;
       difficulty = composeRollGrade(

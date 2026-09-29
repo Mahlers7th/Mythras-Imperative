@@ -28,6 +28,7 @@
  */
 
 import { canParryAt } from './reach-state.js';
+import { allStateHolders, sameActor } from '../utils/actor-resolution.js';
 import { isAreaAttack } from '../utils/area-attack.js';
 
 export class DefenderDialog {
@@ -461,10 +462,10 @@ function _buildParryWeaponList(actor, stylesByWeaponId, isRangedAttack = false) 
   // Note: impaledBy is on the *victim*, not the wielder. We check from the
   // wielder's side by scanning the flag on all other scene actors.
   const impaledWeaponIds = new Set();
-  for (const sceneActor of (game.actors?.contents ?? [])) {
+  for (const sceneActor of allStateHolders()) {   // v1.4.363: token actors too
     const impaledBy = sceneActor.getFlag?.('mythras-imperative', 'impaledBy') ?? {};
     for (const entry of Object.values(impaledBy)) {
-      if (entry.attackerId === actor.id) impaledWeaponIds.add(entry.weaponId);
+      if (sameActor(entry.attackerId, actor)) impaledWeaponIds.add(entry.weaponId);
     }
   }
 
