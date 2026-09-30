@@ -10,6 +10,37 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.364 — September 2026
+Clean-up round: tests for the combat effects, one shared grade list, and one bug found along the way.
+
+- **Tests for the Special Effects.** Fourteen effect files had no test at all; the two bugs fixed in v1.4.362-363 lived there.
+  - New `tests/helpers/fake-foundry.js` is a small stand-in for the Foundry parts the resolvers touch. It is faithful where the code was bitten:
+    - `setFlag` merges.
+    - Flags live on a "server" copy, so deleting from the live object doesn't stick.
+    - A swarm's tokens inherit whatever is written to their shared base actor.
+    - `-=` is ignored on token actors.
+  - New test files:
+    - `effects-state.test.js`: Entangle, Slip Free, both Pins, Press Advantage, Weapon Malfunction, Arise.
+    - `effects-grip-impale.test.js`: grip, break free, impale, lodge, yank.
+    - `effects-reach-pin.test.js`: Pin Down; Close Range, Open Range and Withdraw.
+  - Each was checked by putting an old bug back and watching the tests fail:
+    - the old merge-bug removal in Slip Free, Grip and Impale;
+    - the old base-actor write in Press Advantage;
+    - the old first-token status lookup.
+- **One grade list.** The difficulty order (Very Easy … Hopeless) was written out six times. AttackerDialog (3), opposed.js and MythrasRoll now use `roll-math.js`'s `GRADE_ORDER`, and `condition-grade.js`'s `CONDITION_GRADE_ORDER` (part of the API) is now the same list rather than a copy.
+- **🐛 A Hopeless requested check was rolled against the full skill.** `requestSkillCheck` graded each skill with `applyDifficulty`, which deliberately leaves `'hopeless'` alone, since callers are meant to handle it. This one didn't. So a Herculean check on a Skill Deficiency skill, or any Hopeless request, rolled at 100%.
+  - A target of 0 would not do, because 01–05 always succeed.
+  - Now a Hopeless skill is not offered. If every offered skill is Hopeless, the check fails with no roll (`reason: 'hopeless'`), as the sheet roll always did.
+  - Pure helpers are in `module/utils/hopeless-check.js`.
+- **Left as is (table ruling, Chris, 2026-09-30):** the attack dialog's own difficulty helper gives Hopeless a target of 0, so 01–05 still succeed on an attack. A Hopeless attack keeps that 5% chance.
+- **Tests:** 1103 pass (28 suites, 31 new).
+- **Live-verified** (`s18-tidy-check.mjs`, 5/5):
+  - a Savant skill's roll dialog opens on Easy;
+  - the attack dialog lists all seven grades;
+  - an all-Hopeless request fails with no roll and no card;
+  - a mixed request offers only the attainable skill.
+- Not yet committed
+
 ## v1.4.363 — September 2026
 Follow-up to v1.4.362: the effect state it listed as known is now per token. Along the way this found that removing effect state has never worked.
 

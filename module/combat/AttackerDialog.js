@@ -19,7 +19,7 @@
  * when the rest of the sheets move across.
  */
 
-import { DIFFICULTY_GRADES, determineOutcome } from '../utils/roll-math.js';
+import { DIFFICULTY_GRADES, determineOutcome, GRADE_ORDER } from '../utils/roll-math.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 import { reachFor, reachRuleOn, reachBannerText, canParryAt } from './reach-state.js';
@@ -89,7 +89,7 @@ export class AttackerDialog {
     const floorGrade        = CombatEngine._getConditionFloorOnly(attacker);
     const defaultDifficulty = floorGrade;
     const conditionNotesStr = CombatEngine._buildConditionNotes(attacker);
-    const gradeOrder = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
+    const gradeOrder = GRADE_ORDER;
     const floorIdx   = gradeOrder.indexOf(floorGrade);
     // 'standard' is no floor (v1.4.359) — only a real condition locks out
     // the easier grades.
@@ -780,7 +780,7 @@ function _applyDifficulty(skill, difficulty) {
  *   max(chosen, hard)   where max = harder of the two.
  */
 function _harderDifficulty(chosen) {
-  const ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'formidable', 'herculean', 'hopeless'];
+  const ORDER = GRADE_ORDER;
   const iChosen = ORDER.indexOf(chosen);
   const iHard   = ORDER.indexOf('hard');
   // Higher index = harder. Charge enforces at least Hard.
@@ -794,7 +794,7 @@ function _harderDifficulty(chosen) {
  * Used for ranged aiming; may be used for other effects in future.
  */
 function _easierDifficulty(chosen) {
-  const ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'formidable', 'herculean', 'hopeless'];
+  const ORDER = GRADE_ORDER;
   const i = ORDER.indexOf(chosen);
   if (i <= 0 || chosen === 'hopeless') return chosen; // cannot reduce impossible or already minimum
   return ORDER[i - 1];

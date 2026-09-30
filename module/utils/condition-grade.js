@@ -116,9 +116,12 @@
 import { getFatigueSkillGrade } from './fatigue.js';
 import { getActiveImpaleGrade, getActiveEntangleGrade, getActiveBlindGrade } from '../combat/effects/helpers.js';
 import { sumHookContributions } from './modifier-bus.js';
+import { GRADE_ORDER } from './roll-math.js';
 
+// The same list as roll-math.js's GRADE_ORDER — kept under this name, which
+// other code imports, rather than as a second copy that could drift (v1.4.364).
 /** @type {string[]} Canonical grade order, worst (rightmost) to best (leftmost). */
-export const CONDITION_GRADE_ORDER = ['veryEasy', 'easy', 'standard', 'hard', 'formidable', 'herculean', 'hopeless'];
+export const CONDITION_GRADE_ORDER = GRADE_ORDER;
 
 /**
  * Compose the worst active condition floor for a given role. Never

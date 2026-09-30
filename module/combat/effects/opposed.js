@@ -27,7 +27,7 @@ import {
 import { offerResistLuck } from './resist-luck.js';
 import { resolveOpposedRoll, classifyLocation } from '../../utils/combat-math.js';
 import { applyGradeToSkill } from '../../utils/condition-grade.js';
-import { determineOutcome } from '../../utils/roll-math.js';
+import { determineOutcome, GRADE_ORDER } from '../../utils/roll-math.js';
 
 
 // -------------------------------------------------------------------------
@@ -495,7 +495,7 @@ export async function resolveDisarmOpponent(ctx, damage, forcesFail) {
     const sizeDiff      = disarmerSize - resistingSize;
 
     if (sizeDiff !== 0) {
-      const gradeOrder    = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
+      const gradeOrder    = GRADE_ORDER;
       const grades        = CONFIG.MYTHRAS?.difficultyGrades ?? {};
       const baseIdx       = 2;
       const adjustedIdx   = Math.max(0, Math.min(gradeOrder.length - 1, baseIdx + sizeDiff));

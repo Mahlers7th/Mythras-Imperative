@@ -53,6 +53,7 @@ import {
 import { replenishLuckPoints }        from './module/rolls/luck-replenish.js';
 import { computeDamage }              from './module/combat/damage-pipeline.js';
 import { removeFlagEntries, clearFlag } from './module/utils/flag-entries.js';
+import { splitHopeless, hopelessResult } from './module/utils/hopeless-check.js';
 
 // ---------------------------------------------------------------------------
 // Fatigue utilities — canonical implementations live in module/utils/fatigue.js.
@@ -1294,6 +1295,15 @@ export async function requestSkillCheck(actor, {
     skillOptions.push({ name, rawTotal, total, grade, target, item });
   }
   if (skillOptions.length === 0) return noSkillResult;
+
+  // A Hopeless skill cannot be attempted (v1.4.364): it is not offered, and if
+  // nothing else is, the check fails with no roll. See hopeless-check.js.
+  const { playable, allHopeless } = splitHopeless(skillOptions);
+  if (allHopeless) {
+    ui.notifications?.info(`${actor.name}: ${title} is Hopeless — it fails without a roll.`);
+    return hopelessResult(skillOptions[0]);
+  }
+  skillOptions.splice(0, skillOptions.length, ...playable);
 
   const isSemi   = game.settings.get('mythras-imperative', 'automationLevel') === 'semi';
   const isGMMode = game.settings.get('mythras-imperative', 'gmMode') ?? false;

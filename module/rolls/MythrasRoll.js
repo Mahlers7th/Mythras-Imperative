@@ -6,7 +6,7 @@
  * passion augmentation, luck point re-roll/swap.
  */
 
-import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared } from '../utils/roll-math.js';
+import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared, GRADE_ORDER } from '../utils/roll-math.js';
 import { swapDigits as swapDigitsShared } from './luck-point.js';
 import { fireRollResolved } from '../utils/roll-events.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
@@ -49,7 +49,7 @@ export class MythrasRoll {
     // are read directly, so the two can never disagree or double up.
     const heroEasier   = gradeEasier || heroAdvantageShift(actor?.system?.heroAdvantages, item?.name) < 0;
     const gradeShift   = CombatEngine._getConditionShift(actor, { kind: 'sheet', item }) + (heroEasier ? -1 : 0);
-    const gradeOrder   = ['veryEasy','easy','standard','hard','formidable','herculean','hopeless'];
+    const gradeOrder   = GRADE_ORDER;
 
     // v1.4.360: the dropdown IS the grade rolled. It opens already moved by
     // the floor and any shift (a Savant skill opens on Easy), and whatever the
