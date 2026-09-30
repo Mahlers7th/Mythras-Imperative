@@ -19,7 +19,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - First consumer: Destined's Short Range limit on Blast.
 - **Tests:** 1108 pass (29 suites, 5 new).
 - **Live-verified** as Player2: Blank's Short Range Poison Dart offers only Close.
-- Not yet committed
+- Committed as `068d9e6a5fe670524f958adcdcb6b0c43fc77c15`
 
 ## v1.4.364 — September 2026
 Clean-up round: tests for the combat effects, one shared grade list, and one bug found along the way.
