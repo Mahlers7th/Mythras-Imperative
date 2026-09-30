@@ -24,6 +24,7 @@ import { composeRollGrade } from '../utils/condition-grade.js';
 import { canSpendLuck, luckButtonHtml, offerLuckPointRouted } from '../rolls/luck-point.js';
 import { reachFor, reachRuleOn, reachBannerText, canParryAt } from './reach-state.js';
 import { isAreaAttack } from '../utils/area-attack.js';
+import { maxRangeBand, clampRangeBand, RANGE_BANDS } from '../utils/range-band.js';
 import { tokenFor } from '../utils/actor-resolution.js';
 
 export class AttackerDialog {
@@ -442,6 +443,14 @@ export class AttackerDialog {
 
             // Toggle attacker rows
             if (rangeBandRow) rangeBandRow.style.display = isRanged ? '' : 'none';
+            // maxRangeBandHooks (v1.4.365): bands past this weapon's reach are
+            // locked, and a selection past it drops back to the cap.
+            if (rangeBandSel) {
+              const cap = isRanged ? maxRangeBand(CONFIG.MYTHRAS?.maxRangeBandHooks, resolvedWeapon, attacker) : null;
+              const capIdx = cap ? RANGE_BANDS.indexOf(cap) : RANGE_BANDS.length - 1;
+              for (const opt of rangeBandSel.options) opt.disabled = RANGE_BANDS.indexOf(opt.value) > capIdx;
+              if (cap) rangeBandSel.value = clampRangeBand(rangeBandSel.value, cap);
+            }
             if (aimingRow)    aimingRow.style.display    = isRanged ? '' : 'none';
             if (chargeRow)    chargeRow.style.display    = isRanged ? 'none' : '';
             if (divingStrikeRow) divingStrikeRow.style.display = isRanged ? 'none' : '';
@@ -827,7 +836,12 @@ function _readAttackerFields(html, attacker, defender, ctx, stylesByWeaponId, al
   const isDivingStrike = isRangedWeapon ? false : (html.find('#mi-atk-diving-strike')[0]?.checked ?? false);
 
   // Ranged-only: Range band and aiming
-  const rangeBand    = isRangedWeapon ? (html.find('#mi-atk-range-band').val() ?? 'effective') : null;
+  // Clamped to the weapon's reach again here (maxRangeBandHooks, v1.4.365), so
+  // a band past it can never reach the engine even from a stale dialog.
+  const rangeBand    = isRangedWeapon
+    ? clampRangeBand(html.find('#mi-atk-range-band').val() ?? 'effective',
+        maxRangeBand(CONFIG.MYTHRAS?.maxRangeBandHooks, chosenWeapon, attacker))
+    : null;
   const isAiming     = isRangedWeapon && (html.find('#mi-atk-aiming')[0]?.checked ?? false);
   const isBurstFire     = isRangedWeapon && (html.find('#mi-atk-burst')[0]?.checked ?? false);
   const isFullAuto      = isRangedWeapon && (html.find('#mi-atk-full-auto')[0]?.checked ?? false);

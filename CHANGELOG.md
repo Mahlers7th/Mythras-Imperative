@@ -10,6 +10,17 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.365 — September 2026
+- **✨ `maxRangeBandHooks`: a module can cap how far a ranged weapon reaches.**
+  - The attack dialog's range band (Close / Effective / Long) is the player's choice, and a weapon's `rangeClose/Effective/Long` numbers are display only, so a rule that limits reach had nowhere to act.
+  - Each hook is `(weapon, attacker) => 'close' | 'effective' | 'long' | undefined`. The most restrictive answer wins, and a throw is logged and ignored.
+  - The dialog disables bands past the cap, re-checking when the weapon changes. `_readAttackerFields` clamps the confirmed band again.
+  - Pure helpers are in `module/utils/range-band.js`, documented in `extension-point-api-updated.md`.
+  - First consumer: Destined's Short Range limit on Blast.
+- **Tests:** 1108 pass (29 suites, 5 new).
+- **Live-verified** as Player2: Blank's Short Range Poison Dart offers only Close.
+- Not yet committed
+
 ## v1.4.364 — September 2026
 Clean-up round: tests for the combat effects, one shared grade list, and one bug found along the way.
 

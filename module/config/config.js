@@ -543,6 +543,23 @@ export const MYTHRAS = {
   /** @type {Function[]} Each is called once per active combatant at Mythras round boundary (all AP spent); may return a Promise, which is awaited. Receives (actor, combat) */
   roundBoundaryHooks: [],
 
+  // -----------------------------------------------------------------------
+  // maxRangeBandHooks (v1.4.365) — how far a ranged weapon can reach.
+  //   (weapon, attacker) => 'close' | 'effective' | 'long' | undefined
+  //
+  //   The attack dialog's range band is the player's choice; a weapon's
+  //   rangeClose/Effective/Long numbers are display only. A hook caps the
+  //   band a weapon may be used at — the most restrictive answer wins,
+  //   undefined means no cap, a throw is logged and ignored. The dialog
+  //   disables bands past the cap (re-checked when the weapon changes) and
+  //   the confirmed band is clamped again when the attack is read. First
+  //   consumer: Destined's Short Range limit on Blast. See
+  //   module/utils/range-band.js.
+  // -----------------------------------------------------------------------
+
+  /** @type {Function[]} (weapon, attacker) => 'close'|'effective'|'long'|undefined */
+  maxRangeBandHooks: [],
+
   /** @type {Function[]} Each is called once for the combatant whose turn is starting; may return a Promise, which is awaited. Receives (actor, combat) — actor is the synthetic canvas-token actor */
   turnStartedHooks: [],
 
