@@ -39,7 +39,7 @@ Clean-up round: tests for the combat effects, one shared grade list, and one bug
   - the attack dialog lists all seven grades;
   - an all-Hopeless request fails with no roll and no card;
   - a mixed request offers only the attainable skill.
-- Not yet committed
+- Committed as `e2fa12ae3331c41bc104e7998847d9d7267ee640`
 
 ## v1.4.363 — September 2026
 Follow-up to v1.4.362: the effect state it listed as known is now per token. Along the way this found that removing effect state has never worked.
