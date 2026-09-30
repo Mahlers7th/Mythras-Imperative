@@ -65,7 +65,8 @@ Modules extend the system via `CONFIG.MYTHRAS.*` arrays (see `extension-point-ap
 - `module/data/` — `CharacterData.js`, `ActorData.js`, `ItemData.js` (TypeDataModels; `prepareDerivedData` lives here).
 - `module/combat/` — `CombatEngine.js` + `effects/` (SE resolvers; `SE_RESOLVERS` in `effects/index.js` is the programmatic SE entry point, reached from a module via `game.system.api.triggerOpposedSE`).
 - `module/sheets/`, `module/config/config.js` (`MYTHRAS` object), `module/utils/` (pure, Jest-tested), `module/rolls/`.
-- `tests/` — Jest, pure modules only.
+- `tests/` — Jest. Pure modules directly; the combat effect resolvers (`effects-*.test.js`, v1.4.364) through `tests/helpers/fake-foundry.js`, a Foundry stand-in that is faithful where this code has been bitten (setFlag merges, a server copy behind the live view, swarm tokens inheriting their base actor, `-=` ignored on token actors). A new resolver gets a test there.
+- `docs/notes/` — working notes: design docs, batch prompts, surveys and audits (`grade-shift-coverage-design.md`, `fumble-basis-design.md`, `rules-audit-spec.md`…). Code comments cite them by bare file name; this is where they live. **Local only — git-ignored, because this repo is public** and the notes quote rulebooks and campaign detail.
 - Compendium: **edit `_source/` YAML**, not `packs/`. `packs/` is git-ignored (LevelDB). Build with `npm run pack` / `npm run unpack` (`@foundryvtt/foundryvtt-cli v3`). Before installing a build that changes compendium content, delete the relevant `packs/<name>/` folder first.
 
 ## Git

@@ -24,3 +24,6 @@ packs/
 
 # Rulebook PDFs (never commit — commercial material)
 *.pdf
+
+# Working notes (design docs, batch prompts, surveys) — kept locally, not published
+docs/notes/
