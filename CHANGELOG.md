@@ -27,7 +27,7 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
   - Passion, skill and aid augments gave the right targets and pills.
   - Combat aid spent the helper's AP through the GM (2 → 1), and the option was disabled at 0 AP.
   - The world matched its snapshot after cleanup.
-- Not yet committed
+- Committed as `979a812592ac5cf938f44dd09e717c05d394f9b7`
 
 ## v1.4.365 — September 2026
 - **✨ `maxRangeBandHooks`: a module can cap how far a ranged weapon reaches.**
