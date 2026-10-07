@@ -10,6 +10,25 @@ Versions follow the `1.4.x` scheme. Each entry covers what was built and tested 
 
 ---
 
+## v1.4.366 — October 2026
+- **🐛 Every passion in the Augment dropdown read "Love".**
+  - The label was built from the passion's `verb` + `target` fields. `verb` defaults to "Love", and players name passions in the item name ("Follow my Guild"), so every entry, the roll title and the chat card all said "Love". The bonus itself was always right.
+  - Labels now use the item name (`itemLabel`, falling back to verb + target for an unnamed item). `PassionData#displayName` uses it too.
+- **✨ One Augment choice per roll: a passion, a skill, or an ally's aid** (Destined pp.48, 53-54).
+  - The dropdown has three groups. The rules allow one augment per roll and aid "is treated as Augmenting as normal", so aid does not stack with a passion (Chris, 2026-10-07).
+  - **Skills:** any of the roller's skills or combat styles, at 20%. Before this only passions could augment.
+  - **Aid from an ally:** other player characters who have the skill being rolled (same type and name), at 20% of the ALLY's rating. Whether they are close enough to help is the GM's call.
+  - **In combat** aid costs the ally 1 Action Point. "In combat" means a combatant in any started, active combat, not just `game.combat`, which is only the viewed scene's. Players can't write to another player's actor, so the spend goes to the GM through a new `spendAidActionPoint` request. An ally with no AP is shown greyed out. If the point can't be spent, the roll goes ahead without the aid and says so.
+  - The chat card shows "Aided by Hargrim: Athletics +15% (1 AP)".
+  - Pure logic is in `module/utils/augment-options.js`. `augmentBonus` (20%, rounded up through `roundUp`) is now the one copy of the arithmetic, and `PassionData#augmentBonus` delegates to it. `execute()` takes `augment` and still accepts the old `passion` argument. `rollDialog`'s `passions` argument is no longer read.
+- **Tests:** 1123 pass (30 suites, 1 new). `extension-hooks.test.js` now tests the real `augmentBonus` instead of a mirror.
+- **Live-verified** with two clients, GM Mode off. Player2 rolled; the helper was owned by a temporary third player.
+  - Passions listed by name, with no "Love".
+  - Passion, skill and aid augments gave the right targets and pills.
+  - Combat aid spent the helper's AP through the GM (2 → 1), and the option was disabled at 0 AP.
+  - The world matched its snapshot after cleanup.
+- Not yet committed
+
 ## v1.4.365 — September 2026
 - **✨ `maxRangeBandHooks`: a module can cap how far a ranged weapon reaches.**
   - The attack dialog's range band (Close / Effective / Long) is the player's choice, and a weapon's `rangeClose/Effective/Long` numbers are display only, so a rule that limits reach had nowhere to act.

@@ -2465,6 +2465,16 @@ function _registerCombatRequestHandlers() {
     return { ok: true };
   });
 
+  // An ally's aid on a skill roll in combat costs them 1 AP (Destined p.54).
+  // The ally is usually another player's character, so the GM spends it.
+  CombatSocket.registerRequestHandler('spendAidActionPoint', async ({ actorUuid }) => {
+    if (!game.user.isGM) return null;
+    const helper = actorUuid ? fromUuidSync(actorUuid) : null;
+    if (!helper) return { ok: false };
+    const { MythrasRoll } = await import('./module/rolls/MythrasRoll.js');
+    return { ok: await MythrasRoll._spendAidActionPoint(helper) };
+  });
+
   // A player's click on a combat card button.
   CombatSocket.registerRequestHandler('cardAction', async ({ messageId, action, dataset }) => {
     if (!game.user.isGM) return null;

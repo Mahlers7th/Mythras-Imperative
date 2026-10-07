@@ -5,6 +5,8 @@
  *   SkillData, WeaponData, ArmourData, GearData, CombatStyleData, PassionData
  */
 
+import { augmentBonus, itemLabel } from '../utils/augment-options.js';
+
 const { fields } = foundry.data;
 
 // ---------------------------------------------------------------------------
@@ -313,9 +315,12 @@ export class PassionData extends foundry.abstract.TypeDataModel {
     };
   }
 
-  /** Display name: verb + target e.g. "Love (The King)" */
+  /**
+   * Display name: the item's name (v1.4.366). verb + target is only a
+   * fallback for an unnamed item -- see itemLabel in augment-options.js.
+   */
   get displayName() {
-    return this.target ? `${this.verb} (${this.target})` : this.verb;
+    return itemLabel(this.parent ?? { system: this });
   }
 
   /**
@@ -332,7 +337,7 @@ export class PassionData extends foundry.abstract.TypeDataModel {
    * resolved against +6%, and the resulting chat card then reported "+7%".
    */
   get augmentBonus() {
-    return Math.ceil(this.total * 0.2);
+    return augmentBonus(this.total);
   }
 }
 

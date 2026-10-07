@@ -3,7 +3,7 @@
  *
  * Core roll resolution for Mythras Imperative.
  * Handles: skill rolls, difficulty grades, success levels,
- * passion augmentation, luck point re-roll/swap.
+ * augmentation (passion, skill or an ally's aid), luck point re-roll/swap.
  */
 
 import { applyDifficulty as applyDifficultyShared, determineOutcome as determineOutcomeShared, GRADE_ORDER } from '../utils/roll-math.js';
@@ -11,6 +11,7 @@ import { swapDigits as swapDigitsShared } from './luck-point.js';
 import { fireRollResolved } from '../utils/roll-events.js';
 import { composeRollGrade } from '../utils/condition-grade.js';
 import { heroAdvantageShift } from '../utils/char-math.js';
+import { buildAugmentOptions, flattenAugmentOptions, augmentPill, itemLabel } from '../utils/augment-options.js';
 
 export class MythrasRoll {
 
@@ -23,13 +24,13 @@ export class MythrasRoll {
    * @param {object} opts
    * @param {Actor}  opts.actor
    * @param {Item}   opts.item       The skill/combat-style/passion being rolled
-   * @param {Item[]} opts.passions   All passion items on the actor (for augment selector)
+   * @param {Item[]} [opts.passions] Unused since v1.4.366: the augment list is
+   *                                  built from the actor's own items. Kept so
+   *                                  existing callers need no change.
    */
-  static async rollDialog({ actor, item, skillTotal, passions = [], gradeEasier = false }) {
+  static async rollDialog({ actor, item, skillTotal, gradeEasier = false }) {
     skillTotal = skillTotal ?? item.system.total ?? 0;
-    const skillName  = item.type === 'passion'
-      ? `${item.system.verb}${item.system.target ? ` (${item.system.target})` : ''}`
-      : item.name;
+    const skillName  = itemLabel(item);
 
     // Condition floor: worst of fatigue grade and prone.
     // Delegated to CombatEngine helpers so all paths stay consistent.
@@ -84,16 +85,29 @@ export class MythrasRoll {
       ? `<div class="mi-dialog-fatigue-note"><i class="fas fa-exclamation-triangle"></i> ${condNotesStr} difficulty applied</div>`
       : '';
 
-    // Passion augment — PassionData#augmentBonus (20% of the passion, rounded
-    // up). Sourced from the getter rather than recomputed: this file used to
-    // carry four separate copies of the arithmetic and three of them floored,
-    // so the dropdown and the roll disagreed with the chat card by a point.
-    const eligiblePassions = passions.filter(p => p.id !== item.id);
-    const passionOptions = eligiblePassions.map(p => {
-      const name    = `${p.system.verb}${p.system.target ? ` (${p.system.target})` : ''}`;
-      const augment = p.system.augmentBonus;
-      return `<option value="${p.id}" data-augment="${augment}">${name} (+${augment}%)</option>`;
-    }).join('');
+    // Augment (v1.4.366): one choice per roll from the roller's passions, the
+    // roller's skills, or an ally's aid. All three are "Augmenting" and the
+    // rules allow one, so they share the dropdown. Each bonus comes from
+    // augmentBonus (20%, rounded up) -- this file once carried four copies of
+    // that arithmetic and three floored. See augment-options.js.
+    const augmentGroups = buildAugmentOptions({
+      item,
+      ownItems: Array.from(actor?.items ?? []),
+      allies:   MythrasRoll._aidCandidates(actor),
+      allyActionPoints: MythrasRoll._combatActionPoints,
+    });
+    const augmentById = new Map(flattenAugmentOptions(augmentGroups).map(o => [o.id, o]));
+    const esc = (t) => foundry.utils.escapeHTML(String(t));
+    const optionHtml = (o) => {
+      const note = o.disabled ? ', no AP left' : (o.apCost ? ', 1 AP' : '');
+      return `<option value="${esc(o.id)}"${o.disabled ? ' disabled' : ''}>${esc(o.label)} (+${o.bonus}%${note})</option>`;
+    };
+    const groupHtml = (label, opts) => opts.length
+      ? `<optgroup label="${label}">${opts.map(optionHtml).join('')}</optgroup>`
+      : '';
+    const augmentOptionsHtml = groupHtml('Passions', augmentGroups.passions)
+      + groupHtml('Skills', augmentGroups.skills)
+      + groupHtml('Aid from an ally', augmentGroups.aid);
 
     const gradeEasierNote = heroEasier
       ? `<div class="mi-dialog-hero-note"><i class="fas fa-star"></i> Hero advantage — difficulty one grade easier</div>`
@@ -116,7 +130,7 @@ export class MythrasRoll {
             <label>Augment</label>
             <select id="mi-passion">
               <option value="">— None —</option>
-              ${passionOptions}
+              ${augmentOptionsHtml}
             </select>
           </div>
         </div>
@@ -137,9 +151,9 @@ export class MythrasRoll {
             label: 'Roll',
             callback: async html => {
               const difficulty = html.find('#mi-difficulty').val();
-              const passionId  = html.find('#mi-passion').val() || '';
-              const passion    = eligiblePassions.find(p => p.id === passionId) ?? null;
-              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, passion, gradeEasier: heroEasier, gradeIsFinal: true });
+              const chosen     = augmentById.get(html.find('#mi-passion').val() || '') ?? null;
+              const augment    = chosen ? await MythrasRoll._payForAugment(chosen) : null;
+              await MythrasRoll.execute({ actor, item, skillName, skillTotal, difficulty, modifier: 0, augment, gradeEasier: heroEasier, gradeIsFinal: true });
               resolve(true);
             }
           },
@@ -153,9 +167,7 @@ export class MythrasRoll {
         render: html => {
           const update = () => {
             const diff    = html.find('#mi-difficulty').val();
-            const pid     = html.find('#mi-passion').val() || '';
-            const passion = eligiblePassions.find(p => p.id === pid);
-            const augment = passion ? passion.system.augmentBonus : 0;
+            const augment = augmentById.get(html.find('#mi-passion').val() || '')?.bonus ?? 0;
             // The dropdown is the final grade (v1.4.360) — exactly what
             // execute() will roll against.
             const worstGrade = diff;
@@ -168,6 +180,81 @@ export class MythrasRoll {
       }, { classes: ['dialog', 'mi-dialog'] });
       dialog.render(true);
     });
+  }
+
+  // -------------------------------------------------------------------------
+  // Aid from an ally (v1.4.366)
+  // -------------------------------------------------------------------------
+
+  /**
+   * The other player characters who could aid this roll. Whether they can see
+   * and hear the roller is the GM's call at the table, so nobody is filtered
+   * out by distance or scene.
+   */
+  static _aidCandidates(actor) {
+    return (game.actors?.contents ?? [])
+      .filter(a => a.type === 'character' && a.hasPlayerOwner && a.id !== actor?.id);
+  }
+
+  /**
+   * An ally's Action Points if they are fighting in a running combat, else
+   * null. Aid outside combat costs nothing (Destined p.54).
+   *
+   * Any started, active combat counts, not just `game.combat`: that is the
+   * combat of the scene THIS client is viewing, so a player looking at
+   * another scene (or with the canvas off) would get free aid mid-fight.
+   */
+  static _combatActionPoints(ally) {
+    const combatant = (game.combats?.contents ?? [])
+      .filter(c => c.started && c.active)
+      .flatMap(c => c.combatants.contents)
+      .find(c => c.actor?.id === ally.id);
+    if (!combatant) return null;
+    return combatant.actor.system?.attributes?.actionPoints?.value ?? null;
+  }
+
+  /**
+   * Turn the chosen option into the augment the roll uses, paying for it
+   * first. Only combat aid has a price: 1 Action Point from the ally. The ally
+   * is usually another player's character, so a player's client asks the GM
+   * to spend it (the v1.4.333 rule: the GM's client writes). If the point
+   * can't be spent the roll goes ahead without the aid, and says so.
+   */
+  static async _payForAugment(chosen) {
+    const augment = { kind: chosen.kind, label: chosen.label, bonus: chosen.bonus };
+    if (chosen.kind !== 'aid' || !chosen.apCost) return augment;
+
+    const helper = chosen.helperUuid ? fromUuidSync(chosen.helperUuid) : null;
+    let ok = false;
+    if (helper?.isOwner) {
+      ok = await MythrasRoll._spendAidActionPoint(helper);
+    } else {
+      const { CombatSocket, activeGMUserId } = await import('../combat/CombatSocket.js');
+      const gmId = activeGMUserId();
+      const result = gmId
+        ? await CombatSocket.request('spendAidActionPoint', { actorUuid: chosen.helperUuid }, gmId, { timeoutMs: 30 * 1000 })
+        : null;
+      ok = result?.ok === true;
+    }
+    if (!ok) {
+      ui.notifications.warn(`${chosen.helper}'s Action Point could not be spent, so the roll is made without their aid.`);
+      return null;
+    }
+    return { ...augment, apSpent: true };
+  }
+
+  /**
+   * Spend the 1 AP combat aid costs. True only if a point was there to spend
+   * (spendActionPoint returns 0 both for "spent the last one" and "had none",
+   * so the pool is read first). Run by the helper's owner or the GM; the GM's
+   * side is the 'spendAidActionPoint' request handler in mythras.mjs.
+   */
+  static async _spendAidActionPoint(helper) {
+    const before = helper?.system?.attributes?.actionPoints?.value ?? 0;
+    if (before <= 0) return false;
+    const { spendActionPoint } = await import('../combat/effects/helpers.js');
+    await spendActionPoint(helper);
+    return true;
   }
 
   // ── Static helper: apply a difficulty grade string to a skill total ────────
@@ -184,7 +271,17 @@ export class MythrasRoll {
   // Execute Roll
   // -------------------------------------------------------------------------
 
-  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, passion = null, gradeEasier = false, gradeIsFinal = false }) {
+  /**
+   * @param {object} [opts.augment]  { kind, label, bonus, apSpent? } from
+   *                                 augment-options.js -- a passion, a skill or
+   *                                 an ally's aid (v1.4.366)
+   * @param {Item}   [opts.passion]  older form of a passion augment, still accepted
+   */
+  static async execute({ actor, item, skillName, skillTotal, difficulty, modifier = 0, augment = null, passion = null, gradeEasier = false, gradeIsFinal = false }) {
+    if (!augment && passion) {
+      augment = { kind: 'passion', label: itemLabel(passion), bonus: passion.system.augmentBonus };
+    }
+
     // The grade actually rolled at: the harder of the chosen difficulty and
     // the condition floor, then any module shift (v1.4.351, composeRollGrade).
     // Same context as the dialog, so the target shown and the target rolled
@@ -203,11 +300,11 @@ export class MythrasRoll {
 
     // Hopeless — no dice, automatic failure
     if (difficulty === 'hopeless') {
-      return MythrasRoll._postResult({ actor, item, skillName, roll: null, target: 0, outcome: 'failure', difficulty, modifier, passion });
+      return MythrasRoll._postResult({ actor, item, skillName, roll: null, target: 0, outcome: 'failure', difficulty, modifier, augment });
     }
 
-    // Passion augment: PassionData#augmentBonus — 20% rounded up, per rules
-    const augment       = passion ? passion.system.augmentBonus : 0;
+    // Augment: 20% of the passion, skill or ally's rating, rounded up
+    const augmentValue  = augment?.bonus ?? 0;
     // Core p51: augmentation raises the SUCCESS chance only — "the chances for
     // Critical and Fumble are the same as if the primary skill was
     // unaugmented", with a worked example (Ride 38% augmented to 45% still
@@ -217,7 +314,7 @@ export class MythrasRoll {
     // Before v1.4.313 the augment widened both bands. See
     // outcome-band-sweep.md §3.
     const unaugmented   = skillTotal + modifier;
-    const adjustedSkill = unaugmented + augment;
+    const adjustedSkill = unaugmented + augmentValue;
 
     // Apply the final grade. The critical basis takes it too — p18's "this
     // includes skills that receive a modifier" applies to conditions and
@@ -253,7 +350,7 @@ export class MythrasRoll {
 
     // rawSkill is critBasis under Reading A — the same number, stored twice
     // only so a card posted before v1.4.315 still re-grades sensibly.
-    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill: critBasis });
+    await MythrasRoll._postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, augment, critBasis, rawSkill: critBasis });
   }
 
   // -------------------------------------------------------------------------
@@ -277,7 +374,7 @@ export class MythrasRoll {
   // Post Chat Result
   // -------------------------------------------------------------------------
 
-  static async _postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, passion, critBasis, rawSkill }) {
+  static async _postResult({ actor, item, skillName, roll, result, target, outcome, difficulty, modifier, augment, critBasis, rawSkill }) {
     // Reads through MythrasRoll.outcomeLabel so the card and the Luck Point
     // re-stamp cannot disagree about what a given outcome is called — the
     // v1.4.330 bug was exactly that kind of split, in the other direction.
@@ -292,11 +389,7 @@ export class MythrasRoll {
     const details = [];
     if (difficulty && difficulty !== 'standard') details.push(diffLabel);
     if (modifier !== 0) details.push(`${modifier > 0 ? '+' : ''}${modifier}%`);
-    if (passion) {
-      const pName  = `${passion.system.verb}${passion.system.target ? ` (${passion.system.target})` : ''}`;
-      const pBonus = passion.system.augmentBonus;
-      details.push(`${pName} +${pBonus}%`);
-    }
+    if (augment) details.push(foundry.utils.escapeHTML(augmentPill(augment)));
     const detailHtml = details.length
       ? `<div class="mi-card-details">${details.map(d => `<span class="mi-card-pill">${d}</span>`).join('')}</div>`
       : '';

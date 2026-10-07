@@ -33,6 +33,7 @@ import { sumHookContributions } from '../module/utils/modifier-bus.js';
 // real so the skillBonusHooks mirror below exercises the actual total
 // arithmetic, and only the Foundry-coupled LOOP is mirrored.
 import { computeSkillTotal, SKILL_ITEM_TYPES } from '../module/utils/skill-math.js';
+import { augmentBonus } from '../module/utils/augment-options.js';
 // fs/path/fileURLToPath — for magicPointOffsetHooks' text-level
 // character-only-boundary regression guard, same ESM pattern
 // frozen-api.test.js already uses (this project's Jest setup has no
@@ -3569,17 +3570,12 @@ describe('game.system.api.explainHookSum', () => {
 //   a general rule, and the augmentation example is explicit (Locale 33%
 //   augments Ride by 7%, not 6%).
 //
-//   Mirrored rather than imported: the getter lives on a TypeDataModel, which
-//   will not construct under this suite's minimal Foundry mocks. Added in
-//   v1.4.309 alongside the fix that routed MythrasRoll.js's four inline copies
-//   through the getter -- three of them floored, so the passion dropdown and
-//   the roll disagreed with the chat card by a point. Nothing tested this.
+//   Added in v1.4.309 alongside the fix that routed MythrasRoll.js's four
+//   inline copies through the getter -- three of them floored, so the passion
+//   dropdown and the roll disagreed with the chat card by a point. Since
+//   v1.4.366 the getter delegates to augmentBonus in augment-options.js, so
+//   the real function is tested here instead of a mirror.
 // =============================================================================
-
-/** Mirror of PassionData#augmentBonus. */
-function augmentBonus(total) {
-  return Math.ceil(total * 0.2);
-}
 
 describe('PassionData#augmentBonus', () => {
   test('the rulebook worked example: 33% augments by 7%, not 6%', () => {
